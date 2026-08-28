@@ -49,6 +49,7 @@ jobs:
       - run: pnpm codex:build
       - run: pnpm protocol:check
       - run: pnpm typecheck
+      - run: pnpm platform:check
       - run: pnpm test
       - run: pnpm test:e2e
       - run: pnpm test:package:windows-layout

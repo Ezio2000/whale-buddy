@@ -1,21 +1,21 @@
 import path from 'node:path';
 import { existsSync, realpathSync } from 'node:fs';
 import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerDMG } from '@electron-forge/maker-dmg';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
-import { MakerZIP } from '@electron-forge/maker-zip';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { sidecarBundleResources } from './src/main/sidecar-layout';
-import { codexFilename, forgeTargetPlatform } from './src/main/platform';
+import { forgePlatformStrategy } from './src/platform/forge';
+import { forgeTargetPlatform, platformStrategyFor } from './src/platform';
 
 const targetPlatform = forgeTargetPlatform(process.argv);
+const platform = platformStrategyFor(targetPlatform);
+const forgePlatform = forgePlatformStrategy(targetPlatform);
 const configuredSidecar = process.env.WHALE_CODEX_BIN;
 const developmentSidecar = path.resolve(
   'codex-source',
   'codex-rs',
   'target',
   'release',
-  codexFilename(targetPlatform),
+  platform.codexFilename,
 );
 const sidecar = configuredSidecar ?? developmentSidecar;
 const canonicalSidecar = existsSync(sidecar) ? realpathSync.native(sidecar) : sidecar;
@@ -26,25 +26,14 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     appBundleId: isE2ePackage ? 'dev.whalebuddy.desktop.e2e' : 'dev.whalebuddy.desktop',
-    ...(targetPlatform === 'darwin'
-      ? { appCategoryType: 'public.app-category.developer-tools' }
-      : {}),
+    ...forgePlatform.packagerConfig,
     executableName: 'Whale Buddy',
     extraResource: isE2ePackage
       ? []
       : sidecarBundleResources(canonicalSidecar, existsSync, targetPlatform),
   },
   rebuildConfig: {},
-  makers:
-    targetPlatform === 'darwin'
-      ? [new MakerDMG({}, ['darwin']), new MakerZIP({}, ['darwin'])]
-      : [
-          new MakerSquirrel({
-            name: 'ai_xiaojing',
-            authors: 'AI小鲸',
-            description: 'AI小鲸 Codex 桌面客户端',
-          }),
-        ],
+  makers: forgePlatform.makers,
   plugins: [
     new VitePlugin({
       build: [

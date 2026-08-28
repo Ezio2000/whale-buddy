@@ -1,10 +1,12 @@
-import { accessSync, constants, existsSync, realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { app } from 'electron';
 import protocolManifest from '../generated/protocol/manifest.json';
+import { currentPlatformStrategy } from '../platform';
 import { codeModeHostPathFor } from './sidecar-layout';
-import { developmentCodexPaths, packagedCodexPath } from './platform';
+
+const platform = currentPlatformStrategy();
 
 export interface ResolvedSidecar {
   path: string;
@@ -33,15 +35,16 @@ export function resolveSidecarPath(projectRoot: string): ResolvedSidecar {
   const candidates = process.env.WHALE_CODEX_BIN
     ? [process.env.WHALE_CODEX_BIN]
     : [
-        app.isPackaged ? packagedCodexPath(process.resourcesPath) : undefined,
-        ...developmentCodexPaths(projectRoot),
+        app.isPackaged ? path.join(process.resourcesPath, platform.codexFilename) : undefined,
+        path.join(projectRoot, 'codex-source', 'codex-rs', 'target', 'release', platform.codexFilename),
+        path.join(projectRoot, 'codex-source', 'codex-rs', 'target', 'debug', platform.codexFilename),
       ].filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
     const absolute = path.resolve(candidate);
     if (!existsSync(absolute)) continue;
     try {
-      accessSync(absolute, process.platform === 'win32' ? constants.F_OK : constants.X_OK);
+      platform.assertExecutable(absolute);
       const canonical = realpathSync.native(absolute);
       const version = execFileSync(canonical, ['--version'], {
         encoding: 'utf8',
@@ -54,10 +57,7 @@ export function resolveSidecarPath(projectRoot: string): ResolvedSidecar {
         );
       }
       const codeModeHostPath = realpathSync.native(codeModeHostPathFor(canonical));
-      accessSync(
-        codeModeHostPath,
-        process.platform === 'win32' ? constants.F_OK : constants.X_OK,
-      );
+      platform.assertExecutable(codeModeHostPath);
       return { path: canonical, codeModeHostPath, version, arguments: [], environment: {} };
     } catch (error) {
       if (error instanceof Error && error.message.includes('生成协议版本')) throw error;

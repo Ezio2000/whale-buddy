@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { prepareDataDirectories } from '../../src/main/data-directories';
+import { currentPlatformStrategy } from '../../src/platform';
 
 const temporaryRoots: string[] = [];
 
@@ -23,7 +24,9 @@ describe('isolated application data', () => {
     expect(directories.attachmentsRoot).toBe(path.join(root, 'ui-state', 'attachments'));
     expect(directories.codexHome).not.toBe(path.join(process.env.HOME ?? '', '.codex'));
     for (const directory of Object.values(directories)) {
-      if (process.platform !== 'win32') expect(statSync(directory).mode & 0o777).toBe(0o700);
+      if (currentPlatformStrategy().enforcesPrivateMode) {
+        expect(statSync(directory).mode & 0o777).toBe(0o700);
+      }
     }
     for (const directory of [
       path.join(directories.sidecarHome, '.agents', 'skills'),
@@ -33,7 +36,9 @@ describe('isolated application data', () => {
       path.join(directories.sidecarHome, '.local', 'share'),
       path.join(directories.sidecarHome, '.local', 'state'),
     ]) {
-      if (process.platform !== 'win32') expect(statSync(directory).mode & 0o777).toBe(0o700);
+      if (currentPlatformStrategy().enforcesPrivateMode) {
+        expect(statSync(directory).mode & 0o777).toBe(0o700);
+      }
     }
   });
 

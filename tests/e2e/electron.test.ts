@@ -2,7 +2,7 @@ import { _electron as electron, expect, test, type Page } from '@playwright/test
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { packagedAppExecutable } from '../../src/main/platform';
+import { currentPlatformStrategy } from '../../src/platform';
 
 test('packaged renderer has a narrow IPC surface and recovers its sidecar', async () => {
   const userData = await mkdtemp(path.join(tmpdir(), 'whale-e2e-'));
@@ -60,6 +60,7 @@ test('packaged renderer has a narrow IPC surface and recovers its sidecar', asyn
       'revealProviderApiKey',
       'settings',
       'status',
+      'windowCapabilities',
     ]);
     expect(boundary.marketplaceKeys).toEqual([
       'add',
@@ -465,5 +466,5 @@ async function configureFixtureProvider(page: Page): Promise<void> {
 
 function findPackagedAppExecutable(): string {
   const outRoot = path.resolve(process.env.WHALE_FORGE_OUT_DIR ?? 'out');
-  return packagedAppExecutable(outRoot, 'Whale Buddy');
+  return currentPlatformStrategy().packagedAppExecutable(outRoot, 'Whale Buddy', process.arch);
 }

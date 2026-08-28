@@ -7,7 +7,8 @@ import {
   projectRoot,
   resolveCodeModeHostBinary,
   resolveCodexBinary,
-} from './lib.mjs';
+} from '../../lib.mjs';
+import { currentScriptPlatform } from '../index.mjs';
 
 const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'whale-win-layout-'));
 const outputRoot = path.join(projectRoot, 'out-platform-check');
@@ -20,9 +21,8 @@ try {
   cpSync(sourceCodex, testCodex);
   cpSync(sourceHost, testHost);
   rmSync(outputRoot, { recursive: true, force: true });
-  const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
   const result = spawnSync(
-    pnpm,
+    currentScriptPlatform.pnpmCommand,
     ['exec', 'electron-forge', 'package', '--platform=win32', '--arch=x64'],
     {
       cwd: projectRoot,

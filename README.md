@@ -39,6 +39,7 @@ pnpm protocol:generate # 从该二进制生成稳定 TypeScript 与 JSON Schema
 pnpm protocol:check    # 检查已提交协议是否漂移
 pnpm dev               # 校验 sidecar 后启动开发版
 pnpm typecheck         # TypeScript 静态检查
+pnpm platform:check    # 检查平台差异没有越过策略目录边界
 pnpm test              # 单元与组件测试
 pnpm test:e2e          # 使用可控假 app-server 测试 Electron/IPC/恢复
 pnpm test:package:windows-layout # 在任意开发平台检查 Windows 包内 sidecar 布局
@@ -112,6 +113,11 @@ Authenticode 签名。
 - `src/preload` 只暴露经过运行时校验的 `window.whale` API。Renderer 开启
   `contextIsolation` 和 sandbox，且没有 Node.js、文件系统或任意子进程能力。
 - `src/renderer` 提供项目/线程导航、流式会话、工具活动、内联审批、输入与 Diff 面板。
+- `src/platform/macos` 与 `src/platform/windows` 分别实现路径、窗口、菜单、生命周期、文件
+  权限、sidecar 和安装包布局差异；应用代码只依赖统一平台接口。sandbox preload 使用同一
+  平台目录下的轻量入口，不会加载主进程文件系统模块。
+- `scripts/platform/macos` 与 `scripts/platform/windows` 隔离本地构建、启动和进程管理差异；
+  `pnpm platform:check` 会阻止平台判断重新散落到业务代码、Forge 配置或通用脚本。
 - `src/shared` 是 IPC 和运行时事件的公共边界；`src/generated/protocol` 来自固定
   sidecar，默认不启用实验协议。
 - `codex-source` 是只读上游子模块，不在本项目内修改。

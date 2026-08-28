@@ -1,7 +1,10 @@
 import { z } from 'zod';
-import { pathValidationStrategy } from './path-strategy';
+import type { DesktopPlatform } from '../platform';
+import {
+  currentSandboxPlatformStrategy,
+  sandboxPlatformStrategyFor,
+} from '../platform/sandbox';
 import type { JsonValue } from './types';
-import type { DesktopPlatform } from './window-strategy';
 
 export const idSchema = z.string().min(1).max(256);
 export const requestIdSchema = z.union([z.string().min(1), z.number().int().nonnegative()]);
@@ -11,11 +14,10 @@ export function absolutePathSchemaFor(platform: DesktopPlatform) {
     .string()
     .min(1)
     .max(16_384)
-    .refine(pathValidationStrategy(platform).isAbsolute, '必须是绝对路径');
+    .refine(sandboxPlatformStrategyFor(platform).isAbsolutePath, '必须是绝对路径');
 }
 
-const runtimePlatform: DesktopPlatform = process.platform === 'win32' ? 'win32' : 'darwin';
-export const absolutePathSchema = absolutePathSchemaFor(runtimePlatform);
+export const absolutePathSchema = absolutePathSchemaFor(currentSandboxPlatformStrategy().id);
 
 export const runtimeBrandingInputSchema = z
   .object({

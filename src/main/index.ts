@@ -4,6 +4,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import packageJson from '../../package.json';
 import protocolManifest from '../generated/protocol/manifest.json';
+import { currentPlatformStrategy } from '../platform';
 import { AppServerClient } from './app-server-client';
 import { DiagnosticLog } from './diagnostic-log';
 import { registerIpc } from './ipc';
@@ -17,10 +18,10 @@ import { TurnChangesStore } from './turn-changes';
 import { ScheduledTaskStore } from './scheduled-tasks';
 import { resolveSidecarPath } from './sidecar-path';
 import { registerPluginUiProtocol, registerPluginUiSchemes } from './plugin-ui';
-import { executableFilename, windowChromeOptions } from './platform';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
+const platform = currentPlatformStrategy();
 
 let mainWindow: BrowserWindow | null = null;
 let appServer: AppServerClient | null = null;
@@ -49,7 +50,7 @@ async function createWindow(): Promise<void> {
     minHeight: 680,
     title: branding.name,
     backgroundColor: '#f3f2ef',
-    ...windowChromeOptions(),
+    ...platform.windowChromeOptions(),
     webPreferences: {
       preload: path.join(moduleDirectory, 'preload.js'),
       contextIsolation: true,
@@ -137,7 +138,7 @@ async function createWindow(): Promise<void> {
     diagnosticLog.write('runtime', error instanceof Error ? error.message : String(error));
     // A missing or mismatched sidecar should still produce a usable diagnostics window.
     appServer = new AppServerClient({
-      binaryPath: path.join(projectRoot, executableFilename('.missing-codex-sidecar')),
+      binaryPath: path.join(projectRoot, platform.executableFilename('.missing-codex-sidecar')),
       sidecarHome: data.sidecarHome,
       codexHome: data.codexHome,
       diagnosticLog,
@@ -184,7 +185,7 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  if (process.platform === 'win32') app.setAppUserModelId('dev.whalebuddy.desktop');
+  if (platform.appUserModelId) app.setAppUserModelId(platform.appUserModelId);
   registerPluginUiProtocol();
   await createWindow();
   app.on('activate', () => {
@@ -193,7 +194,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (platform.quitWhenAllWindowsClosed) app.quit();
 });
 
 app.on('before-quit', (event) => {

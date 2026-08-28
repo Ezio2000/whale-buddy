@@ -5,17 +5,8 @@ import {
   codeModeHostPathFor,
   sidecarBundleResources,
 } from '../../src/main/sidecar-layout';
-import {
-  codeModeHostFilename,
-  codexFilename,
-  developmentCodexPaths,
-  forgeTargetPlatform,
-  packagedAppExecutable,
-  packagedCodexPath,
-  windowChromeOptions,
-} from '../../src/main/platform';
-import { pathValidationStrategy } from '../../src/shared/path-strategy';
-import { windowInteractionStrategy } from '../../src/shared/window-strategy';
+import { forgeTargetPlatform, platformStrategyFor } from '../../src/platform';
+import { sandboxPlatformStrategyFor } from '../../src/platform/sandbox';
 
 describe('sidecar bundle layout', () => {
   it('keeps the Code Mode host beside the Codex executable', () => {
@@ -45,42 +36,31 @@ describe('sidecar bundle layout', () => {
   });
 
   it('uses native executable names for macOS and Windows', () => {
-    expect(codexFilename('darwin')).toBe('codex');
-    expect(codexFilename('win32')).toBe('codex.exe');
-    expect(codeModeHostFilename('darwin')).toBe('codex-code-mode-host');
-    expect(codeModeHostFilename('win32')).toBe('codex-code-mode-host.exe');
+    expect(platformStrategyFor('darwin').codexFilename).toBe('codex');
+    expect(platformStrategyFor('win32').codexFilename).toBe('codex.exe');
+    expect(platformStrategyFor('darwin').codeModeHostFilename).toBe('codex-code-mode-host');
+    expect(platformStrategyFor('win32').codeModeHostFilename).toBe('codex-code-mode-host.exe');
   });
 
-  it('resolves development and packaged Windows sidecars without Unix assumptions', () => {
-    expect(developmentCodexPaths('C:\\whale', 'win32')).toEqual([
-      path.join('C:\\whale', 'codex-source', 'codex-rs', 'target', 'release', 'codex.exe'),
-      path.join('C:\\whale', 'codex-source', 'codex-rs', 'target', 'debug', 'codex.exe'),
-    ]);
-    expect(packagedCodexPath('C:\\app\\resources', 'win32')).toBe(
-      path.join('C:\\app\\resources', 'codex.exe'),
-    );
+  it('resolves the Windows Code Mode host without Unix filename assumptions', () => {
     expect(codeModeHostPathFor('C:\\sidecar\\codex.exe', 'win32')).toBe(
       path.join(path.dirname('C:\\sidecar\\codex.exe'), 'codex-code-mode-host.exe'),
     );
   });
 
   it('keeps platform-specific chrome and package paths behind one adapter', () => {
-    expect(pathValidationStrategy('darwin').isAbsolute('/repo')).toBe(true);
-    expect(pathValidationStrategy('win32').isAbsolute('C:\\repo')).toBe(true);
-    expect(windowInteractionStrategy('darwin')).toEqual({
-      nativeTitleBar: false,
-      rendererDragRegions: true,
-    });
-    expect(windowInteractionStrategy('win32')).toEqual({
-      nativeTitleBar: true,
-      rendererDragRegions: false,
-    });
-    expect(windowChromeOptions('darwin')).toMatchObject({ titleBarStyle: 'hiddenInset' });
-    expect(windowChromeOptions('win32')).toEqual({});
-    expect(packagedAppExecutable('/out', 'Whale Buddy', 'win32', 'x64')).toBe(
+    const macos = platformStrategyFor('darwin');
+    const windows = platformStrategyFor('win32');
+    expect(sandboxPlatformStrategyFor('darwin').isAbsolutePath('/repo')).toBe(true);
+    expect(sandboxPlatformStrategyFor('win32').isAbsolutePath('C:\\repo')).toBe(true);
+    expect(sandboxPlatformStrategyFor('darwin').rendererDragRegions).toBe(true);
+    expect(sandboxPlatformStrategyFor('win32').rendererDragRegions).toBe(false);
+    expect(macos.windowChromeOptions()).toMatchObject({ titleBarStyle: 'hiddenInset' });
+    expect(windows.windowChromeOptions()).toEqual({});
+    expect(windows.packagedAppExecutable('/out', 'Whale Buddy', 'x64')).toBe(
       path.join('/out', 'Whale Buddy-win32-x64', 'Whale Buddy.exe'),
     );
-    expect(packagedAppExecutable('/out', 'Whale Buddy', 'darwin', 'arm64')).toBe(
+    expect(macos.packagedAppExecutable('/out', 'Whale Buddy', 'arm64')).toBe(
       path.join(
         '/out',
         'Whale Buddy-darwin-arm64',

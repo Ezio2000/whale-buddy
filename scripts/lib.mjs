@@ -1,11 +1,11 @@
-import { accessSync, constants, existsSync, realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { currentScriptPlatform } from './platform/index.mjs';
 
 export const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const codexFilename = process.platform === 'win32' ? 'codex.exe' : 'codex';
-export const codeModeHostFilename =
-  process.platform === 'win32' ? 'codex-code-mode-host.exe' : 'codex-code-mode-host';
+export const codexFilename = currentScriptPlatform.codexFilename;
+export const codeModeHostFilename = currentScriptPlatform.codeModeHostFilename;
 
 export function resolveCodexBinary() {
   const candidates = process.env.WHALE_CODEX_BIN
@@ -19,7 +19,7 @@ export function resolveCodexBinary() {
     const resolved = path.resolve(candidate);
     if (!existsSync(resolved)) continue;
     try {
-      accessSync(resolved, process.platform === 'win32' ? constants.F_OK : constants.X_OK);
+      currentScriptPlatform.assertExecutable(resolved);
       return realpathSync(resolved);
     } catch {
       // Continue to the next candidate so the final error is actionable.
@@ -38,7 +38,7 @@ export function resolveCodexBinary() {
 export function resolveCodeModeHostBinary(codexBinary) {
   const candidate = path.join(path.dirname(codexBinary), codeModeHostFilename);
   try {
-    accessSync(candidate, process.platform === 'win32' ? constants.F_OK : constants.X_OK);
+    currentScriptPlatform.assertExecutable(candidate);
     return realpathSync(candidate);
   } catch {
     throw new Error(

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RuntimeSettingsStore } from '../../src/main/runtime-settings';
+import { currentPlatformStrategy } from '../../src/platform';
 import type { RuntimeConnectionSettingsInput } from '../../src/shared/types';
 
 const roots: string[] = [];
@@ -45,7 +46,7 @@ describe('RuntimeSettingsStore', () => {
     const persisted = await readFile(store.filePath, 'utf8');
     expect(persisted).toContain(secret);
     expect(JSON.parse(persisted)).toMatchObject({ version: 4, apiKey: secret });
-    if (process.platform !== 'win32') {
+    if (currentPlatformStrategy().enforcesPrivateMode) {
       expect((await stat(store.filePath)).mode & 0o777).toBe(0o600);
     }
 
@@ -163,7 +164,7 @@ describe('RuntimeSettingsStore', () => {
         },
       ],
     });
-    if (process.platform !== 'win32') {
+    if (currentPlatformStrategy().enforcesPrivateMode) {
       expect((await stat(store.minimaxModelCatalogPath)).mode & 0o777).toBe(0o600);
     }
   });

@@ -1,20 +1,24 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { codeModeHostFilename } from './platform';
+import {
+  currentPlatformStrategy,
+  platformStrategyFor,
+  type DesktopPlatform,
+} from '../platform';
 
-export const CODE_MODE_HOST_FILENAME = codeModeHostFilename();
+export const CODE_MODE_HOST_FILENAME = currentPlatformStrategy().codeModeHostFilename;
 
 export function codeModeHostPathFor(
   codexPath: string,
-  platform: NodeJS.Platform = process.platform,
+  platform: DesktopPlatform = currentPlatformStrategy().id,
 ): string {
-  return path.join(path.dirname(codexPath), codeModeHostFilename(platform));
+  return path.join(path.dirname(codexPath), platformStrategyFor(platform).codeModeHostFilename);
 }
 
 export function sidecarBundleResources(
   codexPath: string,
   pathExists: (candidate: string) => boolean = existsSync,
-  platform: NodeJS.Platform = process.platform,
+  platform: DesktopPlatform = currentPlatformStrategy().id,
 ): string[] {
   if (!pathExists(codexPath)) {
     throw new Error(

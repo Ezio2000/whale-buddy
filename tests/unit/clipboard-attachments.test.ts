@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { saveClipboardAttachment } from '../../src/main/clipboard-attachments';
+import { currentPlatformStrategy } from '../../src/platform';
 
 const temporaryRoots: string[] = [];
 
@@ -25,7 +26,7 @@ describe('clipboard attachments', () => {
     expect(saved).toMatchObject({ name: 'notes.txt', kind: 'file' });
     expect(path.dirname(saved.path)).toBe(root);
     expect(await readFile(saved.path)).toEqual(contents);
-    if (process.platform !== 'win32') {
+    if (currentPlatformStrategy().enforcesPrivateMode) {
       expect((await stat(saved.path)).mode & 0o777).toBe(0o600);
     }
   });
