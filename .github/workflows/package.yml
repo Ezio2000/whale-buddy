@@ -2,12 +2,23 @@ name: Package desktop installers
 
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Platforms to package
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - macos
+          - windows
 
 permissions:
   contents: read
 
 jobs:
   macos-arm64:
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'macos' }}
     runs-on: macos-14
     timeout-minutes: 30
     steps:
@@ -50,6 +61,7 @@ jobs:
           if-no-files-found: error
 
   windows-x64:
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' }}
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -78,7 +90,17 @@ jobs:
           Expand-Archive .sidecar/archive/codex-win32-x64-3e4707b.zip .sidecar/bin -Force
           "WHALE_CODEX_BIN=$env:GITHUB_WORKSPACE/.sidecar/bin/codex.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - run: pnpm sidecar:check
+      - name: Verify pinned Windows sidecar
+        shell: pwsh
+        run: |
+          $version = & $env:WHALE_CODEX_BIN --version
+          if ($version -ne "codex-cli 0.150.0-alpha.12") {
+            throw "Unexpected Windows Codex version: $version"
+          }
+          $hostPath = Join-Path (Split-Path $env:WHALE_CODEX_BIN) "codex-code-mode-host.exe"
+          if (-not (Test-Path $hostPath)) {
+            throw "Missing Windows Code Mode host: $hostPath"
+          }
       - run: pnpm plugins:build
       - run: pnpm typecheck
       - run: pnpm exec electron-forge make --platform=win32 --arch=x64
