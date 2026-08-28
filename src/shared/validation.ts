@@ -1,20 +1,21 @@
 import { z } from 'zod';
+import { pathValidationStrategy } from './path-strategy';
 import type { JsonValue } from './types';
+import type { DesktopPlatform } from './window-strategy';
 
 export const idSchema = z.string().min(1).max(256);
 export const requestIdSchema = z.union([z.string().min(1), z.number().int().nonnegative()]);
 
-export function isAbsoluteFilesystemPath(value: string): boolean {
-  if (value.startsWith('/')) return true;
-  if (/^[A-Za-z]:[\\/]/.test(value)) return true;
-  return /^\\\\[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/.test(value);
+export function absolutePathSchemaFor(platform: DesktopPlatform) {
+  return z
+    .string()
+    .min(1)
+    .max(16_384)
+    .refine(pathValidationStrategy(platform).isAbsolute, '必须是绝对路径');
 }
 
-export const absolutePathSchema = z
-  .string()
-  .min(1)
-  .max(16_384)
-  .refine(isAbsoluteFilesystemPath, '必须是绝对路径');
+const runtimePlatform: DesktopPlatform = process.platform === 'win32' ? 'win32' : 'darwin';
+export const absolutePathSchema = absolutePathSchemaFor(runtimePlatform);
 
 export const runtimeBrandingInputSchema = z
   .object({

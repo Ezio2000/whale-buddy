@@ -14,6 +14,7 @@ import {
   packagedCodexPath,
   windowChromeOptions,
 } from '../../src/main/platform';
+import { pathValidationStrategy } from '../../src/shared/path-strategy';
 import { windowInteractionStrategy } from '../../src/shared/window-strategy';
 
 describe('sidecar bundle layout', () => {
@@ -64,6 +65,8 @@ describe('sidecar bundle layout', () => {
   });
 
   it('keeps platform-specific chrome and package paths behind one adapter', () => {
+    expect(pathValidationStrategy('darwin').isAbsolute('/repo')).toBe(true);
+    expect(pathValidationStrategy('win32').isAbsolute('C:\\repo')).toBe(true);
     expect(windowInteractionStrategy('darwin')).toEqual({
       nativeTitleBar: false,
       rendererDragRegions: true,
