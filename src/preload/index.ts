@@ -44,6 +44,7 @@ const invoke = <T>(channel: string, payload?: unknown): Promise<T> =>
 
 const api: WhaleApi = {
   runtime: {
+    platform: process.platform === 'win32' ? 'win32' : 'darwin',
     status: () => invoke(IPC.runtimeStatus),
     restart: () => invoke(IPC.runtimeRestart),
     settings: () => invoke(IPC.runtimeSettings),

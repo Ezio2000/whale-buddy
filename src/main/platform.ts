@@ -66,14 +66,9 @@ export function windowChromeOptions(
       trafficLightPosition: { x: 18, y: 18 },
     };
   }
-  return {
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#f3f2ef',
-      symbolColor: '#2c2b28',
-      height: 38,
-    },
-  };
+  // Windows uses its native frame. Electron drag regions suppress pointer
+  // events, and titleBarOverlay can cover controls below the caption buttons.
+  return {};
 }
 
 export function packagedAppExecutable(

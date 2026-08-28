@@ -64,10 +64,7 @@ describe('sidecar bundle layout', () => {
 
   it('keeps platform-specific chrome and package paths behind one adapter', () => {
     expect(windowChromeOptions('darwin')).toMatchObject({ titleBarStyle: 'hiddenInset' });
-    expect(windowChromeOptions('win32')).toMatchObject({
-      titleBarStyle: 'hidden',
-      titleBarOverlay: { height: 38 },
-    });
+    expect(windowChromeOptions('win32')).toEqual({});
     expect(packagedAppExecutable('/out', 'Whale Buddy', 'win32', 'x64')).toBe(
       path.join('/out', 'Whale Buddy-win32-x64', 'Whale Buddy.exe'),
     );
