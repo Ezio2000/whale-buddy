@@ -1,0 +1,1422 @@
+import * as Dialog from '@radix-ui/react-dialog';
+import {
+  AlertCircle,
+  Boxes,
+  Check,
+  ChevronRight,
+  CircleOff,
+  Cloud,
+  Download,
+  KeyRound,
+  LoaderCircle,
+  PanelsTopLeft,
+  PackageOpen,
+  PlugZap,
+  Plus,
+  RefreshCw,
+  Search,
+  Server,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Wrench,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import type { McpServerStatus } from '../../generated/protocol/typescript/v2/McpServerStatus';
+import type { PluginDetail } from '../../generated/protocol/typescript/v2/PluginDetail';
+import type { PluginMarketplaceEntry } from '../../generated/protocol/typescript/v2/PluginMarketplaceEntry';
+import type { PluginSummary } from '../../generated/protocol/typescript/v2/PluginSummary';
+import type { SkillMetadata } from '../../generated/protocol/typescript/v2/SkillMetadata';
+import type { ListMcpServerStatusResponse } from '../../generated/protocol/typescript/v2/ListMcpServerStatusResponse';
+import type { PluginListResponse } from '../../generated/protocol/typescript/v2/PluginListResponse';
+import type { SkillsListResponse } from '../../generated/protocol/typescript/v2/SkillsListResponse';
+import type {
+  ExtensionPluginPolicy,
+  ExtensionPolicySnapshot,
+  ExtensionSource,
+} from '../../shared/extension-policy';
+import type { PluginUiContribution, PluginUiDescriptor } from '../../shared/plugin-ui';
+import type { PluginLocationInput } from '../../shared/types';
+import { useAppStore } from '../state/store';
+
+type MarketplaceTab = 'plugins' | 'skills' | 'mcp' | 'sources';
+
+interface LocatedPlugin {
+  marketplace: PluginMarketplaceEntry;
+  plugin: PluginSummary;
+  location: PluginLocationInput;
+}
+
+type ContributionDialogState =
+  | {
+      kind: 'skill';
+      name: string;
+      description: string;
+      enabled: boolean | null;
+      path: string;
+      contents: string;
+    }
+  | {
+      kind: 'mcp';
+      name: string;
+      enabled: boolean;
+      path: string;
+      configuration: string;
+      tools: Array<{ name: string; description: string }>;
+    };
+
+const emptyPluginResponse: PluginListResponse = {
+  marketplaces: [],
+  marketplaceLoadErrors: [],
+  featuredPluginIds: [],
+};
+
+const emptySkillResponse: SkillsListResponse = { data: [] };
+const emptyMcpResponse: ListMcpServerStatusResponse = { data: [], nextCursor: null };
+const emptyExtensionPolicy: ExtensionPolicySnapshot = {
+  sources: [],
+  plugins: [],
+  enabledSkillPaths: [],
+};
+
+export function PluginMarketplaceDialog() {
+  const open = useAppStore((state) => state.pluginMarketplaceOpen);
+  const setOpen = useAppStore((state) => state.setPluginMarketplaceOpen);
+  const brandName = useAppStore((state) => state.branding.name);
+  const selectedProject = useAppStore((state) =>
+    state.projects.find((project) => project.id === state.selectedProjectId),
+  );
+  const [tab, setTab] = useState<MarketplaceTab>('plugins');
+  const [query, setQuery] = useState('');
+  const [plugins, setPlugins] = useState<PluginListResponse>(emptyPluginResponse);
+  const [skills, setSkills] = useState<SkillsListResponse>(emptySkillResponse);
+  const [mcp, setMcp] = useState<ListMcpServerStatusResponse>(emptyMcpResponse);
+  const [pluginUi, setPluginUi] = useState<PluginUiDescriptor[]>([]);
+  const [extensionPolicy, setExtensionPolicy] =
+    useState<ExtensionPolicySnapshot>(emptyExtensionPolicy);
+  const [selectedLocation, setSelectedLocation] = useState<PluginLocationInput | null>(null);
+  const [detail, setDetail] = useState<PluginDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [capabilityDetail, setCapabilityDetail] =
+    useState<ContributionDialogState | null>(null);
+  const [mutationKey, setMutationKey] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState('');
+  const [refName, setRefName] = useState('');
+
+  const loadAll = useCallback(
+    async (force = false): Promise<string[]> => {
+      setLoading(true);
+      setError(null);
+      const context = selectedProject?.path ? { cwd: selectedProject.path } : {};
+      const [pluginResult, skillResult, mcpResult, policyResult, pluginUiResult] = await Promise.allSettled([
+        window.whale.plugins.list({ ...context, forceRefetch: force }),
+        window.whale.skills.list({ ...context, forceReload: force }),
+        window.whale.mcp.list({}),
+        window.whale.marketplaces.sources(),
+        window.whale.plugins.uiList(),
+      ]);
+      const failures: string[] = [];
+      const resolvedPolicy = policyResult.status === 'fulfilled'
+        ? policyResult.value
+        : emptyExtensionPolicy;
+      setExtensionPolicy(resolvedPolicy);
+      if (pluginResult.status === 'fulfilled') {
+        setPlugins(pluginResult.value);
+        if (pluginResult.value.marketplaceLoadErrors.length) {
+          failures.push(`${pluginResult.value.marketplaceLoadErrors.length} 个插件目录加载失败`);
+        }
+        const first = firstLocatedPlugin(pluginResult.value);
+        setSelectedLocation((current) =>
+          current && resolvedPolicy.sources.some(
+            (source) => source.name === current.marketplaceName && source.enabled,
+          )
+            ? current
+            : first?.location ?? null,
+        );
+      } else {
+        failures.push(`插件目录：${errorMessage(pluginResult.reason)}`);
+      }
+      if (skillResult.status === 'fulfilled') setSkills(skillResult.value);
+      else failures.push(`Skills：${errorMessage(skillResult.reason)}`);
+      if (mcpResult.status === 'fulfilled') setMcp(mcpResult.value);
+      else failures.push(`MCP：${errorMessage(mcpResult.reason)}`);
+      if (policyResult.status === 'rejected') {
+        failures.push(`扩展策略：${errorMessage(policyResult.reason)}`);
+      }
+      if (pluginUiResult.status === 'fulfilled') setPluginUi(pluginUiResult.value);
+      else failures.push(`插件 UI：${errorMessage(pluginUiResult.reason)}`);
+      setError(failures.length ? failures.join('；') : null);
+      setLoading(false);
+      return failures;
+    },
+    [selectedProject?.path],
+  );
+
+  const loadMcp = useCallback(async () => {
+    const response = await window.whale.mcp.list({});
+    setMcp(response);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setMessage(null);
+    void loadAll(false);
+  }, [loadAll, open]);
+
+  useEffect(() => {
+    if (!message && !error) return;
+    const timer = window.setTimeout(() => {
+      setMessage(null);
+      setError(null);
+    }, 3_000);
+    return () => window.clearTimeout(timer);
+  }, [error, message]);
+
+  useEffect(() => {
+    if (!open) return;
+    return window.whale.events.subscribe((event) => {
+      if (
+        event.kind === 'notification' &&
+        (event.message.method === 'mcpServer/oauthLogin/completed' ||
+          event.message.method === 'mcpServer/startupStatus/updated')
+      ) {
+        void loadMcp().catch((reason) => setError(errorMessage(reason)));
+      }
+    });
+  }, [loadMcp, open]);
+
+  useEffect(() => {
+    if (!open || !selectedLocation) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetail(null);
+    void window.whale.plugins.read(selectedLocation)
+      .then((response) => {
+        if (!cancelled) setDetail(response.plugin);
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(`读取插件详情失败：${errorMessage(reason)}`);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedLocation]);
+
+  const visiblePluginCatalog = plugins;
+  const locatedPlugins = useMemo(() => flattenPlugins(visiblePluginCatalog), [visiblePluginCatalog]);
+  const visiblePlugins = useMemo(() => {
+    const needle = normalizeSearch(query);
+    const featured = new Set(visiblePluginCatalog.featuredPluginIds);
+    return locatedPlugins
+      .filter(({ plugin, marketplace }) => {
+        if (!needle) return true;
+        return normalizeSearch([
+          plugin.name,
+          plugin.interface?.displayName,
+          plugin.interface?.shortDescription,
+          plugin.interface?.longDescription,
+          plugin.interface?.developerName,
+          marketplace.name,
+          ...plugin.keywords,
+        ].filter(Boolean).join(' ')).includes(needle);
+      })
+      .sort((left, right) => compareLocatedPlugins(left, right, featured));
+  }, [locatedPlugins, query, visiblePluginCatalog.featuredPluginIds]);
+  const visibleSkills = useMemo(
+    () => filterSkills(skills, query),
+    [query, skills],
+  );
+  const effectiveSkills = useMemo(
+    () => filterSkills(skills, ''),
+    [skills],
+  );
+  const visibleMcp = useMemo(
+    () => filterMcp(mcp.data, query),
+    [mcp.data, query],
+  );
+  const visibleSkillErrors = useMemo(
+    () => skills.data.flatMap((entry) => entry.errors),
+    [skills.data],
+  );
+  const pluginLocationFor = (pluginId: string): PluginLocationInput | null => {
+    const policy = extensionPolicy.plugins.find((entry) => entry.pluginId === pluginId);
+    const located = locatedPlugins.find((entry) =>
+      entry.plugin.id === pluginId
+      && (!policy || entry.marketplace.name === policy.marketplaceName)
+    );
+    return located?.location ?? null;
+  };
+
+  const previewSkill = async (skill: SkillMetadata) => {
+    const initial: ContributionDialogState = {
+      kind: 'skill',
+      name: skillDisplayName(skill),
+      description: skill.interface?.shortDescription ?? skill.shortDescription ?? skill.description,
+      enabled: skill.enabled,
+      path: skill.path,
+      contents: skill.pluginId ? '正在读取 Skill 内容…' : '内容不可用',
+    };
+    setCapabilityDetail(initial);
+    if (!skill.pluginId) return;
+    const location = pluginLocationFor(skill.pluginId);
+    if (!location) return;
+    try {
+      const contributions = await window.whale.plugins.contributions(location);
+      const file = contributions.skills.find((entry) =>
+        entry.path === skill.path
+        || entry.name === skill.name
+        || skill.name.endsWith(`:${entry.name}`)
+      );
+      setCapabilityDetail((current) => current?.kind === 'skill' && current.path === skill.path
+        ? { ...current, path: file?.path ?? current.path, contents: file?.contents ?? '内容不可用' }
+        : current);
+    } catch (reason) {
+      setCapabilityDetail((current) => current?.kind === 'skill' && current.path === skill.path
+        ? { ...current, contents: `读取失败：${errorMessage(reason)}` }
+        : current);
+    }
+  };
+
+  const previewMcp = async (server: McpServerStatus, enabled: boolean) => {
+    const tools = Object.entries(server.tools).flatMap(([key, tool]) => tool ? [{
+      name: tool.name || key,
+      description: tool.description || tool.title || '此工具没有提供说明。',
+    }] : []);
+    const initial: ContributionDialogState = {
+      kind: 'mcp',
+      name: server.name,
+      enabled,
+      path: '正在读取 MCP 配置…',
+      configuration: '正在读取 MCP 配置…',
+      tools,
+    };
+    setCapabilityDetail(initial);
+    if (!server.pluginId) return;
+    const location = pluginLocationFor(server.pluginId);
+    if (!location) return;
+    try {
+      const contributions = await window.whale.plugins.contributions(location);
+      const declared = contributions.mcp?.servers.find((entry) => entry.name === server.name);
+      setCapabilityDetail((current) => current?.kind === 'mcp' && current.name === server.name
+        ? {
+            ...current,
+            path: contributions.mcp?.path ?? '路径不可用',
+            configuration: declared
+              ? JSON.stringify(declared.config, null, 2)
+              : contributions.mcp?.contents ?? '配置不可用',
+          }
+        : current);
+    } catch (reason) {
+      setCapabilityDetail((current) => current?.kind === 'mcp' && current.name === server.name
+        ? {
+            ...current,
+            path: '路径不可用',
+            configuration: `读取失败：${errorMessage(reason)}`,
+          }
+        : current);
+    }
+  };
+  const refreshAfterMutation = async (notice: string) => {
+    await loadAll(false);
+    window.dispatchEvent(new Event('whale-plugin-ui-refresh'));
+    setMessage(notice);
+  };
+
+  const mutatePlugin = async (located: LocatedPlugin) => {
+    const { plugin, location } = located;
+    const enabled = pluginPolicyEnabled(plugin.id, extensionPolicy.plugins);
+    if (!plugin.installed &&
+      !window.confirm(
+        `下载“${pluginDisplayName(plugin)}”？下载后仍保持停用，需要你再次明确启用。`,
+      )
+    ) {
+      return;
+    }
+    if (plugin.installed && !enabled &&
+      !window.confirm(
+        `启用“${pluginDisplayName(plugin)}”？它包含的全部 Skills 与 MCP 将恢复为默认开启。`,
+      )
+    ) {
+      return;
+    }
+
+    setMutationKey(plugin.id);
+    setError(null);
+    setMessage(null);
+    try {
+      if (plugin.installed) {
+        const policy = await window.whale.plugins.setEnabled({
+          ...location,
+          enabled: !enabled,
+        });
+        setExtensionPolicy(policy);
+        await refreshAfterMutation(
+          enabled
+            ? `插件“${pluginDisplayName(plugin)}”已停用；运行时已重启。`
+            : `插件“${pluginDisplayName(plugin)}”已启用；全部 Skills 与 MCP 已恢复为默认开启。`,
+        );
+      } else {
+        const response = await window.whale.plugins.install(location);
+        const authHint = response.appsNeedingAuth.length
+          ? `，另有 ${response.appsNeedingAuth.length} 个连接需要认证`
+          : '';
+        await refreshAfterMutation(`插件已下载并保持停用${authHint}；确认后再启用。`);
+      }
+    } catch (reason) {
+      setError(`${plugin.installed ? (enabled ? '停用' : '启用') : '下载'}失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const uninstallPlugin = async (located: LocatedPlugin) => {
+    if (!window.confirm(`彻底卸载“${pluginDisplayName(located.plugin)}”？`)) return;
+    setMutationKey(`uninstall:${located.plugin.id}`);
+    setError(null);
+    try {
+      await window.whale.plugins.uninstall(located.plugin.id);
+      window.dispatchEvent(new CustomEvent('whale-plugin-ui-uninstall', {
+        detail: { pluginId: located.plugin.id },
+      }));
+      await refreshAfterMutation('插件已卸载，缓存贡献不会再参与运行。');
+    } catch (reason) {
+      setError(`卸载失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const toggleSkill = async (skill: SkillMetadata) => {
+    setMutationKey(`skill:${skill.path}`);
+    setError(null);
+    try {
+      const response = await window.whale.skills.setEnabled({
+        path: skill.path,
+        scope: skill.scope,
+        pluginId: skill.pluginId,
+        enabled: !skill.enabled,
+      });
+      const refreshed = await window.whale.skills.list({
+        ...(selectedProject?.path ? { cwd: selectedProject.path } : {}),
+        forceReload: true,
+      });
+      setSkills(refreshed);
+      setMessage(
+        response.effectiveEnabled === !skill.enabled
+          ? `Skill“${skillDisplayName(skill)}”已${response.effectiveEnabled ? '启用' : '停用'}；新线程中生效。`
+          : `Skill“${skillDisplayName(skill)}”受更高优先级配置管理，状态未改变。`,
+      );
+    } catch (reason) {
+      setError(`更新 Skill 失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const loginMcp = async (server: McpServerStatus) => {
+    setMutationKey(`mcp:${server.name}`);
+    setError(null);
+    try {
+      await window.whale.mcp.login({
+        name: server.name,
+      });
+      setMessage('已在系统浏览器打开 MCP 授权页；完成后状态会自动刷新。');
+    } catch (reason) {
+      setError(`启动 MCP 登录失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const toggleMcp = async (server: McpServerStatus, enabled: boolean) => {
+    if (!server.pluginId) return;
+    await toggleDeclaredMcp(server.pluginId, server.name, enabled);
+  };
+
+  const toggleDeclaredMcp = async (pluginId: string, name: string, enabled: boolean) => {
+    setMutationKey(`mcp-toggle:${name}`);
+    setError(null);
+    try {
+      const policy = await window.whale.mcp.setEnabled({
+        name,
+        pluginId,
+        enabled,
+      });
+      setExtensionPolicy(policy);
+      await loadAll(false);
+      setMessage(`MCP“${name}”已${enabled ? '启用' : '停用'}；运行时已重启。`);
+    } catch (reason) {
+      setError(`更新 MCP 失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const addMarketplace = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!source.trim()) return;
+    setMutationKey('source:add');
+    setError(null);
+    try {
+      const response = await window.whale.marketplaces.add({
+        source: source.trim(),
+        ...(refName.trim() ? { refName: refName.trim() } : {}),
+      });
+      setSource('');
+      setRefName('');
+      await refreshAfterMutation(
+        response.alreadyAdded
+          ? `商城源“${response.marketplaceName}”已存在。`
+          : `商城源“${response.marketplaceName}”已添加。`,
+      );
+    } catch (reason) {
+      setError(`添加商城源失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const refreshEverything = async () => {
+    setMutationKey('refresh:all');
+    setError(null);
+    setMessage(null);
+    const failures: string[] = [];
+    let selectedMarketplaceCount = 0;
+    let upgradedMarketplaceCount = 0;
+    try {
+      try {
+        const response = await window.whale.marketplaces.upgrade();
+        selectedMarketplaceCount = response.selectedMarketplaces.length;
+        upgradedMarketplaceCount = response.upgradedRoots.length;
+        if (response.errors.length) {
+          failures.push(`${response.errors.length} 个 Git 商城源拉取失败`);
+        }
+      } catch (reason) {
+        failures.push(`Git 商城源：${errorMessage(reason)}`);
+      }
+
+      try {
+        await window.whale.mcp.reload();
+      } catch (reason) {
+        failures.push(`MCP 配置：${errorMessage(reason)}`);
+      }
+
+      failures.push(...(await loadAll(true)));
+      const marketplaceSummary = selectedMarketplaceCount
+        ? `检查 ${selectedMarketplaceCount} 个 Git 商城源，拉取更新 ${upgradedMarketplaceCount} 个`
+        : '没有已勾选的 Git 商城源需要拉取';
+      if (failures.length) {
+        setError(`部分刷新完成（${marketplaceSummary}）：${failures.join('；')}`);
+      } else {
+        setMessage(
+          `全部刷新完成：${marketplaceSummary}；插件目录、Skills、MCP 配置与连接状态已更新。`,
+        );
+      }
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const removeMarketplace = async (sourceEntry: ExtensionSource) => {
+    if (!window.confirm(`从 ${brandName} 移除商城源“${sourceEntry.title}”？`)) return;
+    setMutationKey(`source:remove:${sourceEntry.name}`);
+    setError(null);
+    try {
+      await window.whale.marketplaces.remove(sourceEntry.name);
+      setSelectedLocation(null);
+      await refreshAfterMutation(`商城源“${sourceEntry.title}”已移除。`);
+    } catch (reason) {
+      setError(`移除商城源失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const toggleSource = async (
+    sourceEntry: ExtensionSource,
+    enabled: boolean,
+  ) => {
+    setMutationKey(`source:enable:${sourceEntry.name}`);
+    setError(null);
+    try {
+      const updated = await window.whale.marketplaces.setEnabled(sourceEntry.name, enabled);
+      setExtensionPolicy(updated);
+      await loadAll(false);
+      setMessage(`扩展源“${sourceEntry.title}”已${enabled ? '启用' : '停用'}；运行时已重启。`);
+    } catch (reason) {
+      setError(`更新扩展源失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dialog-overlay" />
+        <Dialog.Content className="dialog-content marketplace-dialog">
+          <div className="marketplace-heading">
+            <div className="marketplace-title">
+              <span className="marketplace-title-icon"><PackageOpen size={19} /></span>
+              <div>
+                <Dialog.Title>插件商城</Dialog.Title>
+                <Dialog.Description>初始不包含任何商城；只有用户添加并启用的来源才会进入运行时。</Dialog.Description>
+              </div>
+            </div>
+            <Dialog.Close className="icon-button dialog-close-target" aria-label="关闭插件商城">
+              <X size={16} />
+            </Dialog.Close>
+          </div>
+
+          <div className="marketplace-toolbar">
+            <nav className="marketplace-tabs" aria-label="插件商城分类">
+              <TabButton active={tab === 'plugins'} onClick={() => setTab('plugins')} icon={<Boxes size={14} />}>
+                插件 <span>{locatedPlugins.length}</span>
+              </TabButton>
+              <TabButton active={tab === 'skills'} onClick={() => setTab('skills')} icon={<Sparkles size={14} />}>
+                Skills <span>{visibleSkills.length}</span>
+              </TabButton>
+              <TabButton active={tab === 'mcp'} onClick={() => setTab('mcp')} icon={<PlugZap size={14} />}>
+                MCP <span>{visibleMcp.length}</span>
+              </TabButton>
+              <TabButton active={tab === 'sources'} onClick={() => setTab('sources')} icon={<Cloud size={14} />}>
+                商城源 <span>{extensionPolicy.sources.length}</span>
+              </TabButton>
+            </nav>
+            {tab !== 'sources' && (
+              <label className="marketplace-search">
+                <Search size={14} />
+                <span className="sr-only">搜索当前分类</span>
+                <input
+                  aria-label="搜索当前分类"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={tab === 'plugins'
+                    ? '搜索插件'
+                    : tab === 'skills'
+                      ? '搜索 Skill'
+                    : '搜索 MCP'}
+                />
+                {query && <button aria-label="清除搜索" onClick={() => setQuery('')}><X size={12} /></button>}
+              </label>
+            )}
+            <button
+              className="button secondary marketplace-refresh"
+              aria-label="全部刷新"
+              title="拉取已添加的 Git 商城源、重新获取插件目录、重新扫描 Skills、重新读取 MCP 配置并更新连接状态"
+              disabled={loading || mutationKey !== null}
+              onClick={() => void refreshEverything()}
+            >
+              <RefreshCw className={loading || mutationKey === 'refresh:all' ? 'spin' : ''} size={13} /> 全部刷新
+            </button>
+          </div>
+
+          {(message || error) && (
+            <div className={`marketplace-message ${error ? 'error' : ''}`} role="status">
+              {error ? <AlertCircle size={14} /> : <Check size={14} />}
+              <span>
+                {error ?? message}
+              </span>
+              <button aria-label="关闭商城提示" onClick={() => { setMessage(null); setError(null); }}>
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
+          <div className="marketplace-body">
+            {tab === 'plugins' && (
+              <PluginBrowser
+                plugins={visiblePlugins}
+                featuredIds={visiblePluginCatalog.featuredPluginIds}
+                selected={selectedLocation}
+                detail={detail}
+                detailLoading={detailLoading}
+                mutationKey={mutationKey}
+                pluginPolicies={extensionPolicy.plugins}
+                effectiveSkills={effectiveSkills}
+                pluginUi={pluginUi}
+                onSelect={setSelectedLocation}
+                onMutate={(located) => void mutatePlugin(located)}
+                onUninstall={(located) => void uninstallPlugin(located)}
+                onToggleSkill={(skill) => void toggleSkill(skill)}
+                onToggleMcp={(pluginId, name, enabled) =>
+                  void toggleDeclaredMcp(pluginId, name, enabled)
+                }
+              />
+            )}
+            {tab === 'skills' && (
+              <SkillsManager
+                skills={visibleSkills}
+                errors={visibleSkillErrors}
+                detail={capabilityDetail?.kind === 'skill' ? capabilityDetail : null}
+                mutationKey={mutationKey}
+                onToggle={(skill) => void toggleSkill(skill)}
+                onPreview={(skill) => void previewSkill(skill)}
+              />
+            )}
+            {tab === 'mcp' && (
+              <McpManager
+                brandName={brandName}
+                servers={visibleMcp}
+                pluginPolicies={extensionPolicy.plugins}
+                detail={capabilityDetail?.kind === 'mcp' ? capabilityDetail : null}
+                mutationKey={mutationKey}
+                onLogin={(server) => void loginMcp(server)}
+                onToggle={(server, enabled) => void toggleMcp(server, enabled)}
+                onPreview={(server, enabled) => void previewMcp(server, enabled)}
+              />
+            )}
+            {tab === 'sources' && (
+              <MarketplaceSources
+                brandName={brandName}
+                sources={extensionPolicy.sources}
+                source={source}
+                refName={refName}
+                mutationKey={mutationKey}
+                onSourceChange={setSource}
+                onRefChange={setRefName}
+                onAdd={addMarketplace}
+                onRemove={(sourceEntry) => void removeMarketplace(sourceEntry)}
+                onEnabledChange={(sourceEntry, enabled) =>
+                  void toggleSource(sourceEntry, enabled)
+                }
+              />
+            )}
+          </div>
+
+          <footer className="marketplace-footer">
+            <span>
+              {selectedProject ? `项目：${selectedProject.name}` : `${brandName} 独立 Codex Home`}
+            </span>
+            <span>未启用的扩展不会加载、连接或注入线程</span>
+          </footer>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function TabButton({
+  active,
+  icon,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return <button className={active ? 'active' : ''} onClick={onClick}>{icon}{children}</button>;
+}
+
+function PluginBrowser({
+  plugins,
+  featuredIds,
+  selected,
+  detail,
+  detailLoading,
+  mutationKey,
+  pluginPolicies,
+  effectiveSkills,
+  pluginUi,
+  onSelect,
+  onMutate,
+  onUninstall,
+  onToggleSkill,
+  onToggleMcp,
+}: {
+  plugins: LocatedPlugin[];
+  featuredIds: string[];
+  selected: PluginLocationInput | null;
+  detail: PluginDetail | null;
+  detailLoading: boolean;
+  mutationKey: string | null;
+  pluginPolicies: ExtensionPluginPolicy[];
+  effectiveSkills: SkillMetadata[];
+  pluginUi: PluginUiDescriptor[];
+  onSelect: (location: PluginLocationInput) => void;
+  onMutate: (plugin: LocatedPlugin) => void;
+  onUninstall: (plugin: LocatedPlugin) => void;
+  onToggleSkill: (skill: SkillMetadata) => void;
+  onToggleMcp: (pluginId: string, name: string, enabled: boolean) => void;
+}) {
+  if (!plugins.length) {
+    return <EmptyState icon={<PackageOpen size={24} />} title="没有找到插件" description="可以刷新目录、清除搜索，或在“商城源”中添加一个插件目录。" />;
+  }
+  const featured = new Set(featuredIds);
+  const selectedPlugin = selected
+    ? plugins.find(({ location }) => sameLocation(location, selected)) ?? null
+    : null;
+  return (
+    <div className="plugin-browser">
+      <div className="plugin-card-list" aria-label="插件列表">
+        {plugins.map((located) => {
+          const displayName = pluginDisplayName(located.plugin);
+          const active = selected ? sameLocation(located.location, selected) : false;
+          const enabled = pluginPolicyEnabled(located.plugin.id, pluginPolicies);
+          return (
+            <article className={`plugin-card ${active ? 'selected' : ''}`} key={`${located.marketplace.name}:${located.plugin.id}`}>
+              <button className="plugin-card-main" onClick={() => onSelect(located.location)}>
+                <PluginGlyph plugin={located.plugin} />
+                <span className="plugin-card-copy">
+                  <span className="plugin-card-title">
+                    <strong>{displayName}</strong>
+                    {featured.has(located.plugin.id) && <small className="featured-pill">精选</small>}
+                  </span>
+                  <span>{pluginDescription(located.plugin)}</span>
+                  <small>{marketplaceDisplayName(located.marketplace)} · {pluginCapabilitySummary(located.plugin)}</small>
+                </span>
+              </button>
+              <button
+                className={`button ${located.plugin.installed ? 'secondary' : 'primary'} plugin-card-action`}
+                disabled={mutationKey === located.plugin.id || located.plugin.availability !== 'AVAILABLE'}
+                onClick={() => onMutate(located)}
+              >
+                {mutationKey === located.plugin.id ? <LoaderCircle className="spin" size={12} /> : located.plugin.installed ? enabled ? <CircleOff size={12} /> : <ShieldCheck size={12} /> : <Download size={12} />}
+                {located.plugin.installed ? enabled ? '停用' : '启用' : '下载'}
+              </button>
+              <ChevronRight className="plugin-card-chevron" size={14} />
+            </article>
+          );
+        })}
+      </div>
+      <aside className="plugin-detail-pane">
+        <PluginDetailView
+          located={selectedPlugin}
+          detail={detail}
+          loading={detailLoading}
+          mutating={Boolean(selectedPlugin && mutationKey === selectedPlugin.plugin.id)}
+          uninstalling={Boolean(selectedPlugin && mutationKey === `uninstall:${selectedPlugin.plugin.id}`)}
+          pluginPolicy={selectedPlugin
+            ? pluginPolicies.find((policy) => policy.pluginId === selectedPlugin.plugin.id) ?? null
+            : null}
+          effectiveSkills={effectiveSkills}
+          uiContributions={selectedPlugin
+            ? pluginUi.find((descriptor) => descriptor.pluginId === selectedPlugin.plugin.id)?.contributions ?? []
+            : []}
+          mutationKey={mutationKey}
+          onMutate={() => selectedPlugin && onMutate(selectedPlugin)}
+          onUninstall={() => selectedPlugin && onUninstall(selectedPlugin)}
+          onToggleSkill={onToggleSkill}
+          onToggleMcp={(name, enabled) =>
+            selectedPlugin && onToggleMcp(selectedPlugin.plugin.id, name, enabled)
+          }
+        />
+      </aside>
+    </div>
+  );
+}
+
+function PluginDetailView({
+  located,
+  detail,
+  loading,
+  mutating,
+  uninstalling,
+  pluginPolicy,
+  effectiveSkills,
+  uiContributions,
+  mutationKey,
+  onMutate,
+  onUninstall,
+  onToggleSkill,
+  onToggleMcp,
+}: {
+  located: LocatedPlugin | null;
+  detail: PluginDetail | null;
+  loading: boolean;
+  mutating: boolean;
+  uninstalling: boolean;
+  pluginPolicy: ExtensionPluginPolicy | null;
+  effectiveSkills: SkillMetadata[];
+  uiContributions: PluginUiContribution[];
+  mutationKey: string | null;
+  onMutate: () => void;
+  onUninstall: () => void;
+  onToggleSkill: (skill: SkillMetadata) => void;
+  onToggleMcp: (name: string, enabled: boolean) => void;
+}) {
+  if (!located) return <EmptyState icon={<Boxes size={22} />} title="选择一个插件" description="查看它包含的 Skills 与 MCP 服务。" />;
+  const { plugin, marketplace } = located;
+  const pluginEnabled = pluginPolicy?.enabled === true;
+  return (
+    <div className="plugin-detail-scroll">
+      <div className="plugin-detail-hero">
+        <PluginGlyph plugin={plugin} large />
+        <div>
+          <h3>{pluginDisplayName(plugin)}</h3>
+          <p>{plugin.interface?.developerName ?? marketplaceDisplayName(marketplace)}</p>
+        </div>
+      </div>
+      <p className="plugin-detail-description">{detail?.description ?? plugin.interface?.longDescription ?? pluginDescription(plugin)}</p>
+      <div className="plugin-detail-badges">
+        {plugin.installed && <span className="positive"><Check size={11} /> 已安装</span>}
+        {pluginEnabled && <span><ShieldCheck size={11} /> 已启用</span>}
+        {plugin.version && <span>v{plugin.version}</span>}
+      </div>
+      <div className="plugin-detail-actions">
+        <button
+          className={`button ${plugin.installed ? 'secondary' : 'primary'}`}
+          disabled={mutating || plugin.availability !== 'AVAILABLE'}
+          onClick={onMutate}
+        >
+          {mutating ? <LoaderCircle className="spin" size={13} /> : plugin.installed ? pluginEnabled ? <CircleOff size={13} /> : <ShieldCheck size={13} /> : <Download size={13} />}
+          {plugin.installed ? pluginEnabled ? '停用插件' : '启用插件' : plugin.availability === 'AVAILABLE' ? '下载插件' : '当前不可下载'}
+        </button>
+        {plugin.installed && (
+          <button className="button secondary danger" disabled={uninstalling} onClick={onUninstall}>
+            {uninstalling ? <LoaderCircle className="spin" size={13} /> : <Trash2 size={13} />} 卸载插件
+          </button>
+        )}
+      </div>
+      {plugin.installed && !pluginEnabled && (
+        <p className="plugin-enable-hint">再次启用插件时，其下所有 Skills 与 MCP 都会恢复为默认开启。</p>
+      )}
+      {loading && <div className="detail-loading"><LoaderCircle className="spin" size={15} /> 正在读取清单…</div>}
+      {detail && (
+        <>
+          <DetailSection icon={<Sparkles size={13} />} title={`Skills · ${detail.skills.length}`}>
+            {detail.skills.length ? detail.skills.map((skill) => {
+              const effective = effectiveSkills.find((candidate) =>
+                candidate.pluginId === plugin.id
+                && ((skill.path !== null && candidate.path === skill.path)
+                  || candidate.name === skill.name
+                  || candidate.name.endsWith(`:${skill.name}`)),
+              );
+              const stateLabel = effective ? effective.enabled ? '已启用' : '已停用' : '未加载';
+              const busy = effective ? mutationKey === `skill:${effective.path}` : false;
+              const displayName = skill.interface?.displayName ?? skill.name;
+              return (
+                <div
+                  className="plugin-mcp-manifest"
+                  key={`${skill.name}:${skill.path}`}
+                >
+                  <div className="plugin-manifest-row">
+                    <span className="plugin-contribution-trigger">
+                      <code>{displayName}</code>
+                    </span>
+                    {effective
+                      ? <button
+                        role="switch"
+                        aria-label={`${skill.interface?.displayName ?? skill.name} ${stateLabel}`}
+                        aria-checked={effective.enabled}
+                        className={`toggle-switch ${effective.enabled ? 'enabled' : ''}`}
+                        disabled={!pluginEnabled || busy}
+                        title={pluginEnabled ? '单独控制此 Skill 是否参与新线程' : '先启用插件，再启用 Skill'}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onToggleSkill(effective);
+                        }}
+                      >
+                        {busy ? <LoaderCircle className="spin" size={11} /> : <span />}
+                      </button>
+                      : <span className="mini-state">未加载</span>}
+                  </div>
+                </div>
+              );
+            }) : <p className="manifest-empty">此插件不包含 Skill</p>}
+          </DetailSection>
+          <DetailSection icon={<Server size={13} />} title={`MCP · ${detail.mcpServers.length}`}>
+            {detail.mcpServers.length ? detail.mcpServers.map((name) => {
+              const mcpEnabled = pluginPolicy?.enabledMcpServers.includes(name) === true;
+              const busy = mutationKey === `mcp-toggle:${name}`;
+              return (
+                <div
+                  className="plugin-mcp-manifest"
+                  key={name}
+                >
+                  <div className="plugin-manifest-row">
+                    <span className="plugin-contribution-trigger">
+                      <code>{name}</code>
+                    </span>
+                    <button
+                      role="switch"
+                      aria-label={`${name} ${mcpEnabled ? '已启用' : '已停用'}`}
+                      aria-checked={mcpEnabled}
+                      className={`toggle-switch ${mcpEnabled ? 'enabled' : ''}`}
+                      disabled={!pluginEnabled || busy}
+                      title={pluginEnabled ? '单独控制此 MCP 是否启动' : '先启用插件，再启用 MCP'}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleMcp(name, !mcpEnabled);
+                      }}
+                    >
+                      {busy ? <LoaderCircle className="spin" size={11} /> : <span />}
+                    </button>
+                  </div>
+                </div>
+              );
+            }) : <p className="manifest-empty">此插件不包含 MCP 服务</p>}
+          </DetailSection>
+          {uiContributions.length > 0 && (
+            <DetailSection icon={<PanelsTopLeft size={13} />} title={`UI 贡献 · ${uiContributions.length}`}>
+              {uiContributions.map((contribution) => (
+                <div className="plugin-ui-contribution" key={contribution.id}>
+                  <strong>{pluginUiContributionLabel(contribution)}</strong>
+                  <small>{pluginUiContributionLocation(contribution)}</small>
+                </div>
+              ))}
+            </DetailSection>
+          )}
+          {detail.hooks.length > 0 && <p className="plugin-secondary-capabilities">另含 {detail.hooks.length} 个 Hook</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ContributionDetailView({
+  contribution,
+}: {
+  contribution: ContributionDialogState | null;
+}) {
+  if (!contribution) {
+    return <EmptyState icon={<Boxes size={22} />} title="选择一项能力" description="查看完整内容、配置与运行时工具。" />;
+  }
+  const enabledLabel = contribution.enabled === null
+    ? '未加载'
+    : contribution.enabled
+      ? '已启用'
+      : '已停用';
+  return (
+    <div className="plugin-detail-scroll">
+      <div className="plugin-detail-hero">
+        <span className={`capability-icon ${contribution.kind === 'skill' ? 'violet' : 'blue'} capability-detail-glyph`}>
+          {contribution.kind === 'skill' ? <Sparkles size={19} /> : <Server size={19} />}
+        </span>
+        <div>
+          <h3>{contribution.name}</h3>
+          <p>{contribution.kind === 'skill' ? 'Skill 详情' : 'MCP 详情'} · {enabledLabel}</p>
+        </div>
+      </div>
+      <div className="contribution-detail-body embedded">
+        {contribution.kind === 'skill' ? (
+          <>
+            <section>
+              <h4>功能预览</h4>
+              <p>{contribution.description}</p>
+            </section>
+            <section>
+              <h4>Skill 路径</h4>
+              <code>{contribution.path}</code>
+            </section>
+            <section>
+              <h4>SKILL.md</h4>
+              <pre>{contribution.contents}</pre>
+            </section>
+          </>
+        ) : (
+          <>
+            <section>
+              <h4>MCP 配置路径</h4>
+              <code>{contribution.path}</code>
+            </section>
+            <section>
+              <h4>配置参数（明文）</h4>
+              <pre>{contribution.configuration}</pre>
+            </section>
+            <section>
+              <h4>工具预览 · {contribution.tools.length}</h4>
+              {contribution.tools.length > 0 ? (
+                <div className="contribution-tool-list">
+                  {contribution.tools.map((tool) => (
+                    <div className="plugin-mcp-tool" key={tool.name}>
+                      <Wrench size={11} />
+                      <span><code>{tool.name}</code><small>{tool.description}</small></span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p>当前没有可预览的运行时工具。</p>}
+            </section>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DetailSection({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return <section className="plugin-manifest-section"><h4>{icon}{title}</h4>{children}</section>;
+}
+
+function pluginUiContributionLabel(contribution: PluginUiContribution): string {
+  return contribution.type === 'composer.widget' ? '提问框组件' : '工具结果卡片';
+}
+
+function pluginUiContributionLocation(contribution: PluginUiContribution): string {
+  return contribution.type === 'composer.widget' ? '显示在消息输入区' : '替换匹配工具的结果展示';
+}
+
+function SkillsManager({
+  skills,
+  errors,
+  detail,
+  mutationKey,
+  onToggle,
+  onPreview,
+}: {
+  skills: SkillMetadata[];
+  errors: Array<{ path: string; message: string }>;
+  detail: Extract<ContributionDialogState, { kind: 'skill' }> | null;
+  mutationKey: string | null;
+  onToggle: (skill: SkillMetadata) => void;
+  onPreview: (skill: SkillMetadata) => void;
+}) {
+  return (
+    <div className="plugin-browser">
+      <div className="plugin-card-list" aria-label="Skill 列表">
+        {errors.map((error) => <div className="inline-error" key={`${error.path}:${error.message}`}><AlertCircle size={13} /><span>{error.message}</span></div>)}
+        {skills.map((skill) => {
+          const busy = mutationKey === `skill:${skill.path}`;
+          const selected = detail?.path === skill.path;
+          return (
+            <article
+              className={`plugin-card ${selected ? 'selected' : ''}`}
+              key={skill.path}
+            >
+              <button className="plugin-card-main" aria-label={`查看 ${skillDisplayName(skill)} 详情`} onClick={() => onPreview(skill)}>
+                <span className="capability-icon violet"><Sparkles size={15} /></span>
+                <span className="plugin-card-copy">
+                  <span className="plugin-card-title"><strong>{skillDisplayName(skill)}</strong><span className="scope-pill">{skillScopeLabel(skill.scope)}</span>{skill.pluginId && <span className="scope-pill plugin-owned">插件</span>}</span>
+                  <span>{skill.interface?.shortDescription ?? skill.shortDescription ?? skill.description}</span>
+                  <small title={skill.path}>{skill.path}</small>
+                </span>
+              </button>
+              <button
+                role="switch"
+                aria-label={`${skillDisplayName(skill)} ${skill.enabled ? '已启用' : '已停用'}`}
+                aria-checked={skill.enabled}
+                className={`toggle-switch ${skill.enabled ? 'enabled' : ''}`}
+                disabled={busy}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggle(skill);
+                }}
+              >
+                {busy ? <LoaderCircle className="spin" size={11} /> : <span />}
+              </button>
+              <ChevronRight className="plugin-card-chevron" size={14} />
+            </article>
+          );
+        })}
+        {!skills.length && <EmptyState icon={<Sparkles size={24} />} title="没有找到 Skill" description="打开项目后刷新，或安装一个包含 Skill 的插件。" />}
+      </div>
+      <aside className="plugin-detail-pane"><ContributionDetailView contribution={detail} /></aside>
+    </div>
+  );
+}
+
+function McpManager({
+  brandName,
+  servers,
+  pluginPolicies,
+  detail,
+  mutationKey,
+  onLogin,
+  onToggle,
+  onPreview,
+}: {
+  brandName: string;
+  servers: McpServerStatus[];
+  pluginPolicies: ExtensionPluginPolicy[];
+  detail: Extract<ContributionDialogState, { kind: 'mcp' }> | null;
+  mutationKey: string | null;
+  onLogin: (server: McpServerStatus) => void;
+  onToggle: (server: McpServerStatus, enabled: boolean) => void;
+  onPreview: (server: McpServerStatus, enabled: boolean) => void;
+}) {
+  return (
+    <div className="plugin-browser">
+      <div className="plugin-card-list" aria-label={`${brandName} MCP 列表`}>
+        {servers.map((server) => {
+          const tools = Object.keys(server.tools);
+          const needsAuth = server.authStatus === 'notLoggedIn' || server.runtimeStatus === 'authenticationRequired';
+          const enabled = server.pluginId
+            ? pluginPolicies.find((plugin) => plugin.pluginId === server.pluginId)
+                ?.enabledMcpServers.includes(server.name) === true
+            : true;
+          const selected = detail?.name === server.name;
+          return (
+            <article
+              className={`plugin-card ${selected ? 'selected' : ''}`}
+              key={server.name}
+            >
+              <button className="plugin-card-main" aria-label={`查看 ${server.name} 详情`} onClick={() => onPreview(server, enabled)}>
+                <span className={`capability-icon ${mcpTone(server.runtimeStatus)}`}><Server size={15} /></span>
+                <span className="plugin-card-copy">
+                  <span className="plugin-card-title"><strong>{server.name}</strong><McpStatusBadge server={server} />{server.pluginId && <span className="scope-pill plugin-owned">插件提供</span>}</span>
+                  <span>{mcpSummary(server)}</span>
+                  <small>{tools.length ? `${tools.length} 个工具` : '没有工具'}</small>
+                </span>
+              </button>
+              {server.pluginId && (
+                <button
+                  role="switch"
+                  aria-label={`${server.name} ${enabled ? '已启用' : '已停用'}`}
+                  aria-checked={enabled}
+                  className={`toggle-switch ${enabled ? 'enabled' : ''}`}
+                  disabled={mutationKey === `mcp-toggle:${server.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggle(server, !enabled);
+                  }}
+                >
+                  {mutationKey === `mcp-toggle:${server.name}` ? <LoaderCircle className="spin" size={11} /> : <span />}
+                </button>
+              )}
+              {enabled && needsAuth && (
+                <button
+                  className="button secondary"
+                  disabled={mutationKey === `mcp:${server.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onLogin(server);
+                  }}
+                >
+                  {mutationKey === `mcp:${server.name}` ? <LoaderCircle className="spin" size={12} /> : <KeyRound size={12} />} 连接
+                </button>
+              )}
+              <ChevronRight className="plugin-card-chevron" size={14} />
+            </article>
+          );
+        })}
+        {!servers.length && <EmptyState icon={<PlugZap size={24} />} title="还没有 MCP 服务" description="安装包含 MCP 的插件，或在隔离的 Codex 配置中添加 MCP 后重新读取配置。" />}
+      </div>
+      <aside className="plugin-detail-pane"><ContributionDetailView contribution={detail} /></aside>
+    </div>
+  );
+}
+
+function MarketplaceSources({
+  brandName,
+  sources,
+  source,
+  refName,
+  mutationKey,
+  onSourceChange,
+  onRefChange,
+  onAdd,
+  onRemove,
+  onEnabledChange,
+}: {
+  brandName: string;
+  sources: ExtensionSource[];
+  source: string;
+  refName: string;
+  mutationKey: string | null;
+  onSourceChange: (value: string) => void;
+  onRefChange: (value: string) => void;
+  onAdd: (event: FormEvent) => void;
+  onRemove: (source: ExtensionSource) => void;
+  onEnabledChange: (source: ExtensionSource, enabled: boolean) => void;
+}) {
+  return (
+    <div className="sources-page">
+      <section className="add-source-card">
+        <div><h3>添加商城源</h3><p>支持 GitHub <code>owner/repo</code>、HTTP(S)/SSH Git URL 或本地目录；添加后默认启用目录，但插件仍需单独下载和启用。</p></div>
+        <form onSubmit={onAdd}>
+          <label><span>来源</span><input aria-label="商城源" value={source} onChange={(event) => onSourceChange(event.target.value)} placeholder="owner/repo 或 https://…" /></label>
+          <label className="source-ref"><span>分支（可选）</span><input aria-label="商城源分支" value={refName} onChange={(event) => onRefChange(event.target.value)} placeholder="main" /></label>
+          <button className="button primary" disabled={!source.trim() || mutationKey === 'source:add'}>
+            {mutationKey === 'source:add' ? <LoaderCircle className="spin" size={12} /> : <Plus size={12} />} 添加
+          </button>
+        </form>
+      </section>
+      <div className="source-authorization-note">
+        未启用的来源不会获取目录、启动 MCP、加载 Skill 或向线程注入能力。缓存只作为惰性文件保留。
+      </div>
+      <div className="sources-heading"><div><h3>已添加商城源</h3><p>{brandName} 不内置商城，只显示你手动添加的来源。</p></div></div>
+      <div className="source-list">
+        {sources.map((sourceEntry) => {
+          const enabled = sourceEntry.enabled;
+          const toggleBusy = mutationKey === `source:enable:${sourceEntry.name}`;
+          return (
+            <article className={`source-row ${enabled ? '' : 'disabled-source'}`} key={sourceEntry.name}>
+              <span className="capability-icon blue"><Cloud size={15} /></span>
+              <div><strong>{sourceEntry.title}</strong><span>{sourceEntry.description}</span>{sourceEntry.source && <code>{sourceEntry.source}</code>}</div>
+              <label className="source-authorization-control">
+                <input
+                  type="checkbox"
+                  aria-label={`${sourceEntry.title} 运行时授权`}
+                  checked={enabled}
+                  disabled={toggleBusy}
+                  onChange={(event) => onEnabledChange(sourceEntry, event.target.checked)}
+                />
+                <span>{toggleBusy ? '应用中…' : enabled ? '已启用' : '未加载'}</span>
+              </label>
+              {sourceEntry.kind === 'marketplace' && (
+                <div className="source-actions">
+                <button className="icon-button danger" aria-label={`移除 ${sourceEntry.title}`} disabled={mutationKey === `source:remove:${sourceEntry.name}`} onClick={() => onRemove(sourceEntry)}><Trash2 size={14} /></button>
+                </div>
+              )}
+            </article>
+          );
+        })}
+        {!sources.length && <EmptyState icon={<Cloud size={24} />} title="还没有商城源" description={`${brandName} 默认不包含商城；请在上方手动添加。`} />}
+      </div>
+    </div>
+  );
+}
+
+function PluginGlyph({ plugin, large = false }: { plugin: PluginSummary; large?: boolean }) {
+  const color = safeBrandColor(plugin.interface?.brandColor);
+  return <span className={`plugin-glyph ${large ? 'large' : ''}`} style={color ? { '--plugin-color': color } as React.CSSProperties : undefined}><PackageOpen size={large ? 22 : 17} /></span>;
+}
+
+function pluginPolicyEnabled(
+  pluginId: string,
+  policies: ExtensionPluginPolicy[],
+): boolean {
+  return policies.find((policy) => policy.pluginId === pluginId)?.enabled === true;
+}
+
+function McpStatusBadge({ server }: { server: McpServerStatus }) {
+  const { runtimeStatus: status } = server;
+  const loaded = status === null && (
+    server.serverInfo !== null
+    || Object.keys(server.tools).length > 0
+    || server.resources.length > 0
+    || server.resourceTemplates.length > 0
+  );
+  const label = loaded ? '已载入' : mcpStatusLabel(status);
+  return <span className={`mcp-status ${loaded ? 'loaded' : status ?? 'unknown'}`}>{status === 'connected' || loaded ? <Check size={10} /> : status === 'failed' || status === 'authenticationRequired' ? <AlertCircle size={10} /> : <CircleOff size={10} />}{label}</span>;
+}
+
+function EmptyState({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return <div className="marketplace-empty">{icon}<strong>{title}</strong><p>{description}</p></div>;
+}
+
+function firstLocatedPlugin(response: PluginListResponse): LocatedPlugin | null {
+  const featured = new Set(response.featuredPluginIds);
+  return flattenPlugins(response).sort((left, right) => compareLocatedPlugins(left, right, featured))[0] ?? null;
+}
+
+function compareLocatedPlugins(
+  left: LocatedPlugin,
+  right: LocatedPlugin,
+  featured: Set<string>,
+): number {
+  const featuredDelta = Number(featured.has(right.plugin.id)) - Number(featured.has(left.plugin.id));
+  if (featuredDelta) return featuredDelta;
+  const installedDelta = Number(right.plugin.installed) - Number(left.plugin.installed);
+  if (installedDelta) return installedDelta;
+  return pluginDisplayName(left.plugin).localeCompare(pluginDisplayName(right.plugin), 'zh-CN');
+}
+
+function flattenPlugins(response: PluginListResponse): LocatedPlugin[] {
+  return response.marketplaces.flatMap((marketplace) =>
+    marketplace.plugins.map((plugin) => ({
+      marketplace,
+      plugin,
+      location: {
+        pluginId: plugin.id,
+        marketplaceName: marketplace.name,
+        marketplacePath: marketplace.path,
+        pluginName: plugin.name,
+      },
+    })),
+  );
+}
+
+function filterSkills(
+  response: SkillsListResponse,
+  query: string,
+): SkillMetadata[] {
+  const byPath = new Map<string, SkillMetadata>();
+  for (const entry of response.data) for (const skill of entry.skills) byPath.set(skill.path, skill);
+  const needle = normalizeSearch(query);
+  return [...byPath.values()]
+    .filter((skill) => !needle || normalizeSearch(`${skillDisplayName(skill)} ${skill.name} ${skill.description} ${skill.path}`).includes(needle))
+    .sort((left, right) => Number(right.enabled) - Number(left.enabled) || skillDisplayName(left).localeCompare(skillDisplayName(right), 'zh-CN'));
+}
+
+function filterMcp(
+  servers: McpServerStatus[],
+  query: string,
+): McpServerStatus[] {
+  const needle = normalizeSearch(query);
+  return servers
+    .filter((server) => !needle || normalizeSearch(`${server.name} ${Object.keys(server.tools).join(' ')}`).includes(needle));
+}
+
+function pluginDisplayName(plugin: PluginSummary): string {
+  return plugin.interface?.displayName ?? plugin.name;
+}
+
+function pluginDescription(plugin: PluginSummary): string {
+  return plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? '包含可复用的 Codex 能力。';
+}
+
+function pluginCapabilitySummary(plugin: PluginSummary): string {
+  if (plugin.interface?.capabilities.length) return plugin.interface.capabilities.slice(0, 3).join(' · ');
+  return plugin.installed ? '已安装' : '可安装';
+}
+
+function marketplaceDisplayName(marketplace: PluginMarketplaceEntry): string {
+  return marketplace.interface?.displayName ?? marketplace.name;
+}
+
+function skillDisplayName(skill: SkillMetadata): string {
+  return skill.interface?.displayName ?? skill.name;
+}
+
+function skillScopeLabel(scope: SkillMetadata['scope']): string {
+  return { user: '用户', repo: '项目', system: '系统', admin: '管理' }[scope];
+}
+
+function mcpStatusLabel(status: McpServerStatus['runtimeStatus']): string {
+  if (!status) return '未载入';
+  return {
+    notStarted: '未启动',
+    starting: '连接中',
+    connected: '已连接',
+    authenticationRequired: '需要认证',
+    failed: '连接失败',
+    cancelled: '已取消',
+    disabled: '已停用',
+  }[status];
+}
+
+function mcpTone(status: McpServerStatus['runtimeStatus']): string {
+  if (status === 'connected') return 'green';
+  if (status === 'failed' || status === 'authenticationRequired') return 'amber';
+  return 'blue';
+}
+
+function mcpSummary(server: McpServerStatus): string {
+  const toolCount = Object.keys(server.tools).length;
+  const inventory = [`${toolCount} 个工具`];
+  if (server.resources.length) inventory.push(`${server.resources.length} 个资源`);
+  if (server.resourceTemplates.length) inventory.push(`${server.resourceTemplates.length} 个资源模板`);
+  if (server.authStatus === 'oAuth') inventory.push('OAuth');
+  else if (server.authStatus === 'bearerToken') inventory.push('Token');
+  else if (server.authStatus === 'notLoggedIn') inventory.push('尚未认证');
+  return inventory.join(' · ');
+}
+
+function sameLocation(left: PluginLocationInput, right: PluginLocationInput): boolean {
+  return left.marketplaceName === right.marketplaceName && left.marketplacePath === right.marketplacePath && left.pluginName === right.pluginName;
+}
+
+function normalizeSearch(value: string): string {
+  return value.toLocaleLowerCase('zh-CN').replace(/[\s\p{P}\p{S}]+/gu, '');
+}
+
+function safeBrandColor(value: string | null | undefined): string | null {
+  return value && /^#[0-9a-f]{6}$/i.test(value) ? value : null;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

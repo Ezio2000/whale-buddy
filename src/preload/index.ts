@@ -1,0 +1,161 @@
+import { contextBridge, ipcRenderer } from 'electron';
+import { IPC } from '../shared/ipc';
+import type { WhaleApi, WhaleEvent } from '../shared/types';
+import {
+  approvalResponseSchema,
+  configReadSchema,
+  configWriteSchema,
+  clipboardAttachmentSchema,
+  fileSearchSchema,
+  historySchema,
+  idSchema,
+  interruptSchema,
+  marketplaceAddSchema,
+  marketplaceNameSchema,
+  marketplaceUpgradeSchema,
+  marketplaceSourceEnabledSchema,
+  mcpListSchema,
+  mcpLoginSchema,
+  mcpSetEnabledSchema,
+  pluginListSchema,
+  pluginLocationSchema,
+  pluginUninstallSchema,
+  pluginSetEnabledSchema,
+  pluginUiCallToolSchema,
+  projectRemoveSchema,
+  runtimeConnectionInputSchema,
+  runtimeBrandingInputSchema,
+  scheduledTaskCreateSchema,
+  scheduledTaskIdSchema,
+  scheduledTaskUpdateSchema,
+  startTurnSchema,
+  steerTurnSchema,
+  skillSetEnabledSchema,
+  skillsListSchema,
+  threadIdSchema,
+  threadListSchema,
+  threadRenameSchema,
+  threadStartSchema,
+  whaleEventSchema,
+} from '../shared/validation';
+
+const invoke = <T>(channel: string, payload?: unknown): Promise<T> =>
+  ipcRenderer.invoke(channel, payload) as Promise<T>;
+
+const api: WhaleApi = {
+  runtime: {
+    status: () => invoke(IPC.runtimeStatus),
+    restart: () => invoke(IPC.runtimeRestart),
+    settings: () => invoke(IPC.runtimeSettings),
+    revealProviderApiKey: () => invoke(IPC.runtimeRevealProviderApiKey),
+    configure: (input) =>
+      invoke(IPC.runtimeConfigure, runtimeConnectionInputSchema.parse(input)),
+    branding: () => invoke(IPC.runtimeBranding),
+    pickBrandIcon: () => invoke(IPC.runtimePickBrandIcon),
+    configureBranding: (input) =>
+      invoke(IPC.runtimeConfigureBranding, runtimeBrandingInputSchema.parse(input)),
+    quit: () => invoke(IPC.runtimeQuit),
+  },
+  projects: {
+    list: () => invoke(IPC.projectsList),
+    open: () => invoke(IPC.projectsOpen),
+    remove: (projectId) =>
+      invoke(IPC.projectsRemove, projectRemoveSchema.parse({ projectId })),
+  },
+  threads: {
+    list: (input = {}) => invoke(IPC.threadsList, threadListSchema.parse(input)),
+    start: (input) => invoke(IPC.threadsStart, threadStartSchema.parse(input)),
+    resume: (threadId) => invoke(IPC.threadsResume, threadIdSchema.parse({ threadId })),
+    fork: (threadId) => invoke(IPC.threadsFork, threadIdSchema.parse({ threadId })),
+    rename: (threadId, name) =>
+      invoke(IPC.threadsRename, threadRenameSchema.parse({ threadId, name })),
+    archive: (threadId) => invoke(IPC.threadsArchive, threadIdSchema.parse({ threadId })),
+    delete: (threadId) => invoke(IPC.threadsDelete, threadIdSchema.parse({ threadId })),
+    readHistory: (input) => invoke(IPC.threadsReadHistory, historySchema.parse(input)),
+    compact: (threadId) => invoke(IPC.threadsCompact, threadIdSchema.parse({ threadId })),
+  },
+  turns: {
+    start: (input) => invoke(IPC.turnsStart, startTurnSchema.parse(input)),
+    steer: (input) => invoke(IPC.turnsSteer, steerTurnSchema.parse(input)),
+    interrupt: (threadId, turnId) =>
+      invoke(IPC.turnsInterrupt, interruptSchema.parse({ threadId, turnId })),
+    review: (threadId) => invoke(IPC.turnsReview, threadIdSchema.parse({ threadId })),
+  },
+  approvals: {
+    respond: (input) => invoke(IPC.approvalsRespond, approvalResponseSchema.parse(input)),
+  },
+  models: {
+    list: () => invoke(IPC.modelsList),
+    capabilities: () => invoke(IPC.modelsCapabilities),
+  },
+  config: {
+    read: (cwd) => invoke(IPC.configRead, configReadSchema.parse({ cwd })),
+    write: (input) => invoke(IPC.configWrite, configWriteSchema.parse(input)),
+  },
+  plugins: {
+    list: (input = {}) => invoke(IPC.pluginsList, pluginListSchema.parse(input)),
+    read: (input) => invoke(IPC.pluginsRead, pluginLocationSchema.parse(input)),
+    contributions: (input) =>
+      invoke(IPC.pluginsContributions, pluginLocationSchema.parse(input)),
+    install: (input) => invoke(IPC.pluginsInstall, pluginLocationSchema.parse(input)),
+    uninstall: (pluginId) =>
+      invoke(IPC.pluginsUninstall, pluginUninstallSchema.parse({ pluginId })),
+    setEnabled: (input) =>
+      invoke(IPC.pluginsSetEnabled, pluginSetEnabledSchema.parse(input)),
+    uiList: () => invoke(IPC.pluginsUiList),
+    uiCallTool: (input) =>
+      invoke(IPC.pluginsUiCallTool, pluginUiCallToolSchema.parse(input)),
+  },
+  marketplaces: {
+    add: (input) => invoke(IPC.marketplacesAdd, marketplaceAddSchema.parse(input)),
+    remove: (marketplaceName) =>
+      invoke(IPC.marketplacesRemove, marketplaceNameSchema.parse({ marketplaceName })),
+    upgrade: (marketplaceName) =>
+      invoke(IPC.marketplacesUpgrade, marketplaceUpgradeSchema.parse({ marketplaceName })),
+    sources: () => invoke(IPC.marketplacesSources),
+    setEnabled: (marketplaceName, enabled) =>
+      invoke(
+        IPC.marketplacesSetEnabled,
+        marketplaceSourceEnabledSchema.parse({ marketplaceName, enabled }),
+      ),
+  },
+  skills: {
+    list: (input = {}) => invoke(IPC.skillsList, skillsListSchema.parse(input)),
+    setEnabled: (input) =>
+      invoke(IPC.skillsSetEnabled, skillSetEnabledSchema.parse(input)),
+  },
+  mcp: {
+    list: (input = {}) => invoke(IPC.mcpList, mcpListSchema.parse(input)),
+    login: (input) => invoke(IPC.mcpLogin, mcpLoginSchema.parse(input)),
+    setEnabled: (input) => invoke(IPC.mcpSetEnabled, mcpSetEnabledSchema.parse(input)),
+    reload: () => invoke(IPC.mcpReload),
+  },
+  files: {
+    pickAttachments: () => invoke(IPC.filesPickAttachments),
+    saveClipboardAttachment: (input) =>
+      invoke(IPC.filesSaveClipboardAttachment, clipboardAttachmentSchema.parse(input)),
+    search: (projectPath, query) =>
+      invoke(IPC.filesSearch, fileSearchSchema.parse({ projectPath, query })),
+  },
+  schedules: {
+    list: () => invoke(IPC.schedulesList),
+    create: (input) => invoke(IPC.schedulesCreate, scheduledTaskCreateSchema.parse(input)),
+    update: (input) => invoke(IPC.schedulesUpdate, scheduledTaskUpdateSchema.parse(input)),
+    remove: (taskId) => invoke(IPC.schedulesRemove, scheduledTaskIdSchema.parse({ taskId })),
+    runNow: (taskId) => invoke(IPC.schedulesRunNow, scheduledTaskIdSchema.parse({ taskId })),
+    history: (taskId) => invoke(IPC.schedulesHistory, scheduledTaskIdSchema.parse({ taskId })),
+  },
+  events: {
+    subscribe: (listener) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, raw: unknown) => {
+        const parsed = whaleEventSchema.safeParse(raw);
+        if (parsed.success) listener(parsed.data as WhaleEvent);
+      };
+      ipcRenderer.on(IPC.event, wrapped);
+      return () => ipcRenderer.removeListener(IPC.event, wrapped);
+    },
+  },
+};
+
+// The exposed surface contains no generic IPC or process primitive.
+contextBridge.exposeInMainWorld('whale', Object.freeze(api));

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Outlook 助手"
+  short_description: "安全查询日历、联系人和邮件，并按预览确认流程发送邮件"
+  default_prompt: "帮我处理 Outlook 日历、联系人或邮件任务。"

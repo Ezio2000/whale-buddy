@@ -1,0 +1,516 @@
+#!/usr/bin/env node
+
+const fs = require('node:fs');
+const path = require('node:path');
+
+if (process.argv.includes('--version')) {
+  process.stdout.write('codex-cli 0.0.0\n');
+  process.exit(0);
+}
+
+if (!process.argv.slice(2).includes('app-server')) {
+  process.stderr.write(`unsupported fake codex invocation: ${process.argv.slice(2).join(' ')}\n`);
+  process.exit(2);
+}
+
+const configOverrides = new Map(
+  process.argv.flatMap((argument, index, argumentsList) => {
+    if (argument !== '--config') return [];
+    const raw = argumentsList[index + 1] ?? '';
+    const separator = raw.indexOf('=');
+    return separator > 0 ? [[raw.slice(0, separator), raw.slice(separator + 1)]] : [];
+  }),
+);
+const flag = (key, fallback = false) => {
+  const value = configOverrides.get(key);
+  return value == null ? fallback : value === 'true';
+};
+const fixtureStatePath = path.join(process.env.CODEX_HOME ?? process.cwd(), '.fixture-state.json');
+let fixtureState = { pluginInstalled: false, skillEnabled: true };
+try {
+  fixtureState = { ...fixtureState, ...JSON.parse(fs.readFileSync(fixtureStatePath, 'utf8')) };
+} catch {}
+const persistFixtureState = () => {
+  fs.mkdirSync(path.dirname(fixtureStatePath), { recursive: true });
+  fs.writeFileSync(fixtureStatePath, JSON.stringify(fixtureState));
+};
+const fixturePluginEnabled = () =>
+  fixtureState.pluginInstalled && flag('plugins."fixture-plugin".enabled', false);
+const fixtureMcpEnabled = () =>
+  fixturePluginEnabled()
+  && flag('plugins."fixture-plugin".mcp_servers."fixture-mcp".enabled', false);
+
+let buffer = '';
+let initialized = false;
+const thread = {
+  id: '01900000-0000-7000-8000-000000000001',
+  sessionId: '01900000-0000-7000-8000-000000000001',
+  forkedFromId: null,
+  parentThreadId: null,
+  preview: '验证安全 IPC 边界',
+  ephemeral: false,
+  section: null,
+  sectionEnteredAt: null,
+  projectId: null,
+  historyMode: 'paginated',
+  modelProvider: 'openai',
+  createdAt: Math.floor(Date.now() / 1000),
+  updatedAt: Math.floor(Date.now() / 1000),
+  recencyAt: Math.floor(Date.now() / 1000),
+  status: { type: 'idle' },
+  path: null,
+  cwd: process.cwd(),
+  cliVersion: '0.0.0',
+  source: 'vscode',
+  threadSource: null,
+  agentNickname: null,
+  agentRole: null,
+  gitInfo: null,
+  name: 'Fake app-server thread',
+  turns: [],
+};
+
+const legacyProviderThread = {
+  ...thread,
+  id: '01900000-0000-7000-8000-000000000002',
+  sessionId: '01900000-0000-7000-8000-000000000002',
+  preview: '旧 Provider 的持久化会话',
+  modelProvider: 'legacy-provider',
+  createdAt: thread.createdAt - 60,
+  updatedAt: thread.updatedAt - 60,
+  recencyAt: thread.recencyAt - 60,
+  name: '旧 Provider 会话',
+};
+
+const legacyTurn = {
+  id: 'fixture-legacy-turn',
+  status: 'completed',
+  items: [],
+  itemsView: 'summary',
+};
+
+function fixturePlugin() {
+  return {
+    id: 'fixture-plugin',
+    remotePluginId: null,
+    version: '1.2.0',
+    localVersion: fixtureState.pluginInstalled ? '1.2.0' : null,
+    name: 'fixture-tools',
+    shareContext: null,
+    source: { type: 'local', path: '/private/fixture/plugins/fixture-tools' },
+    installed: fixtureState.pluginInstalled,
+    installedAt: null,
+    enabled: fixturePluginEnabled(),
+    installPolicy: 'AVAILABLE',
+    installPolicySource: null,
+    mustShowInstallationInterstitial: true,
+    authPolicy: 'ON_USE',
+    availability: 'AVAILABLE',
+    disabledReason: null,
+    eligiblePlanTypes: null,
+    interface: {
+      displayName: 'Fixture Tools',
+      shortDescription: '用于验证插件商城的确定性测试插件',
+      longDescription: '提供一个 Skill 和一个 MCP 服务，用于端到端验证。',
+      developerName: 'Whale Test Lab',
+      category: 'Developer Tools',
+      capabilities: ['Skills', 'MCP'],
+      websiteUrl: null,
+      privacyPolicyUrl: null,
+      termsOfServiceUrl: null,
+      defaultPrompt: ['使用 Fixture Tools 检查项目'],
+      brandColor: '#176b69',
+      composerIcon: null,
+      composerIconUrl: null,
+      logo: null,
+      logoDark: null,
+      logoUrl: null,
+      logoUrlDark: null,
+      screenshots: [],
+      screenshotUrls: [],
+    },
+    keywords: ['fixture', 'skill', 'mcp'],
+  };
+}
+
+function fixtureOfficialPlugin() {
+  const plugin = fixturePlugin();
+  return {
+    ...plugin,
+    id: 'fixture-official-plugin@openai-curated-remote',
+    name: 'fixture-official-tools',
+    interface: {
+      ...plugin.interface,
+      displayName: 'Fixture Official Tools',
+      shortDescription: '仅在请求官方远程目录时返回',
+    },
+  };
+}
+
+function fixtureSkill(pluginOwned = false) {
+  return {
+    name: pluginOwned ? 'fixture-plugin-skill' : 'fixture-core-skill',
+    description: pluginOwned
+      ? '由 Fixture Tools 插件提供的测试 Skill'
+      : 'Whale Buddy 测试环境中的基础 Skill',
+    shortDescription: pluginOwned ? '插件测试 Skill' : '基础测试 Skill',
+    interface: {
+      displayName: pluginOwned ? 'Fixture Plugin Skill' : 'Fixture Core Skill',
+      shortDescription: pluginOwned ? '插件测试 Skill' : '基础测试 Skill',
+      iconSmallUrl: null,
+      iconLargeUrl: null,
+    },
+    dependencies: { tools: [] },
+    path: pluginOwned
+      ? '/private/fixture/plugins/fixture-tools/skills/fixture-plugin-skill/SKILL.md'
+      : '/private/fixture/codex-home/skills/fixture-core-skill/SKILL.md',
+    scope: pluginOwned ? 'user' : 'system',
+    enabled: fixtureState.skillEnabled,
+    pluginId: pluginOwned ? 'fixture-plugin' : null,
+  };
+}
+
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  const lines = buffer.split('\n');
+  buffer = lines.pop() ?? '';
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const message = JSON.parse(line);
+    if (message.method === 'initialized') {
+      initialized = true;
+      continue;
+    }
+    if (message.id === undefined || !message.method) continue;
+    if (message.method !== 'initialize' && !initialized) {
+      respond(message.id, undefined, { code: -32000, message: 'Not initialized' });
+      continue;
+    }
+    route(message);
+  }
+});
+
+function route(message) {
+  const { id, method, params } = message;
+  switch (method) {
+    case 'initialize':
+      respond(id, {
+        userAgent: 'codex-cli/0.0.0 whale_buddy/0.1.0',
+        codexHome: process.env.CODEX_HOME,
+        platformFamily: 'unix',
+        platformOs: 'macos',
+      });
+      break;
+    case 'account/read':
+      respond(id, {
+        account:
+          process.env.WHALE_FIXTURE_SIGNED_OUT === '1'
+            ? null
+            : { type: 'chatgpt', email: 'fixture@example.test', planType: 'plus' },
+        requiresOpenaiAuth: true,
+      });
+      break;
+    case 'account/login/start':
+      respond(
+        id,
+        params?.type === 'chatgpt'
+          ? { authUrl: process.env.WHALE_FIXTURE_AUTH_URL ?? 'https://example.test/login' }
+          : {},
+      );
+      break;
+    case 'model/list':
+      respond(id, {
+        data: [
+          {
+            id: 'gpt-test',
+            model: 'gpt-test',
+            displayName: 'Fixture Model',
+            description: 'Deterministic fake model',
+            isDefault: true,
+            inputModalities: ['text', 'image'],
+            defaultReasoningEffort: 'medium',
+            supportedReasoningEfforts: [],
+          },
+        ],
+        nextCursor: null,
+      });
+      break;
+    case 'modelProvider/capabilities/read':
+      respond(id, {
+        namespaceTools: false,
+        imageGeneration: false,
+        webSearch: true,
+      });
+      break;
+    case 'plugin/list':
+      respond(id, {
+        marketplaces: [
+          {
+            name: 'fixture-marketplace',
+            path: '/private/fixture/marketplace.json',
+            interface: { displayName: 'Fixture Marketplace' },
+            plugins: [fixturePlugin()],
+          },
+          ...(params?.marketplaceKinds == null
+            ? [
+                {
+                  name: 'openai-curated-remote',
+                  path: null,
+                  interface: { displayName: 'OpenAI 官方远程商城' },
+                  plugins: [fixtureOfficialPlugin()],
+                },
+              ]
+            : []),
+        ],
+        marketplaceLoadErrors: [],
+        featuredPluginIds: [
+          'fixture-plugin',
+          ...(params?.marketplaceKinds == null
+            ? ['fixture-official-plugin@openai-curated-remote']
+            : []),
+        ],
+      });
+      break;
+    case 'plugin/read':
+      respond(id, {
+        plugin: {
+          marketplaceName: 'fixture-marketplace',
+          marketplacePath: '/private/fixture/marketplace.json',
+          summary: fixturePlugin(),
+          shareUrl: null,
+          description: '提供一个 Skill 和一个 MCP 服务，用于端到端验证。',
+          skills: [
+            {
+              name: 'fixture-plugin-skill',
+              description: '由 Fixture Tools 插件提供的测试 Skill',
+              shortDescription: '插件测试 Skill',
+              interface: {
+                displayName: 'Fixture Plugin Skill',
+                shortDescription: '插件测试 Skill',
+                iconSmallUrl: null,
+                iconLargeUrl: null,
+              },
+              path: '/private/fixture/plugins/fixture-tools/skills/fixture-plugin-skill/SKILL.md',
+              enabled: fixtureState.skillEnabled,
+            },
+          ],
+          hooks: [],
+          apps: [],
+          appTemplates: [],
+          mcpServers: ['fixture-mcp'],
+          scheduledTasks: null,
+        },
+      });
+      break;
+    case 'plugin/install':
+      fixtureState.pluginInstalled = true;
+      persistFixtureState();
+      respond(id, { authPolicy: 'ON_USE', appsNeedingAuth: [] });
+      break;
+    case 'plugin/uninstall':
+      fixtureState.pluginInstalled = false;
+      persistFixtureState();
+      respond(id, {});
+      break;
+    case 'skills/list':
+      respond(id, {
+        data: [
+          {
+            cwd: params?.cwds?.[0] ?? process.cwd(),
+            skills: [
+              ...(flag('skills.bundled.enabled', false) ? [fixtureSkill(false)] : []),
+              ...(fixturePluginEnabled() ? [fixtureSkill(true)] : []),
+            ],
+            errors: [],
+          },
+        ],
+      });
+      break;
+    case 'skills/config/write':
+      fixtureState.skillEnabled = params?.enabled === true;
+      persistFixtureState();
+      respond(id, { effectiveEnabled: fixtureState.skillEnabled });
+      break;
+    case 'mcpServerStatus/list':
+      respond(id, {
+        data: fixturePluginEnabled() ? [
+          {
+            name: 'fixture-mcp',
+            runtimeStatus: fixtureMcpEnabled() ? 'authenticationRequired' : 'notStarted',
+            pluginId: 'fixture-plugin',
+            serverInfo: null,
+            tools: fixtureMcpEnabled() ? {
+              inspect_fixture: {
+                name: 'inspect_fixture',
+                description: 'Inspect the deterministic fixture',
+                inputSchema: { type: 'object', properties: {} },
+              },
+            } : {},
+            resources: [],
+            resourceTemplates: [],
+            authStatus: 'notLoggedIn',
+          },
+        ] : [],
+        nextCursor: null,
+      });
+      break;
+    case 'mcpServer/oauth/login':
+      respond(id, { authorizationUrl: 'https://example.test/mcp-oauth' });
+      break;
+    case 'config/mcpServer/reload':
+      respond(id, {});
+      break;
+    case 'marketplace/add':
+      respond(id, {
+        marketplaceName: 'fixture-marketplace',
+        installedRoot: '/private/fixture/added-marketplace',
+        alreadyAdded: false,
+      });
+      break;
+    case 'marketplace/remove':
+      respond(id, {
+        marketplaceName: params?.marketplaceName,
+        installedRoot: '/private/fixture/marketplace.json',
+      });
+      break;
+    case 'marketplace/upgrade':
+      respond(id, {
+        selectedMarketplaces: params?.marketplaceName ? [params.marketplaceName] : ['fixture-marketplace'],
+        upgradedRoots: ['/private/fixture/marketplace.json'],
+        errors: [],
+      });
+      break;
+    case 'thread/list': {
+      // Match app-server's provider-filter contract: omitting modelProviders
+      // returns only the active provider, while [] explicitly returns all.
+      const providerFilter = Array.isArray(params?.modelProviders)
+        ? params.modelProviders.length > 0
+          ? new Set(params.modelProviders)
+          : null
+        : new Set(['openai']);
+      const sourceAllowed =
+        !Array.isArray(params?.sourceKinds) ||
+        params.sourceKinds.length === 0 ||
+        params.sourceKinds.includes('vscode');
+      const data = sourceAllowed
+        ? [thread, legacyProviderThread].filter(
+            (candidate) => !providerFilter || providerFilter.has(candidate.modelProvider),
+          )
+        : [];
+      respond(id, {
+        data,
+        nextCursor: null,
+        backwardsCursor: null,
+      });
+      break;
+    }
+    case 'thread/start':
+      respond(id, {
+        thread,
+        model: 'gpt-test',
+        modelProvider: 'openai',
+        serviceTier: null,
+        cwd: thread.cwd,
+        instructionSources: [],
+        approvalPolicy: 'on-request',
+        approvalsReviewer: 'user',
+        sandbox: { type: 'workspaceWrite', writableRoots: [thread.cwd], networkAccess: false },
+        reasoningEffort: 'medium',
+      });
+      break;
+    case 'thread/resume':
+      if (params?.threadId === legacyProviderThread.id) {
+        respond(id, undefined, { code: -32000, message: 'legacy provider is unavailable' });
+        break;
+      }
+      respond(id, {
+        thread,
+        model: 'gpt-test',
+        modelProvider: 'openai',
+        serviceTier: null,
+        cwd: thread.cwd,
+        instructionSources: [],
+        approvalPolicy: 'on-request',
+        approvalsReviewer: 'user',
+        sandbox: { type: 'workspaceWrite', writableRoots: [thread.cwd], networkAccess: false },
+        reasoningEffort: 'medium',
+      });
+      break;
+    case 'thread/turns/list':
+      respond(id, {
+        data:
+          params?.threadId === legacyProviderThread.id
+            ? [legacyTurn]
+            : process.env.WHALE_FIXTURE_LONG_HISTORY === '1'
+            ? [{ id: 'fixture-turn', status: 'completed', items: [], itemsView: 'summary' }]
+            : [],
+        nextCursor: null,
+        backwardsCursor: null,
+      });
+      break;
+    case 'thread/items/list':
+      respond(id, {
+        data:
+          params?.threadId === legacyProviderThread.id
+            ? [
+                {
+                  turnId: legacyTurn.id,
+                  item: {
+                    id: 'fixture-legacy-user',
+                    type: 'userMessage',
+                    content: [{ type: 'text', text: '查看旧 Provider 会话记录' }],
+                  },
+                },
+                {
+                  turnId: legacyTurn.id,
+                  item: {
+                    id: 'fixture-legacy-agent',
+                    type: 'agentMessage',
+                    text: '来自旧 Provider 的持久化消息',
+                    phase: 'final_answer',
+                  },
+                },
+              ]
+            : process.env.WHALE_FIXTURE_LONG_HISTORY === '1'
+            ? Array.from({ length: 14 }, (_, index) => ({
+                turnId: 'fixture-turn',
+                item: {
+                  id: `fixture-item-${index}`,
+                  type: 'agentMessage',
+                  text: `持久化历史 ${index + 1}\n\n${'用于验证长对话滚动边界。'.repeat(12)}`,
+                  phase: 'final_answer',
+                },
+              }))
+            : [],
+        nextCursor: null,
+        backwardsCursor: null,
+      });
+      break;
+    case 'config/read':
+      respond(id, {
+        config: {
+          marketplaces: {
+            'fixture-marketplace': {
+              source_type: 'git',
+              source: 'https://example.test/fixture-marketplace.git',
+            },
+          },
+        },
+        origins: {},
+        layers: [],
+      });
+      break;
+    case 'account/usage/read':
+      respond(id, { usage: null });
+      break;
+    default:
+      respond(id, {});
+  }
+}
+
+function respond(id, result, error) {
+  process.stdout.write(`${JSON.stringify(error ? { id, error } : { id, result })}\n`);
+}
+
+process.on('SIGTERM', () => process.exit(0));

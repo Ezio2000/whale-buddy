@@ -1,0 +1,20 @@
+{
+  "name": "whale-buddy",
+  "interface": {
+    "displayName": "Whale Buddy Local Development"
+  },
+  "plugins": [
+    {
+      "name": "knowledge-assistant",
+      "source": {
+        "source": "local",
+        "path": "./plugins/knowledge-assistant"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

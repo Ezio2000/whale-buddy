@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+
+// The fake app-server never starts Code Mode. This executable only verifies that
+// test packages preserve the same two-binary layout as the real Codex runtime.
+process.exit(0);

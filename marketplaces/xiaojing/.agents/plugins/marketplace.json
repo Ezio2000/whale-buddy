@@ -1,0 +1,32 @@
+{
+  "name": "xiaojing",
+  "interface": {
+    "displayName": "\u5c0f\u9cb8\u5546\u57ce"
+  },
+  "plugins": [
+    {
+      "name": "xiaojing-knowledge-base",
+      "source": {
+        "source": "local",
+        "path": "./plugins/xiaojing-knowledge-base"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "xiaojing-outlook",
+      "source": {
+        "source": "local",
+        "path": "./plugins/xiaojing-outlook"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

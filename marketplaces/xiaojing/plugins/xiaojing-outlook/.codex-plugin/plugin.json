@@ -1,0 +1,20 @@
+{
+  "name": "xiaojing-outlook",
+  "version": "0.1.0",
+  "description": "统一查询 Outlook 日历、企业通讯录、个人联系人和邮件，并通过不可变预览安全发送邮件。",
+  "author": {
+    "name": "AI小鲸"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "小鲸 Outlook",
+    "shortDescription": "统一处理日历、联系人和邮件。",
+    "longDescription": "通过 AIHub MCP 查询当前用户的 Outlook 日历、企业通讯录、个人联系人和邮件。邮件发送与回复采用不可变预览和短码确认流程。",
+    "developerName": "AI小鲸",
+    "category": "Productivity",
+    "capabilities": ["MCP", "Outlook", "Calendar", "Contacts", "Mail"],
+    "brandColor": "#3A6F9B",
+    "defaultPrompt": "帮我查询 Outlook 日历、联系人或邮件；涉及发送时先创建预览并等待我确认。"
+  },
+  "mcpServers": "./.mcp.json"
+}

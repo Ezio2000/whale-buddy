@@ -1,0 +1,56 @@
+{
+  "name": "xiaojing-knowledge-base",
+  "version": "0.2.0+codex.20260827080614",
+  "description": "\u641c\u7d22\u5f53\u524d\u7528\u6237\u83b7\u6388\u6743\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
+  "author": {
+    "name": "AI\u5c0f\u9cb8"
+  },
+  "interface": {
+    "displayName": "\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
+    "shortDescription": "\u5217\u51fa\u5e76\u641c\u7d22\u83b7\u6388\u6743\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
+    "longDescription": "\u901a\u8fc7 AIHub MCP \u5217\u51fa\u5f53\u524d\u8d26\u53f7\u53ef\u8bbf\u95ee\u7684\u6570\u636e\u96c6\uff0c\u5e76\u6309\u5173\u952e\u8bcd\u68c0\u7d22\u77e5\u8bc6\u5e93\u6587\u672c\u548c\u56fe\u7247\u5185\u5bb9\u3002",
+    "developerName": "AI\u5c0f\u9cb8",
+    "category": "Productivity",
+    "capabilities": [
+      "MCP",
+      "Knowledge Base",
+      "Search"
+    ],
+    "brandColor": "#347B78",
+    "defaultPrompt": [
+      "\u5217\u51fa\u6211\u80fd\u8bbf\u95ee\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
+      "\u5728\u77e5\u8bc6\u5e93\u4e2d\u641c\u7d22\u76f8\u5173\u5236\u5ea6\u3002"
+    ]
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "whale": {
+    "apiVersion": 1,
+    "contributions": [
+      {
+        "id": "knowledge-selector",
+        "type": "composer.widget",
+        "entry": "./ui/index.html",
+        "order": 100
+      },
+      {
+        "id": "knowledge-tool-card",
+        "type": "mcp.toolCard",
+        "entry": "./ui/index.html",
+        "server": "xiaojing-knowledge-base",
+        "tools": [
+          "gac_kb_list_datasets",
+          "gac_kb_search"
+        ]
+      }
+    ],
+    "uiMcpPermissions": [
+      {
+        "server": "xiaojing-knowledge-base",
+        "tools": [
+          "gac_kb_list_datasets"
+        ]
+      }
+    ]
+  }
+}

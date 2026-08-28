@@ -1,0 +1,149 @@
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { ExtensionPolicyStore } from '../../src/main/extension-policy';
+
+describe('ExtensionPolicyStore', () => {
+  it('starts with a fail-closed runtime and no enabled extension sources', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    const store = new ExtensionPolicyStore(root);
+
+    expect(store.sources()).toEqual([]);
+    expect(store.enabledMarketplaceNames()).toEqual([]);
+    expect(store.launchConfigOverrides()).toEqual(expect.arrayContaining([
+      'features.apps=false',
+      'features.plugins=false',
+      'features.remote_plugin=false',
+      'features.recommended_plugins=false',
+      'features.tool_suggest=false',
+      'skills.bundled.enabled=false',
+      'skills.include_instructions=false',
+    ]));
+  });
+
+  it('only activates explicitly added sources, plugins, and MCP servers', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    const store = new ExtensionPolicyStore(root);
+    store.addMarketplace('private-tools', 'https://example.test/private-tools.git', 'main');
+    store.registerPlugin('demo@private-tools', 'private-tools', ['demo-mcp']);
+
+    let launch = store.launchConfigOverrides();
+    expect(launch).toContain('features.plugins=true');
+    expect(launch).toContain('plugins."demo@private-tools".enabled=false');
+    expect(launch).toContain(
+      'plugins."demo@private-tools".mcp_servers."demo-mcp".enabled=false',
+    );
+
+    store.setPluginEnabled('demo@private-tools', true);
+    launch = store.launchConfigOverrides();
+    expect(launch).toContain('plugins."demo@private-tools".enabled=true');
+    expect(launch).toContain(
+      'plugins."demo@private-tools".mcp_servers."demo-mcp".enabled=true',
+    );
+
+    store.setMcpEnabled('demo@private-tools', 'demo-mcp', false);
+    expect(store.isMcpEnabled('demo@private-tools', 'demo-mcp')).toBe(false);
+    store.setPluginEnabled('demo@private-tools', false);
+    store.setPluginEnabled('demo@private-tools', true);
+    launch = store.launchConfigOverrides();
+    expect(launch).toEqual(expect.arrayContaining([
+      'features.apps=false',
+      'features.remote_plugin=false',
+      'skills.bundled.enabled=false',
+      'skills.include_instructions=true',
+      'plugins."demo@private-tools".enabled=true',
+      'plugins."demo@private-tools".mcp_servers."demo-mcp".enabled=true',
+    ]));
+  });
+
+  it('only selects enabled Git marketplaces for remote upgrades', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    const store = new ExtensionPolicyStore(root);
+    store.addMarketplace('local-tools', '/Users/test/local-tools', null);
+    store.addMarketplace('relative-local', './fixtures/local-tools', null);
+    store.addMarketplace('remote-tools', 'https://example.test/remote-tools.git', 'main');
+    store.addMarketplace('github-short', 'owner/repo', null);
+    store.setSourceEnabled('github-short', false);
+
+    expect(store.enabledMarketplaceNames()).toEqual([
+      'local-tools',
+      'relative-local',
+      'remote-tools',
+    ]);
+    expect(store.enabledGitMarketplaceNames()).toEqual(['remote-tools']);
+  });
+
+  it('keeps cached plugin intent inert while its source is disabled', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    const store = new ExtensionPolicyStore(root);
+    store.addMarketplace('private-tools', '/private/catalog', null);
+    store.registerPlugin('demo@private-tools', 'private-tools', ['demo-mcp']);
+    store.setPluginEnabled('demo@private-tools', true);
+    store.setMcpEnabled('demo@private-tools', 'demo-mcp', true);
+    store.setSourceEnabled('private-tools', false);
+
+    expect(store.isPluginEnabled('demo@private-tools')).toBe(false);
+    expect(store.isMcpEnabled('demo@private-tools', 'demo-mcp')).toBe(false);
+    expect(store.launchConfigOverrides()).toEqual(expect.arrayContaining([
+      'features.plugins=false',
+      'plugins."demo@private-tools".enabled=false',
+      'plugins."demo@private-tools".mcp_servers."demo-mcp".enabled=false',
+    ]));
+
+    const reloaded = new ExtensionPolicyStore(root);
+    expect(reloaded.isPluginEnabled('demo@private-tools')).toBe(false);
+    expect(reloaded.source('private-tools')?.enabled).toBe(false);
+  });
+
+  it('does not migrate an incompatible policy file and fails closed instead', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    await writeFile(path.join(root, 'extension-policy.json'), JSON.stringify({
+      version: 0,
+      visibleMarketplaces: ['openai-curated-remote'],
+      enabledPlugins: ['legacy-plugin'],
+    }));
+
+    const store = new ExtensionPolicyStore(root);
+
+    expect(store.sources()).toEqual([]);
+    expect(store.snapshot().plugins).toEqual([]);
+    expect(store.launchConfigOverrides()).toContain('features.plugins=false');
+  });
+
+  it('drops all retired preset sources and their plugins from existing state', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    await writeFile(path.join(root, 'extension-policy.json'), JSON.stringify({
+      version: 1,
+      enabledBuiltinSources: ['codex-bundled-skills', 'codex-apps', 'openai-curated-remote'],
+      marketplaces: [{
+        name: 'openai-curated-remote',
+        source: 'preset',
+        refName: null,
+        enabled: true,
+      }],
+      plugins: [{
+        pluginId: 'retired-plugin',
+        marketplaceName: 'openai-curated-remote',
+        enabled: true,
+        mcpServers: ['retired-mcp'],
+        enabledMcpServers: ['retired-mcp'],
+      }],
+      enabledSkillPaths: [],
+    }));
+
+    const store = new ExtensionPolicyStore(root);
+    expect(store.sources()).toEqual([]);
+    expect(store.snapshot().plugins).toEqual([]);
+    const persisted = JSON.parse(
+      await readFile(path.join(root, 'extension-policy.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(persisted).not.toHaveProperty('enabledBuiltinSources');
+    expect(store.launchConfigOverrides()).toEqual(expect.arrayContaining([
+      'features.apps=false',
+      'features.plugins=false',
+      'features.remote_plugin=false',
+      'skills.bundled.enabled=false',
+    ]));
+  });
+});
