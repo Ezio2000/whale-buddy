@@ -14,6 +14,7 @@ import {
   packagedCodexPath,
   windowChromeOptions,
 } from '../../src/main/platform';
+import { windowInteractionStrategy } from '../../src/shared/window-strategy';
 
 describe('sidecar bundle layout', () => {
   it('keeps the Code Mode host beside the Codex executable', () => {
@@ -63,6 +64,14 @@ describe('sidecar bundle layout', () => {
   });
 
   it('keeps platform-specific chrome and package paths behind one adapter', () => {
+    expect(windowInteractionStrategy('darwin')).toEqual({
+      nativeTitleBar: false,
+      rendererDragRegions: true,
+    });
+    expect(windowInteractionStrategy('win32')).toEqual({
+      nativeTitleBar: true,
+      rendererDragRegions: false,
+    });
     expect(windowChromeOptions('darwin')).toMatchObject({ titleBarStyle: 'hiddenInset' });
     expect(windowChromeOptions('win32')).toEqual({});
     expect(packagedAppExecutable('/out', 'Whale Buddy', 'win32', 'x64')).toBe(

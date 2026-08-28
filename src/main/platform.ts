@@ -1,7 +1,11 @@
 import path from 'node:path';
 import type { BrowserWindowConstructorOptions } from 'electron';
+import {
+  type DesktopPlatform,
+  windowInteractionStrategy,
+} from '../shared/window-strategy';
 
-export type DesktopPlatform = 'darwin' | 'win32';
+export type { DesktopPlatform } from '../shared/window-strategy';
 
 export function requireDesktopPlatform(platform: NodeJS.Platform = process.platform): DesktopPlatform {
   if (platform === 'darwin' || platform === 'win32') return platform;
@@ -60,7 +64,8 @@ export function windowChromeOptions(
   BrowserWindowConstructorOptions,
   'titleBarStyle' | 'trafficLightPosition' | 'titleBarOverlay'
 > {
-  if (platform === 'darwin') {
+  const strategy = windowInteractionStrategy(requireDesktopPlatform(platform));
+  if (!strategy.nativeTitleBar) {
     return {
       titleBarStyle: 'hiddenInset',
       trafficLightPosition: { x: 18, y: 18 },

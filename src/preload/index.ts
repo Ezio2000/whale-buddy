@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC } from '../shared/ipc';
 import type { WhaleApi, WhaleEvent } from '../shared/types';
+import { windowInteractionStrategy } from '../shared/window-strategy';
 import {
   approvalResponseSchema,
   configReadSchema,
@@ -44,7 +45,11 @@ const invoke = <T>(channel: string, payload?: unknown): Promise<T> =>
 
 const api: WhaleApi = {
   runtime: {
-    platform: process.platform === 'win32' ? 'win32' : 'darwin',
+    windowCapabilities: {
+      rendererDragRegions: windowInteractionStrategy(
+        process.platform === 'win32' ? 'win32' : 'darwin',
+      ).rendererDragRegions,
+    },
     status: () => invoke(IPC.runtimeStatus),
     restart: () => invoke(IPC.runtimeRestart),
     settings: () => invoke(IPC.runtimeSettings),

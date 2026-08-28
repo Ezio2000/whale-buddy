@@ -7,7 +7,10 @@ import { PluginUiProvider } from './plugin-ui/PluginUiProvider';
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root');
 
-document.documentElement.dataset.desktopPlatform = window.whale.runtime.platform;
+document.documentElement.dataset.rendererDragRegions = window.whale.runtime.windowCapabilities
+  .rendererDragRegions
+  ? 'enabled'
+  : 'disabled';
 
 createRoot(root).render(
   <StrictMode>

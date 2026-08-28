@@ -4482,11 +4482,11 @@ pre {
 
 /* Windows uses the native title bar, so renderer drag regions must never
    participate in hit testing. This keeps every visible control clickable. */
-html[data-desktop-platform='win32'] * {
+html[data-renderer-drag-regions='disabled'] * {
   -webkit-app-region: no-drag !important;
 }
 
-html[data-desktop-platform='win32'] .sidebar-drag-region,
-html[data-desktop-platform='win32'] .window-drag-spacer {
+html[data-renderer-drag-regions='disabled'] .sidebar-drag-region,
+html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
   display: none;
 }

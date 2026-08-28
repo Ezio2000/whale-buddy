@@ -297,7 +297,9 @@ export type WhaleEvent =
 
 export interface WhaleApi {
   runtime: {
-    platform: 'darwin' | 'win32';
+    windowCapabilities: {
+      rendererDragRegions: boolean;
+    };
     status(): Promise<RuntimeStatus>;
     restart(): Promise<RuntimeStatus>;
     settings(): Promise<RuntimeConnectionSettings>;
