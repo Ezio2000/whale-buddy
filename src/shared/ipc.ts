@@ -32,6 +32,8 @@ export const IPC = {
   pluginsList: 'whale:plugins:list',
   pluginsRead: 'whale:plugins:read',
   pluginsContributions: 'whale:plugins:contributions',
+  pluginsCredentials: 'whale:plugins:credentials',
+  pluginsConfigureCredential: 'whale:plugins:configure-credential',
   pluginsInstall: 'whale:plugins:install',
   pluginsUninstall: 'whale:plugins:uninstall',
   pluginsSetEnabled: 'whale:plugins:set-enabled',

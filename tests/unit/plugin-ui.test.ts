@@ -8,6 +8,7 @@ import {
   readPluginUiDescriptor,
   replacePluginUiRegistry,
 } from '../../src/main/plugin-ui';
+import { readPluginCredentialContributions } from '../../src/main/plugin-credential-manifest';
 
 const roots: string[] = [];
 
@@ -92,6 +93,127 @@ describe('plugin UI manifest', () => {
       timeoutMs: 12_000,
     });
   });
+
+  it('adds a declared bearer token to direct plugin UI MCP calls', async () => {
+    const root = await fixtureRoot({
+      whale: {
+        apiVersion: 1,
+        contributions: [{ id: 'widget', type: 'composer.widget', entry: './ui/index.html' }],
+      },
+    });
+    await writeFile(path.join(root, '.mcp.json'), JSON.stringify({
+      mcpServers: {
+        'fixture-mcp': {
+          url: 'https://example.test/mcp',
+          bearer_token_env_var: 'FIXTURE_MCP_TOKEN',
+        },
+      },
+    }));
+    const descriptor = readPluginUiDescriptor(pluginResponse(root));
+    replacePluginUiRegistry([{ descriptor: descriptor!, root }]);
+
+    expect(pluginMcpHttpConnection('fixture-plugin', 'fixture-mcp', {
+      FIXTURE_MCP_TOKEN: 'fixture-secret',
+    }).headers).toEqual({ Authorization: 'Bearer fixture-secret' });
+  });
+
+  it('parses Whale credential contributions and only rejects malformed environment names', async () => {
+    const root = await fixtureRoot({
+      whale: {
+        apiVersion: 1,
+        contributions: [
+          {
+            id: 'fixture-token',
+            type: 'credential',
+            key: 'fixture/token',
+            credentialType: 'bearerToken',
+            label: 'Fixture Token',
+            description: 'Fixture secret',
+            env: 'FIXTURE_MCP_TOKEN',
+            required: true,
+            scope: 'marketplace',
+            usedBy: { mcpServers: ['fixture-mcp'] },
+          },
+          {
+            id: 'unsafe',
+            type: 'credential',
+            key: 'fixture/unsafe',
+            credentialType: 'apiKey',
+            label: 'Unsafe',
+            env: 'PATH',
+            required: true,
+            usedBy: { mcpServers: ['fixture-mcp'] },
+          },
+          {
+            id: 'host-prefixed',
+            type: 'credential',
+            key: 'fixture/host-prefixed',
+            credentialType: 'apiKey',
+            label: 'Host Prefixed',
+            env: 'WHALE_CUSTOM_PROVIDER_API_KEY',
+            required: true,
+            usedBy: { mcpServers: ['fixture-mcp'] },
+          },
+        ],
+      },
+    });
+
+    expect(readPluginCredentialContributions(pluginResponse(root))).toEqual([
+      {
+        id: 'fixture-token',
+        type: 'credential',
+        key: 'fixture/token',
+        credentialType: 'bearerToken',
+        label: 'Fixture Token',
+        description: 'Fixture secret',
+        env: 'FIXTURE_MCP_TOKEN',
+        required: true,
+        scope: 'marketplace',
+        mcpServers: ['fixture-mcp'],
+      },
+      {
+        id: 'host-prefixed',
+        type: 'credential',
+        key: 'fixture/host-prefixed',
+        credentialType: 'apiKey',
+        label: 'Host Prefixed',
+        description: '',
+        env: 'WHALE_CUSTOM_PROVIDER_API_KEY',
+        required: true,
+        scope: 'marketplace',
+        mcpServers: ['fixture-mcp'],
+      },
+    ]);
+  });
+
+  it('keeps both Xiaojing plugins on one marketplace-scoped AIHub credential', () => {
+    const marketplaceRoot = path.resolve('marketplaces/xiaojing/plugins');
+    const knowledge = readPluginCredentialContributions(pluginResponse(
+      path.join(marketplaceRoot, 'xiaojing-knowledge-base'),
+      'xiaojing-knowledge-base',
+      'xiaojing-knowledge-base',
+    ));
+    const outlook = readPluginCredentialContributions(pluginResponse(
+      path.join(marketplaceRoot, 'xiaojing-outlook'),
+      'xiaojing-outlook',
+      'xiaojing-outlook',
+    ));
+
+    expect(knowledge).toHaveLength(1);
+    expect(outlook).toHaveLength(1);
+    expect(knowledge[0]).toMatchObject({
+      key: 'aihub/token',
+      env: 'AIHUB_MCP_TOKEN',
+      scope: 'marketplace',
+      mcpServers: ['xiaojing-knowledge-base'],
+    });
+    expect(outlook[0]).toMatchObject({
+      key: knowledge[0].key,
+      env: knowledge[0].env,
+      scope: knowledge[0].scope,
+      mcpServers: ['xiaojing-outlook'],
+    });
+  });
 });
 
 async function fixtureRoot(manifest: Record<string, unknown>): Promise<string> {
@@ -108,7 +230,11 @@ async function fixtureRoot(manifest: Record<string, unknown>): Promise<string> {
   return root;
 }
 
-function pluginResponse(root: string): PluginReadResponse {
+function pluginResponse(
+  root: string,
+  pluginName = 'fixture-plugin',
+  mcpServer = 'fixture-mcp',
+): PluginReadResponse {
   return {
     plugin: {
       marketplaceName: 'fixture-marketplace',
@@ -116,8 +242,8 @@ function pluginResponse(root: string): PluginReadResponse {
       shareUrl: null,
       description: 'fixture',
       summary: {
-        id: 'fixture-plugin',
-        name: 'fixture-plugin',
+        id: pluginName,
+        name: pluginName,
         source: { type: 'local', path: root },
         interface: { displayName: 'Fixture Plugin' },
       },
@@ -125,7 +251,7 @@ function pluginResponse(root: string): PluginReadResponse {
       hooks: [],
       apps: [],
       appTemplates: [],
-      mcpServers: ['fixture-mcp'],
+      mcpServers: [mcpServer],
       scheduledTasks: null,
     },
   } as unknown as PluginReadResponse;

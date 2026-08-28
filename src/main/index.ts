@@ -18,6 +18,7 @@ import { TurnChangesStore } from './turn-changes';
 import { ScheduledTaskStore } from './scheduled-tasks';
 import { resolveSidecarPath } from './sidecar-path';
 import { registerPluginUiProtocol, registerPluginUiSchemes } from './plugin-ui';
+import { PluginCredentialStore } from './plugin-credential-store';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -37,11 +38,21 @@ async function createWindow(): Promise<void> {
   const diagnosticLog = new DiagnosticLog(path.join(data.logsRoot, 'app-server.log'));
   const projects = new ProjectStore(data.uiStateRoot);
   const extensionPolicy = new ExtensionPolicyStore(data.uiStateRoot);
+  const pluginCredentials = new PluginCredentialStore(data.uiStateRoot);
   const runtimeSettings = new RuntimeSettingsStore(data.uiStateRoot);
   const turnPlans = new TurnPlanStore(data.uiStateRoot);
   const turnChanges = new TurnChangesStore(data.uiStateRoot);
   const scheduledTasks = new ScheduledTaskStore(data.uiStateRoot);
   const branding = runtimeSettings.readBranding();
+  const pluginCredentialEnvironment = () => {
+    const resolved = pluginCredentials.resolveLaunchEnvironment(
+      extensionPolicy.activeCredentials(),
+    );
+    for (const error of resolved.errors) {
+      diagnosticLog.write('runtime', `插件凭据未注入：${error}`);
+    }
+    return resolved.environment;
+  };
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -106,7 +117,10 @@ async function createWindow(): Promise<void> {
         sanitizeStandaloneMcpConfig(data.codexHome);
         const runtime = runtimeSettings.launchConfiguration();
         return {
-          environment: runtime.environment,
+          environment: {
+            ...runtime.environment,
+            ...pluginCredentialEnvironment(),
+          },
           configOverrides: [
             ...runtime.configOverrides,
             ...extensionPolicy.launchConfigOverrides(),
@@ -119,6 +133,7 @@ async function createWindow(): Promise<void> {
       projects,
       extensionPolicy,
       runtimeSettings,
+      pluginCredentials,
       turnPlans,
       turnChanges,
       scheduledTasks,
@@ -149,7 +164,10 @@ async function createWindow(): Promise<void> {
       launchConfiguration: () => {
         const runtime = runtimeSettings.launchConfiguration();
         return {
-          environment: runtime.environment,
+          environment: {
+            ...runtime.environment,
+            ...pluginCredentialEnvironment(),
+          },
           configOverrides: [
             ...runtime.configOverrides,
             ...extensionPolicy.launchConfigOverrides(),
@@ -162,6 +180,7 @@ async function createWindow(): Promise<void> {
       projects,
       extensionPolicy,
       runtimeSettings,
+      pluginCredentials,
       turnPlans,
       turnChanges,
       scheduledTasks,

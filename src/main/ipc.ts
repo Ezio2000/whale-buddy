@@ -1,10 +1,10 @@
 import { BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { ZodType } from 'zod';
 import { IPC } from '../shared/ipc';
 import type {
   PluginContributionDetails,
+  PluginLocationInput,
   RuntimeBrandingSettings,
   ScheduledTask,
   StartTurnInput,
@@ -25,6 +25,7 @@ import {
   mcpLoginSchema,
   mcpSetEnabledSchema,
   pluginListSchema,
+  pluginCredentialConfigureSchema,
   pluginLocationSchema,
   pluginUninstallSchema,
   pluginSetEnabledSchema,
@@ -50,6 +51,7 @@ import { attachmentFromPath, saveClipboardAttachment } from './clipboard-attachm
 import type { ExtensionPolicyStore } from './extension-policy';
 import type { ProjectStore } from './projects';
 import type { RuntimeSettingsStore } from './runtime-settings';
+import type { PluginCredentialStore } from './plugin-credential-store';
 import type { TurnPlanStore } from './turn-plans';
 import type { TurnChangesStore } from './turn-changes';
 import {
@@ -75,12 +77,15 @@ import {
   replacePluginUiRegistry,
 } from './plugin-ui';
 import { callPluginMcpTool } from './plugin-mcp-client';
+import { readPluginCredentialContributions } from './plugin-credential-manifest';
+import { readTextInside, resolvePluginRoot } from './plugin-manifest';
 
 interface RegisterIpcOptions {
   appServer: AppServerClient;
   extensionPolicy: ExtensionPolicyStore;
   projects: ProjectStore;
   runtimeSettings: RuntimeSettingsStore;
+  pluginCredentials: PluginCredentialStore;
   turnPlans: TurnPlanStore;
   turnChanges: TurnChangesStore;
   scheduledTasks: ScheduledTaskStore;
@@ -113,6 +118,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     extensionPolicy,
     projects,
     runtimeSettings,
+    pluginCredentials,
     turnPlans,
     turnChanges,
     scheduledTasks,
@@ -406,6 +412,18 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     };
   };
 
+  const readPluginDetail = async (input: PluginLocationInput): Promise<PluginReadResponse> => {
+    assertSourceEnabled(extensionPolicy, input.marketplaceName);
+    const response = await appServer.request(
+      'plugin/read',
+      pluginLocationParams(input),
+    ) as PluginReadResponse;
+    if (response.plugin.summary.id !== input.pluginId) {
+      throw new Error('插件详情与请求不匹配');
+    }
+    return response;
+  };
+
   handle(IPC.runtimeStatus, null, () => appServer.status());
   handle(IPC.runtimeRestart, null, async () => {
     await appServer.restart();
@@ -599,20 +617,55 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   handle(IPC.pluginsList, pluginListSchema, (input) =>
     loadVisiblePluginCatalog(input.forceRefetch ?? false),
   );
-  handle(IPC.pluginsRead, pluginLocationSchema, (input) => {
-    assertSourceEnabled(extensionPolicy, input.marketplaceName);
-    return appServer.request('plugin/read', pluginLocationParams(input));
-  });
+  handle(IPC.pluginsRead, pluginLocationSchema, readPluginDetail);
   handle(IPC.pluginsContributions, pluginLocationSchema, async (input) => {
-    assertSourceEnabled(extensionPolicy, input.marketplaceName);
-    const response = await appServer.request(
-      'plugin/read',
-      pluginLocationParams(input),
-    ) as PluginReadResponse;
-    if (response.plugin.summary.id !== input.pluginId) {
-      throw new Error('插件详情与贡献读取请求不匹配');
-    }
+    const response = await readPluginDetail(input);
     return readPluginContributionDetails(response);
+  });
+  handle(IPC.pluginsCredentials, pluginLocationSchema, async (input) => {
+    const response = await readPluginDetail(input);
+    return {
+      pluginId: input.pluginId,
+      credentials: pluginCredentials.values(
+        input.marketplaceName,
+        readPluginCredentialContributions(response),
+      ),
+    };
+  });
+  handle(IPC.pluginsConfigureCredential, pluginCredentialConfigureSchema, async (input) => {
+    const plugin = extensionPolicy.snapshot().plugins.find(
+      (entry) => entry.pluginId === input.pluginId,
+    );
+    if (!plugin) throw new Error('请先下载插件，再配置凭据');
+    if (plugin.marketplaceName !== normalizeExtensionName(input.marketplaceName)) {
+      throw new Error('插件与商城来源不匹配');
+    }
+    const response = await readPluginDetail(input);
+    const credentials = readPluginCredentialContributions(response);
+    const credential = credentials.find((entry) => entry.id === input.credentialId);
+    if (!credential) throw new Error('插件未声明此凭据贡献点');
+    if (
+      input.value === null
+      && (
+        extensionPolicy.isCredentialRequiredByEnabledPlugin(input.marketplaceName, credential.key)
+        || (
+          extensionPolicy.isPluginEnabled(input.pluginId)
+          && credential.required
+          && credential.mcpServers.some((server) => plugin.enabledMcpServers.includes(server))
+        )
+      )
+    ) {
+      throw new Error('该凭据正在被已启用插件使用，请先停用相关插件');
+    }
+    pluginCredentials.configure(input.marketplaceName, credential.key, input.value);
+    extensionPolicy.updatePluginCredentials(input.pluginId, credentials);
+    if (extensionPolicy.isCredentialActive(input.marketplaceName, credential.key)) {
+      await appServer.restart();
+    }
+    return {
+      pluginId: input.pluginId,
+      credentials: pluginCredentials.values(input.marketplaceName, credentials),
+    };
   });
   handle(IPC.pluginsUiList, null, async () => {
     const catalog = await loadVisiblePluginCatalog(false);
@@ -632,7 +685,13 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
           if (response.plugin.summary.id !== summary.id) continue;
           const descriptor = readPluginUiDescriptor(response);
           const root = pluginUiRoot(response);
-          if (descriptor && root) entries.push({ descriptor, root });
+          if (descriptor && root) {
+            descriptor.credentials = pluginCredentials.values(
+              marketplace.name,
+              readPluginCredentialContributions(response),
+            );
+            entries.push({ descriptor, root });
+          }
         } catch {
           // An invalid UI contribution must not hide or disable the base plugin.
         }
@@ -654,7 +713,13 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       throw new Error(`MCP 服务 ${input.server} 尚未启用`);
     }
     return callPluginMcpTool(
-      pluginMcpHttpConnection(input.pluginId, input.server),
+      pluginMcpHttpConnection(
+        input.pluginId,
+        input.server,
+        pluginCredentials.launchEnvironment(
+          extensionPolicy.activeCredentialsForMcp(input.pluginId, input.server),
+        ),
+      ),
       input.tool,
       input.arguments ?? {},
     );
@@ -683,6 +748,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       input.pluginId,
       input.marketplaceName,
       detailResponse.plugin.mcpServers,
+      readPluginCredentialContributions(detailResponse),
     );
     await appServer.restart();
     return response;
@@ -690,6 +756,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   handle(IPC.pluginsUninstall, pluginUninstallSchema, async ({ pluginId }) => {
     await appServer.request('plugin/uninstall', { pluginId });
     extensionPolicy.removePlugin(pluginId);
+    pluginCredentials.prune(extensionPolicy.allCredentialReferences());
     replacePluginUiRegistry([]);
     await appServer.restart();
   });
@@ -703,6 +770,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     }
 
     let declaredMcpServers = plugin.mcpServers;
+    let credentials = plugin.credentials;
     if (enabled) {
       const detailResponse = await appServer.request(
         'plugin/read',
@@ -712,6 +780,16 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
         throw new Error('插件详情与启用请求不匹配');
       }
       declaredMcpServers = detailResponse.plugin.mcpServers;
+      credentials = readPluginCredentialContributions(detailResponse);
+      const missingCredentials = pluginCredentials.missingRequired(
+        input.marketplaceName,
+        credentials,
+      );
+      if (missingCredentials.length > 0) {
+        throw new Error(
+          `请先配置插件凭据：${missingCredentials.map((credential) => credential.label).join('、')}`,
+        );
+      }
       for (const skill of detailResponse.plugin.skills) {
         if (!skill.path) continue;
         await appServer.request('skills/config/write', {
@@ -732,6 +810,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       pluginId,
       enabled,
       declaredMcpServers,
+      credentials,
     );
     replacePluginUiRegistry([]);
     await appServer.restart();
@@ -1048,58 +1127,22 @@ function readPluginContributionDetails(
   const skills = root
     ? plugin.skills.flatMap((skill) => {
       if (!skill.path) return [];
-      const contents = readPluginTextFile(root, skill.path);
+      const contents = readTextInside(root, skill.path);
       return contents === null ? [] : [{ name: skill.name, path: skill.path, contents }];
     })
     : [];
   return { skills, mcp: root ? readPluginMcpConfig(root) : null };
 }
 
-function resolvePluginRoot(plugin: PluginReadResponse['plugin']): string | null {
-  const source = plugin.summary.source;
-  const candidates: string[] = [];
-  if (source.type === 'local') {
-    candidates.push(source.path);
-    if (plugin.marketplacePath && !path.isAbsolute(source.path)) {
-      const marketplaceRoot = path.resolve(path.dirname(plugin.marketplacePath), '..', '..');
-      candidates.push(path.resolve(marketplaceRoot, source.path));
-    }
-  }
-  if (source.type === 'git' && source.path && plugin.marketplacePath) {
-    const marketplaceRoot = path.resolve(path.dirname(plugin.marketplacePath), '..', '..');
-    candidates.push(path.resolve(marketplaceRoot, source.path));
-  }
-  for (const skill of plugin.skills) {
-    if (!skill.path) continue;
-    let current = path.dirname(skill.path);
-    for (let depth = 0; depth < 5; depth += 1) {
-      if (existsSync(path.join(current, '.codex-plugin', 'plugin.json'))) {
-        candidates.push(current);
-        break;
-      }
-      current = path.dirname(current);
-    }
-  }
-  for (const candidate of candidates) {
-    try {
-      const resolved = realpathSync(candidate);
-      if (existsSync(path.join(resolved, '.codex-plugin', 'plugin.json'))) return resolved;
-    } catch {
-      // Ignore stale catalog paths and try the next authoritative candidate.
-    }
-  }
-  return null;
-}
-
 function readPluginMcpConfig(root: string): PluginContributionDetails['mcp'] {
   const manifestPath = path.join(root, '.codex-plugin', 'plugin.json');
-  const manifestContents = readPluginTextFile(root, manifestPath);
+  const manifestContents = readTextInside(root, manifestPath);
   if (manifestContents === null) return null;
   const manifest = parseJsonRecord(manifestContents);
   const declaration = manifest?.mcpServers;
   if (typeof declaration === 'string') {
     const configPath = path.resolve(root, declaration);
-    const contents = readPluginTextFile(root, configPath);
+    const contents = readTextInside(root, configPath);
     if (contents === null) return null;
     const config = parseJsonRecord(contents);
     return {
@@ -1115,19 +1158,6 @@ function readPluginMcpConfig(root: string): PluginContributionDetails['mcp'] {
     contents: JSON.stringify(inline, null, 2),
     servers: recordEntries(inline),
   };
-}
-
-function readPluginTextFile(root: string, candidate: string): string | null {
-  try {
-    const resolvedRoot = realpathSync(root);
-    const resolvedFile = realpathSync(path.isAbsolute(candidate) ? candidate : path.resolve(root, candidate));
-    const relative = path.relative(resolvedRoot, resolvedFile);
-    if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
-    const contents = readFileSync(resolvedFile, 'utf8');
-    return contents.length <= 2_000_000 ? contents : null;
-  } catch {
-    return null;
-  }
 }
 
 function parseJsonRecord(contents: string): Record<string, unknown> | null {

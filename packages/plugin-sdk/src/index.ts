@@ -17,6 +17,20 @@ export interface ToolCallContext {
   readOnlyHint: boolean | null;
 }
 
+export interface PluginCredential {
+  id: string;
+  type: 'credential';
+  key: string;
+  credentialType: 'apiKey' | 'bearerToken';
+  label: string;
+  description: string;
+  env: string;
+  required: boolean;
+  scope: 'marketplace';
+  mcpServers: string[];
+  value: string | null;
+}
+
 export interface WhalePluginContext {
   apiVersion: 1;
   pluginId: string;
@@ -26,6 +40,7 @@ export interface WhalePluginContext {
   locale: string;
   theme: 'light' | 'dark';
   threadId: string;
+  credentials: PluginCredential[];
   toolCall?: ToolCallContext;
 }
 

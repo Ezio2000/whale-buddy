@@ -1,6 +1,8 @@
 import type { JsonValue } from './types';
+import type { PluginCredentialValue } from './plugin-credentials';
 
-export const WHALE_PLUGIN_UI_API_VERSION = 1;
+export const WHALE_PLUGIN_API_VERSION = 1;
+export const WHALE_PLUGIN_UI_API_VERSION = WHALE_PLUGIN_API_VERSION;
 export const WHALE_PLUGIN_MESSAGE_CHANNEL = 'whale-plugin-ui-v1';
 
 export type PluginUiContribution =
@@ -25,6 +27,7 @@ export interface PluginUiDescriptor {
   apiVersion: number;
   contributions: PluginUiContribution[];
   uiMcpPermissions: Array<{ server: string; tools: string[] }>;
+  credentials: PluginCredentialValue[];
 }
 
 export interface PluginComposerContextValue {
@@ -62,5 +65,6 @@ export interface PluginUiFrameContext {
   locale: string;
   theme: 'light' | 'dark';
   threadId: string;
+  credentials: PluginCredentialValue[];
   toolCall?: PluginToolCardContext;
 }

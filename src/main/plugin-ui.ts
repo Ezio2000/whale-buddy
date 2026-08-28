@@ -1,5 +1,5 @@
 import { protocol } from 'electron';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { PluginReadResponse } from '../generated/protocol/typescript/v2/PluginReadResponse';
 import {
@@ -7,6 +7,13 @@ import {
   type PluginUiContribution,
   type PluginUiDescriptor,
 } from '../shared/plugin-ui';
+import {
+  isInside,
+  readJsonInside,
+  readWhalePluginManifest,
+  record,
+  resolvePluginRoot,
+} from './plugin-manifest';
 
 const pluginRoots = new Map<string, string>();
 const pluginDescriptors = new Map<string, PluginUiDescriptor>();
@@ -51,12 +58,9 @@ export function registerPluginUiProtocol(): void {
 
 export function readPluginUiDescriptor(response: PluginReadResponse): PluginUiDescriptor | null {
   const plugin = response.plugin;
-  const root = resolvePluginRoot(plugin);
-  if (!root) return null;
-  const manifestPath = path.join(root, '.codex-plugin', 'plugin.json');
-  const manifest = parseRecord(readTextInside(root, manifestPath));
-  const whale = record(manifest?.whale);
-  if (!whale || whale.apiVersion !== WHALE_PLUGIN_UI_API_VERSION) return null;
+  const resolved = readWhalePluginManifest(response);
+  if (!resolved || resolved.whale.apiVersion !== WHALE_PLUGIN_UI_API_VERSION) return null;
+  const { root, whale } = resolved;
 
   const declaredServers = new Set(plugin.mcpServers);
   const permissions = parsePermissions(whale.uiMcpPermissions, declaredServers);
@@ -74,6 +78,7 @@ export function readPluginUiDescriptor(response: PluginReadResponse): PluginUiDe
     apiVersion: WHALE_PLUGIN_UI_API_VERSION,
     contributions,
     uiMcpPermissions: permissions,
+    credentials: [],
   };
 }
 
@@ -113,10 +118,11 @@ export function assertPluginUiToolPermission(
 export function pluginMcpHttpConnection(
   pluginId: string,
   server: string,
+  credentialEnvironment: NodeJS.ProcessEnv = {},
 ): PluginMcpHttpConnection {
   const root = pluginRoots.get(pluginId);
   if (!root) throw new Error('插件 UI 尚未加载或插件已停用');
-  const manifest = parseRecord(readTextInside(root, path.join(root, '.mcp.json')));
+  const manifest = readJsonInside(root, path.join(root, '.mcp.json'));
   const servers = record(manifest?.mcpServers);
   const config = record(servers?.[server]);
   const url = boundedString(config?.url, 4_096);
@@ -133,6 +139,13 @@ export function pluginMcpHttpConnection(
     if (name.length <= 256 && typeof value === 'string' && value.length <= 16_384) {
       headers[name] = value;
     }
+  }
+  const bearerTokenEnvironment = boundedString(config?.bearer_token_env_var, 256);
+  const bearerToken = bearerTokenEnvironment
+    ? credentialEnvironment[bearerTokenEnvironment]
+    : undefined;
+  if (bearerToken && !Object.keys(headers).some((name) => name.toLowerCase() === 'authorization')) {
+    headers.Authorization = `Bearer ${bearerToken}`;
   }
   const timeoutSeconds = typeof config?.tool_timeout_sec === 'number'
     ? config.tool_timeout_sec
@@ -198,42 +211,6 @@ function parsePermissions(
   });
 }
 
-function resolvePluginRoot(plugin: PluginReadResponse['plugin']): string | null {
-  const source = plugin.summary.source;
-  const candidates: string[] = [];
-  if (source.type === 'local') {
-    candidates.push(source.path);
-    if (plugin.marketplacePath && !path.isAbsolute(source.path)) {
-      const marketplaceRoot = path.resolve(path.dirname(plugin.marketplacePath), '..', '..');
-      candidates.push(path.resolve(marketplaceRoot, source.path));
-    }
-  }
-  if (source.type === 'git' && source.path && plugin.marketplacePath) {
-    const marketplaceRoot = path.resolve(path.dirname(plugin.marketplacePath), '..', '..');
-    candidates.push(path.resolve(marketplaceRoot, source.path));
-  }
-  for (const skill of plugin.skills) {
-    if (!skill.path) continue;
-    let current = path.dirname(skill.path);
-    for (let depth = 0; depth < 8; depth += 1) {
-      if (existsSync(path.join(current, '.codex-plugin', 'plugin.json'))) {
-        candidates.push(current);
-        break;
-      }
-      current = path.dirname(current);
-    }
-  }
-  for (const candidate of candidates) {
-    try {
-      const resolved = realpathSync(candidate);
-      if (existsSync(path.join(resolved, '.codex-plugin', 'plugin.json'))) return resolved;
-    } catch {
-      // Ignore stale catalog paths.
-    }
-  }
-  return null;
-}
-
 function resolveEntry(root: string, entry: string): string | null {
   try {
     const resolved = realpathSync(path.resolve(root, entry));
@@ -241,22 +218,6 @@ function resolveEntry(root: string, entry: string): string | null {
   } catch {
     return null;
   }
-}
-
-function readTextInside(root: string, candidate: string): string | null {
-  try {
-    const resolved = realpathSync(candidate);
-    if (!isInside(root, resolved)) return null;
-    const contents = readFileSync(resolved, 'utf8');
-    return contents.length <= 2_000_000 ? contents : null;
-  } catch {
-    return null;
-  }
-}
-
-function isInside(root: string, candidate: string): boolean {
-  const relative = path.relative(realpathSync(root), candidate);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function pluginAssetUrl(pluginId: string, relative: string): string {
@@ -304,21 +265,6 @@ function contentType(filePath: string): string {
     case '.woff2': return 'font/woff2';
     default: return 'application/octet-stream';
   }
-}
-
-function parseRecord(value: string | null): Record<string, unknown> | null {
-  if (!value) return null;
-  try {
-    return record(JSON.parse(value));
-  } catch {
-    return null;
-  }
-}
-
-function record(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
 }
 
 function boundedString(value: unknown, max: number): string | null {

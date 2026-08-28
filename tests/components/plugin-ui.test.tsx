@@ -31,6 +31,19 @@ const descriptor: PluginUiDescriptor = {
     },
   ],
   uiMcpPermissions: [{ server: 'fixture-mcp', tools: ['list_fixture'] }],
+  credentials: [{
+    id: 'fixture-token',
+    type: 'credential',
+    key: 'fixture/token',
+    credentialType: 'bearerToken',
+    label: 'Fixture Token',
+    description: 'Fixture credential',
+    env: 'FIXTURE_MCP_TOKEN',
+    required: true,
+    scope: 'marketplace',
+    mcpServers: ['fixture-mcp'],
+    value: 'fixture-secret',
+  }],
 };
 
 beforeEach(() => {
@@ -74,13 +87,19 @@ describe('plugin UI contributions', () => {
   it('loads an enabled composer widget in an isolated frame', async () => {
     render(<PluginUiProvider><Composer /></PluginUiProvider>);
 
-    const frame = await screen.findByTitle('Fixture Plugin · fixture-widget');
+    const frame = await screen.findByTitle<HTMLIFrameElement>('Fixture Plugin · fixture-widget');
     expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin');
     expect(frame).toHaveAttribute('scrolling', 'no');
     expect(frame).toHaveAttribute('src', descriptor.contributions[0].entryUrl);
     expect(frame.closest('.composer-tools')).toBeInTheDocument();
     expect(frame.parentElement?.querySelector('.plugin-composer-icon')).not.toBeInTheDocument();
     expect(screen.queryByText(/Shift\+Enter/)).not.toBeInTheDocument();
+    const postMessage = vi.spyOn(frame.contentWindow!, 'postMessage');
+    fireEvent.load(frame);
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'host:init',
+      context: expect.objectContaining({ credentials: descriptor.credentials }),
+    }), '*');
   });
 
   it('keeps Whale status chrome while delegating MCP card content', async () => {

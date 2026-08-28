@@ -165,6 +165,10 @@ export const pluginLocationSchema = z
   .strict();
 
 export const pluginUninstallSchema = z.object({ pluginId: idSchema }).strict();
+export const pluginCredentialConfigureSchema = pluginLocationSchema.extend({
+  credentialId: idSchema,
+  value: z.string().max(16_384).nullable(),
+}).strict();
 export const pluginSetEnabledSchema = z
   .object({
     pluginId: idSchema,

@@ -3,6 +3,20 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ExtensionPolicyStore } from '../../src/main/extension-policy';
+import type { PluginCredentialContribution } from '../../src/shared/plugin-credentials';
+
+const fixtureCredential: PluginCredentialContribution = {
+  id: 'fixture-token',
+  type: 'credential',
+  key: 'fixture/token',
+  credentialType: 'bearerToken',
+  label: 'Fixture Token',
+  description: 'Fixture credential',
+  env: 'FIXTURE_MCP_TOKEN',
+  required: true,
+  scope: 'marketplace',
+  mcpServers: ['demo-mcp'],
+};
 
 describe('ExtensionPolicyStore', () => {
   it('starts with a fail-closed runtime and no enabled extension sources', async () => {
@@ -55,6 +69,33 @@ describe('ExtensionPolicyStore', () => {
       'plugins."demo@private-tools".enabled=true',
       'plugins."demo@private-tools".mcp_servers."demo-mcp".enabled=true',
     ]));
+  });
+
+  it('activates persisted credential contributions only with their plugin MCP', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    const store = new ExtensionPolicyStore(root);
+    store.addMarketplace('private-tools', '/private/catalog', null);
+    store.registerPlugin('demo@private-tools', 'private-tools', ['demo-mcp'], [fixtureCredential]);
+
+    expect(store.activeCredentials()).toEqual([]);
+    store.setPluginEnabled('demo@private-tools', true);
+    expect(store.activeCredentials()).toEqual([{
+      ...fixtureCredential,
+      pluginId: 'demo@private-tools',
+      marketplaceName: 'private-tools',
+    }]);
+    expect(store.activeCredentialsForMcp('demo@private-tools', 'demo-mcp')).toEqual([{
+      ...fixtureCredential,
+      pluginId: 'demo@private-tools',
+      marketplaceName: 'private-tools',
+    }]);
+    expect(store.activeCredentialsForMcp('demo@private-tools', 'other-mcp')).toEqual([]);
+
+    store.setMcpEnabled('demo@private-tools', 'demo-mcp', false);
+    expect(store.activeCredentials()).toEqual([]);
+    expect(new ExtensionPolicyStore(root).snapshot().plugins[0].credentials).toEqual([
+      fixtureCredential,
+    ]);
   });
 
   it('only selects enabled Git marketplaces for remote upgrades', async () => {

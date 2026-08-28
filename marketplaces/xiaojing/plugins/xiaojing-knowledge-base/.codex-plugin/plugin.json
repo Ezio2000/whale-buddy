@@ -1,6 +1,6 @@
 {
   "name": "xiaojing-knowledge-base",
-  "version": "0.2.0+codex.20260827080614",
+  "version": "0.2.0+codex.20260828093141",
   "description": "\u641c\u7d22\u5f53\u524d\u7528\u6237\u83b7\u6388\u6743\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
   "author": {
     "name": "AI\u5c0f\u9cb8"
@@ -42,6 +42,22 @@
           "gac_kb_list_datasets",
           "gac_kb_search"
         ]
+      },
+      {
+        "id": "aihub-token",
+        "type": "credential",
+        "key": "aihub/token",
+        "credentialType": "bearerToken",
+        "label": "AIHub Token",
+        "description": "\u7528\u4e8e\u8bbf\u95ee\u5c0f\u9cb8\u77e5\u8bc6\u5e93\u548c Outlook \u670d\u52a1\u3002",
+        "env": "AIHUB_MCP_TOKEN",
+        "required": true,
+        "scope": "marketplace",
+        "usedBy": {
+          "mcpServers": [
+            "xiaojing-knowledge-base"
+          ]
+        }
       }
     ],
     "uiMcpPermissions": [

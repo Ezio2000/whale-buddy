@@ -10,6 +10,7 @@ import type { ExtensionPolicySnapshot } from './extension-policy';
 import type { SkillsListResponse } from '../generated/protocol/typescript/v2/SkillsListResponse';
 import type { ModelProviderCapabilitiesReadResponse } from '../generated/protocol/typescript/v2/ModelProviderCapabilitiesReadResponse';
 import type { PluginUiCallToolInput, PluginUiDescriptor } from './plugin-ui';
+import type { PluginCredentialsSnapshot } from './plugin-credentials';
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -249,6 +250,11 @@ export interface PluginLocationInput {
   pluginName: string;
 }
 
+export interface PluginCredentialConfigureInput extends PluginLocationInput {
+  credentialId: string;
+  value: string | null;
+}
+
 export interface PluginContributionDetails {
   skills: Array<{
     name: string;
@@ -359,6 +365,8 @@ export interface WhaleApi {
     list(input?: { cwd?: string; forceRefetch?: boolean }): Promise<PluginListResponse>;
     read(input: PluginLocationInput): Promise<PluginReadResponse>;
     contributions(input: PluginLocationInput): Promise<PluginContributionDetails>;
+    credentials(input: PluginLocationInput): Promise<PluginCredentialsSnapshot>;
+    configureCredential(input: PluginCredentialConfigureInput): Promise<PluginCredentialsSnapshot>;
     install(input: PluginLocationInput): Promise<PluginInstallResponse>;
     uninstall(pluginId: string): Promise<void>;
     setEnabled(

@@ -1,3 +1,6 @@
+import type { PluginCredentialContribution } from './plugin-credentials';
+export type { ActivePluginCredential } from './plugin-credentials';
+
 const RETIRED_PRESET_SOURCE_NAMES = [
   'codex-bundled-skills',
   'codex-apps',
@@ -24,6 +27,7 @@ export interface ExtensionPluginPolicy {
   enabled: boolean;
   mcpServers: string[];
   enabledMcpServers: string[];
+  credentials: PluginCredentialContribution[];
 }
 
 export interface ExtensionPolicySnapshot {

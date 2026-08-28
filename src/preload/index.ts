@@ -19,6 +19,7 @@ import {
   mcpLoginSchema,
   mcpSetEnabledSchema,
   pluginListSchema,
+  pluginCredentialConfigureSchema,
   pluginLocationSchema,
   pluginUninstallSchema,
   pluginSetEnabledSchema,
@@ -101,6 +102,10 @@ const api: WhaleApi = {
     read: (input) => invoke(IPC.pluginsRead, pluginLocationSchema.parse(input)),
     contributions: (input) =>
       invoke(IPC.pluginsContributions, pluginLocationSchema.parse(input)),
+    credentials: (input) =>
+      invoke(IPC.pluginsCredentials, pluginLocationSchema.parse(input)),
+    configureCredential: (input) =>
+      invoke(IPC.pluginsConfigureCredential, pluginCredentialConfigureSchema.parse(input)),
     install: (input) => invoke(IPC.pluginsInstall, pluginLocationSchema.parse(input)),
     uninstall: (pluginId) =>
       invoke(IPC.pluginsUninstall, pluginUninstallSchema.parse({ pluginId })),

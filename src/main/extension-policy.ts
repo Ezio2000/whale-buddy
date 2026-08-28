@@ -9,6 +9,14 @@ import {
   type ExtensionPolicySnapshot,
   type ExtensionSource,
 } from '../shared/extension-policy';
+import type {
+  ActivePluginCredential,
+  PluginCredentialContribution,
+} from '../shared/plugin-credentials';
+import {
+  isPluginCredentialEnvironmentName,
+  isPluginCredentialKey,
+} from '../shared/plugin-credentials';
 
 interface StoredMarketplaceSource {
   name: string;
@@ -51,6 +59,7 @@ export class ExtensionPolicyStore {
         ...plugin,
         mcpServers: [...plugin.mcpServers],
         enabledMcpServers: [...plugin.enabledMcpServers],
+        credentials: plugin.credentials.map(cloneCredential),
       })),
       enabledSkillPaths: [],
     };
@@ -138,6 +147,7 @@ export class ExtensionPolicyStore {
     pluginId: string,
     marketplaceName: string,
     mcpServers: string[],
+    credentials: PluginCredentialContribution[] = [],
   ): ExtensionPolicySnapshot {
     const normalizedId = pluginId.trim();
     const current = this.state.plugins.find((plugin) => plugin.pluginId === normalizedId);
@@ -147,6 +157,7 @@ export class ExtensionPolicyStore {
       enabled: false,
       mcpServers: [...new Set(mcpServers)].sort(),
       enabledMcpServers: [],
+      credentials: credentials.map(cloneCredential),
     };
     if (current) Object.assign(current, next);
     else this.state.plugins.push(next);
@@ -164,16 +175,28 @@ export class ExtensionPolicyStore {
     pluginId: string,
     enabled: boolean,
     declaredMcpServers?: string[],
+    credentials?: PluginCredentialContribution[],
   ): ExtensionPolicySnapshot {
     const plugin = this.requirePlugin(pluginId);
     if (declaredMcpServers) {
       plugin.mcpServers = [...new Set(declaredMcpServers)].sort();
     }
+    if (credentials) plugin.credentials = credentials.map(cloneCredential);
     plugin.enabled = enabled;
     // Child overrides are session preferences, not permanent defaults. Every
     // plugin activation starts from its manifest defaults: all declared MCP
     // servers are enabled. Individual servers may then be disabled again.
     plugin.enabledMcpServers = enabled ? [...plugin.mcpServers] : [];
+    this.persist();
+    return this.snapshot();
+  }
+
+  updatePluginCredentials(
+    pluginId: string,
+    credentials: PluginCredentialContribution[],
+  ): ExtensionPolicySnapshot {
+    const plugin = this.requirePlugin(pluginId);
+    plugin.credentials = credentials.map(cloneCredential);
     this.persist();
     return this.snapshot();
   }
@@ -216,6 +239,53 @@ export class ExtensionPolicyStore {
       plugin
       && this.isPluginEnabled(pluginId)
       && plugin.enabledMcpServers.includes(serverName),
+    );
+  }
+
+  activeCredentials(): ActivePluginCredential[] {
+    return this.state.plugins.flatMap((plugin) => {
+      if (!this.isPluginEnabled(plugin.pluginId)) return [];
+      return plugin.credentials.flatMap((credential) =>
+        credential.mcpServers.some((server) => plugin.enabledMcpServers.includes(server))
+          ? [{
+              ...cloneCredential(credential),
+              pluginId: plugin.pluginId,
+              marketplaceName: plugin.marketplaceName,
+            }]
+          : []
+      );
+    });
+  }
+
+  activeCredentialsForMcp(pluginId: string, serverName: string): ActivePluginCredential[] {
+    return this.activeCredentials().filter(
+      (credential) =>
+        credential.pluginId === pluginId
+        && credential.mcpServers.includes(serverName),
+    );
+  }
+
+  allCredentialReferences(): Array<{ marketplaceName: string; key: string }> {
+    return this.state.plugins.flatMap((plugin) => plugin.credentials.map((credential) => ({
+      marketplaceName: plugin.marketplaceName,
+      key: credential.key,
+    })));
+  }
+
+  isCredentialRequiredByEnabledPlugin(marketplaceName: string, key: string): boolean {
+    const marketplace = normalizeExtensionName(marketplaceName);
+    return this.activeCredentials().some(
+      (credential) =>
+        credential.marketplaceName === marketplace
+        && credential.key === key
+        && credential.required,
+    );
+  }
+
+  isCredentialActive(marketplaceName: string, key: string): boolean {
+    const marketplace = normalizeExtensionName(marketplaceName);
+    return this.activeCredentials().some(
+      (credential) => credential.marketplaceName === marketplace && credential.key === key,
     );
   }
 
@@ -267,9 +337,17 @@ export class ExtensionPolicyStore {
         marketplaces: parsed.marketplaces.filter(
           (marketplace) => !isRetiredPresetSourceName(marketplace.name),
         ),
-        plugins: parsed.plugins.filter(
-          (plugin) => !isRetiredPresetSourceName(plugin.marketplaceName),
-        ),
+        plugins: parsed.plugins
+          .filter((plugin) => !isRetiredPresetSourceName(plugin.marketplaceName))
+          .map((plugin) => ({
+            ...plugin,
+            credentials: Array.isArray(plugin.credentials)
+              ? plugin.credentials.flatMap((credential) => {
+                  const normalized = storedCredential(credential, plugin.mcpServers);
+                  return normalized ? [normalized] : [];
+                })
+              : [],
+          })),
         enabledSkillPaths: [],
       };
     } catch {
@@ -285,6 +363,52 @@ export class ExtensionPolicyStore {
     });
     renameSync(temporaryPath, this.filePath);
   }
+}
+
+function cloneCredential(credential: PluginCredentialContribution): PluginCredentialContribution {
+  return { ...credential, mcpServers: [...credential.mcpServers] };
+}
+
+function storedCredential(
+  value: unknown,
+  declaredMcpServers: string[],
+): PluginCredentialContribution | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const credential = value as Partial<PluginCredentialContribution>;
+  const declared = new Set(declaredMcpServers);
+  const mcpServers = Array.isArray(credential.mcpServers)
+    ? credential.mcpServers.filter(
+        (server): server is string => typeof server === 'string' && declared.has(server),
+      )
+    : [];
+  if (
+    typeof credential.id !== 'string'
+    || credential.type !== 'credential'
+    || typeof credential.key !== 'string'
+    || !isPluginCredentialKey(credential.key)
+    || (credential.credentialType !== 'apiKey' && credential.credentialType !== 'bearerToken')
+    || typeof credential.label !== 'string'
+    || typeof credential.description !== 'string'
+    || typeof credential.env !== 'string'
+    || !isPluginCredentialEnvironmentName(credential.env)
+    || typeof credential.required !== 'boolean'
+    || credential.scope !== 'marketplace'
+    || mcpServers.length === 0
+  ) {
+    return null;
+  }
+  return {
+    id: credential.id,
+    type: 'credential',
+    key: credential.key,
+    credentialType: credential.credentialType,
+    label: credential.label,
+    description: credential.description,
+    env: credential.env,
+    required: credential.required,
+    scope: 'marketplace',
+    mcpServers: [...new Set(mcpServers)],
+  };
 }
 
 function isLocalMarketplaceSource(source: string): boolean {

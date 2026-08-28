@@ -37,6 +37,7 @@ import type {
   ExtensionSource,
 } from '../../shared/extension-policy';
 import type { PluginUiContribution, PluginUiDescriptor } from '../../shared/plugin-ui';
+import type { PluginCredentialValue } from '../../shared/plugin-credentials';
 import type { PluginLocationInput } from '../../shared/types';
 import { useAppStore } from '../state/store';
 
@@ -97,6 +98,7 @@ export function PluginMarketplaceDialog() {
     useState<ExtensionPolicySnapshot>(emptyExtensionPolicy);
   const [selectedLocation, setSelectedLocation] = useState<PluginLocationInput | null>(null);
   const [detail, setDetail] = useState<PluginDetail | null>(null);
+  const [credentials, setCredentials] = useState<PluginCredentialValue[]>([]);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [capabilityDetail, setCapabilityDetail] =
@@ -192,17 +194,26 @@ export function PluginMarketplaceDialog() {
   useEffect(() => {
     if (!open || !selectedLocation) {
       setDetail(null);
+      setCredentials([]);
       return;
     }
     let cancelled = false;
     setDetailLoading(true);
     setDetail(null);
-    void window.whale.plugins.read(selectedLocation)
-      .then((response) => {
-        if (!cancelled) setDetail(response.plugin);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(`读取插件详情失败：${errorMessage(reason)}`);
+    setCredentials([]);
+    void Promise.allSettled([
+      window.whale.plugins.read(selectedLocation),
+      window.whale.plugins.credentials(selectedLocation),
+    ])
+      .then(([detailResult, credentialResult]) => {
+        if (cancelled) return;
+        if (detailResult.status === 'fulfilled') setDetail(detailResult.value.plugin);
+        else setError(`读取插件详情失败：${errorMessage(detailResult.reason)}`);
+        if (credentialResult.status === 'fulfilled') {
+          setCredentials(credentialResult.value.credentials);
+        } else {
+          setError(`读取插件凭据失败：${errorMessage(credentialResult.reason)}`);
+        }
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
@@ -391,6 +402,31 @@ export function PluginMarketplaceDialog() {
       await refreshAfterMutation('插件已卸载，缓存贡献不会再参与运行。');
     } catch (reason) {
       setError(`卸载失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const configureCredential = async (
+    credentialId: string,
+    value: string | null,
+  ): Promise<void> => {
+    if (!selectedLocation) throw new Error('尚未选择插件');
+    setMutationKey(`credential:${credentialId}`);
+    setError(null);
+    setMessage(null);
+    try {
+      const snapshot = await window.whale.plugins.configureCredential({
+        ...selectedLocation,
+        credentialId,
+        value,
+      });
+      setCredentials(snapshot.credentials);
+      window.dispatchEvent(new Event('whale-plugin-ui-refresh'));
+      setMessage(value === null ? '插件凭据已清除。' : '插件凭据已安全保存并生效。');
+    } catch (reason) {
+      setError(`更新插件凭据失败：${errorMessage(reason)}`);
+      throw reason;
     } finally {
       setMutationKey(null);
     }
@@ -645,6 +681,7 @@ export function PluginMarketplaceDialog() {
                 pluginPolicies={extensionPolicy.plugins}
                 effectiveSkills={effectiveSkills}
                 pluginUi={pluginUi}
+                credentials={credentials}
                 onSelect={setSelectedLocation}
                 onMutate={(located) => void mutatePlugin(located)}
                 onUninstall={(located) => void uninstallPlugin(located)}
@@ -652,6 +689,7 @@ export function PluginMarketplaceDialog() {
                 onToggleMcp={(pluginId, name, enabled) =>
                   void toggleDeclaredMcp(pluginId, name, enabled)
                 }
+                onConfigureCredential={configureCredential}
               />
             )}
             {tab === 'skills' && (
@@ -730,11 +768,13 @@ function PluginBrowser({
   pluginPolicies,
   effectiveSkills,
   pluginUi,
+  credentials,
   onSelect,
   onMutate,
   onUninstall,
   onToggleSkill,
   onToggleMcp,
+  onConfigureCredential,
 }: {
   plugins: LocatedPlugin[];
   featuredIds: string[];
@@ -745,11 +785,13 @@ function PluginBrowser({
   pluginPolicies: ExtensionPluginPolicy[];
   effectiveSkills: SkillMetadata[];
   pluginUi: PluginUiDescriptor[];
+  credentials: PluginCredentialValue[];
   onSelect: (location: PluginLocationInput) => void;
   onMutate: (plugin: LocatedPlugin) => void;
   onUninstall: (plugin: LocatedPlugin) => void;
   onToggleSkill: (skill: SkillMetadata) => void;
   onToggleMcp: (pluginId: string, name: string, enabled: boolean) => void;
+  onConfigureCredential: (credentialId: string, value: string | null) => Promise<void>;
 }) {
   if (!plugins.length) {
     return <EmptyState icon={<PackageOpen size={24} />} title="没有找到插件" description="可以刷新目录、清除搜索，或在“商城源”中添加一个插件目录。" />;
@@ -780,7 +822,7 @@ function PluginBrowser({
               </button>
               <button
                 className={`button ${located.plugin.installed ? 'secondary' : 'primary'} plugin-card-action`}
-                disabled={mutationKey === located.plugin.id || located.plugin.availability !== 'AVAILABLE'}
+                disabled={mutationKey !== null || located.plugin.availability !== 'AVAILABLE'}
                 onClick={() => onMutate(located)}
               >
                 {mutationKey === located.plugin.id ? <LoaderCircle className="spin" size={12} /> : located.plugin.installed ? enabled ? <CircleOff size={12} /> : <ShieldCheck size={12} /> : <Download size={12} />}
@@ -805,6 +847,7 @@ function PluginBrowser({
           uiContributions={selectedPlugin
             ? pluginUi.find((descriptor) => descriptor.pluginId === selectedPlugin.plugin.id)?.contributions ?? []
             : []}
+          credentials={credentials}
           mutationKey={mutationKey}
           onMutate={() => selectedPlugin && onMutate(selectedPlugin)}
           onUninstall={() => selectedPlugin && onUninstall(selectedPlugin)}
@@ -812,6 +855,7 @@ function PluginBrowser({
           onToggleMcp={(name, enabled) =>
             selectedPlugin && onToggleMcp(selectedPlugin.plugin.id, name, enabled)
           }
+          onConfigureCredential={onConfigureCredential}
         />
       </aside>
     </div>
@@ -827,11 +871,13 @@ function PluginDetailView({
   pluginPolicy,
   effectiveSkills,
   uiContributions,
+  credentials,
   mutationKey,
   onMutate,
   onUninstall,
   onToggleSkill,
   onToggleMcp,
+  onConfigureCredential,
 }: {
   located: LocatedPlugin | null;
   detail: PluginDetail | null;
@@ -841,15 +887,20 @@ function PluginDetailView({
   pluginPolicy: ExtensionPluginPolicy | null;
   effectiveSkills: SkillMetadata[];
   uiContributions: PluginUiContribution[];
+  credentials: PluginCredentialValue[];
   mutationKey: string | null;
   onMutate: () => void;
   onUninstall: () => void;
   onToggleSkill: (skill: SkillMetadata) => void;
   onToggleMcp: (name: string, enabled: boolean) => void;
+  onConfigureCredential: (credentialId: string, value: string | null) => Promise<void>;
 }) {
   if (!located) return <EmptyState icon={<Boxes size={22} />} title="选择一个插件" description="查看它包含的 Skills 与 MCP 服务。" />;
   const { plugin, marketplace } = located;
   const pluginEnabled = pluginPolicy?.enabled === true;
+  const missingRequiredCredential = credentials.some(
+    (credential) => credential.required && !credential.value,
+  );
   return (
     <div className="plugin-detail-scroll">
       <div className="plugin-detail-hero">
@@ -863,19 +914,20 @@ function PluginDetailView({
       <div className="plugin-detail-badges">
         {plugin.installed && <span className="positive"><Check size={11} /> 已安装</span>}
         {pluginEnabled && <span><ShieldCheck size={11} /> 已启用</span>}
+        {missingRequiredCredential && <span className="warning"><KeyRound size={11} /> 缺少凭据</span>}
         {plugin.version && <span>v{plugin.version}</span>}
       </div>
       <div className="plugin-detail-actions">
         <button
           className={`button ${plugin.installed ? 'secondary' : 'primary'}`}
-          disabled={mutating || plugin.availability !== 'AVAILABLE'}
+          disabled={mutationKey !== null || plugin.availability !== 'AVAILABLE'}
           onClick={onMutate}
         >
           {mutating ? <LoaderCircle className="spin" size={13} /> : plugin.installed ? pluginEnabled ? <CircleOff size={13} /> : <ShieldCheck size={13} /> : <Download size={13} />}
           {plugin.installed ? pluginEnabled ? '停用插件' : '启用插件' : plugin.availability === 'AVAILABLE' ? '下载插件' : '当前不可下载'}
         </button>
         {plugin.installed && (
-          <button className="button secondary danger" disabled={uninstalling} onClick={onUninstall}>
+          <button className="button secondary danger" disabled={mutationKey !== null} onClick={onUninstall}>
             {uninstalling ? <LoaderCircle className="spin" size={13} /> : <Trash2 size={13} />} 卸载插件
           </button>
         )}
@@ -886,6 +938,22 @@ function PluginDetailView({
       {loading && <div className="detail-loading"><LoaderCircle className="spin" size={15} /> 正在读取清单…</div>}
       {detail && (
         <>
+          {credentials.length > 0 && (
+            <DetailSection icon={<KeyRound size={13} />} title={`凭据 · ${credentials.length}`}>
+              <div className="plugin-credential-list">
+                {credentials.map((credential) => (
+                  <PluginCredentialForm
+                    key={`${plugin.id}:${credential.id}`}
+                    credential={credential}
+                    installed={plugin.installed}
+                    busy={mutationKey === `credential:${credential.id}`}
+                    disabled={mutationKey !== null}
+                    onConfigure={onConfigureCredential}
+                  />
+                ))}
+              </div>
+            </DetailSection>
+          )}
           <DetailSection icon={<Sparkles size={13} />} title={`Skills · ${detail.skills.length}`}>
             {detail.skills.length ? detail.skills.map((skill) => {
               const effective = effectiveSkills.find((candidate) =>
@@ -973,6 +1041,82 @@ function PluginDetailView({
         </>
       )}
     </div>
+  );
+}
+
+function PluginCredentialForm({
+  credential,
+  installed,
+  busy,
+  disabled,
+  onConfigure,
+}: {
+  credential: PluginCredentialValue;
+  installed: boolean;
+  busy: boolean;
+  disabled: boolean;
+  onConfigure: (credentialId: string, value: string | null) => Promise<void>;
+}) {
+  const [value, setValue] = useState(credential.value ?? '');
+  useEffect(() => setValue(credential.value ?? ''), [credential.value]);
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!value.trim()) return;
+    try {
+      await onConfigure(credential.id, value);
+    } catch {
+      // Parent keeps the user-facing error visible and the draft intact.
+    }
+  };
+  const clear = async () => {
+    if (!window.confirm(`清除“${credential.label}”？`)) return;
+    try {
+      await onConfigure(credential.id, null);
+      setValue('');
+    } catch {
+      // Parent keeps the user-facing error visible.
+    }
+  };
+  return (
+    <form className="plugin-credential-card" onSubmit={(event) => void save(event)}>
+      <div className="plugin-credential-heading">
+        <span>
+          <strong>{credential.label}</strong>
+          <small>{credential.description}</small>
+        </span>
+        <span className={`mini-state ${credential.value ? 'configured' : ''}`}>
+          {credential.value ? '已配置' : credential.required ? '必填' : '可选'}
+        </span>
+      </div>
+      <div className="plugin-credential-controls">
+        <input
+          type="text"
+          aria-label={`${credential.label} 凭据`}
+          autoComplete="off"
+          value={value}
+          disabled={!installed || disabled}
+          placeholder="输入凭据"
+          onChange={(event) => setValue(event.target.value)}
+        />
+        <button className="button primary" disabled={!installed || disabled || !value.trim()}>
+          {busy ? <LoaderCircle className="spin" size={11} /> : <ShieldCheck size={11} />}
+          保存
+        </button>
+        {credential.value && (
+          <button
+            className="button secondary"
+            type="button"
+            disabled={!installed || disabled}
+            onClick={() => void clear()}
+          >
+            清除
+          </button>
+        )}
+      </div>
+      <small className="plugin-credential-scope">
+        {installed ? '明文保存在本机，并由同一商城内声明相同凭据键的插件共享。' : '下载插件后才能保存凭据。'}
+      </small>
+    </form>
   );
 }
 

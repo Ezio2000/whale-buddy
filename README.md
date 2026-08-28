@@ -170,12 +170,20 @@ MiniMax-M3 的 Codex 模型能力目录。该目录声明 reasoning、工具和�
 - “Skills”按当前项目列出已启用插件贡献的 Skill，并允许逐项停用或重新启用。
 - “MCP”只列出插件声明的服务，可在插件启用后逐项停用或重新启用。每次停用或卸载插件后
   再启用，插件下的全部 Skills 与 MCP 都恢复为默认开启。
+- 插件可在 `whale.contributions` 中声明 `credential`。Whale 会在插件详情中生成明文
+  输入框，并把值直接写入 `userData/ui-state/plugin-credentials.json`；renderer 和插件
+  iframe 都能读取完整值。相关插件和 MCP 启用时，Whale 会向 sidecar 注入声明的环境变量；
+  缺少必填凭据时插件不能启用。同一商城内使用相同 `key` 的插件共享一份凭据。
 - “商城源”只管理用户手动添加的 Git/本地商城，不包含任何预设来源。开关是运行时授权，
   不是界面过滤；关闭来源会让其插件、Skills 与 MCP
   在 sidecar 重启后全部失效，缓存保持惰性。
 
 插件安装、卸载和商城源移除都会要求显式确认。MCP OAuth URL 只在主进程验证为
 HTTP/HTTPS 后交给系统浏览器，不会把登录 URL 或凭据暴露给 renderer。
+
+Xiaojing 的知识库和 Outlook 插件都声明共享凭据 `aihub/token`。下载插件后，在插件详情
+填写一次 AIHub Token；Whale 会为对应 MCP 提供 `AIHUB_MCP_TOKEN`。这一机制完全位于
+Whale 宿主层，不修改官方 Codex sidecar 或 app-server 协议。
 
 如果 sidecar 启动失败，可从重连横幅直接打开“连接设置”，或查看应用数据目录中的
 `logs/app-server.log`。非空但无法解析的

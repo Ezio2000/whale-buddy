@@ -1,20 +1,47 @@
 {
   "name": "xiaojing-outlook",
-  "version": "0.1.0",
-  "description": "统一查询 Outlook 日历、企业通讯录、个人联系人和邮件，并通过不可变预览安全发送邮件。",
+  "version": "0.1.0+codex.20260828093141",
+  "description": "\u7edf\u4e00\u67e5\u8be2 Outlook \u65e5\u5386\u3001\u4f01\u4e1a\u901a\u8baf\u5f55\u3001\u4e2a\u4eba\u8054\u7cfb\u4eba\u548c\u90ae\u4ef6\uff0c\u5e76\u901a\u8fc7\u4e0d\u53ef\u53d8\u9884\u89c8\u5b89\u5168\u53d1\u9001\u90ae\u4ef6\u3002",
   "author": {
-    "name": "AI小鲸"
+    "name": "AI\u5c0f\u9cb8"
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "小鲸 Outlook",
-    "shortDescription": "统一处理日历、联系人和邮件。",
-    "longDescription": "通过 AIHub MCP 查询当前用户的 Outlook 日历、企业通讯录、个人联系人和邮件。邮件发送与回复采用不可变预览和短码确认流程。",
-    "developerName": "AI小鲸",
+    "displayName": "\u5c0f\u9cb8 Outlook",
+    "shortDescription": "\u7edf\u4e00\u5904\u7406\u65e5\u5386\u3001\u8054\u7cfb\u4eba\u548c\u90ae\u4ef6\u3002",
+    "longDescription": "\u901a\u8fc7 AIHub MCP \u67e5\u8be2\u5f53\u524d\u7528\u6237\u7684 Outlook \u65e5\u5386\u3001\u4f01\u4e1a\u901a\u8baf\u5f55\u3001\u4e2a\u4eba\u8054\u7cfb\u4eba\u548c\u90ae\u4ef6\u3002\u90ae\u4ef6\u53d1\u9001\u4e0e\u56de\u590d\u91c7\u7528\u4e0d\u53ef\u53d8\u9884\u89c8\u548c\u77ed\u7801\u786e\u8ba4\u6d41\u7a0b\u3002",
+    "developerName": "AI\u5c0f\u9cb8",
     "category": "Productivity",
-    "capabilities": ["MCP", "Outlook", "Calendar", "Contacts", "Mail"],
+    "capabilities": [
+      "MCP",
+      "Outlook",
+      "Calendar",
+      "Contacts",
+      "Mail"
+    ],
     "brandColor": "#3A6F9B",
-    "defaultPrompt": "帮我查询 Outlook 日历、联系人或邮件；涉及发送时先创建预览并等待我确认。"
+    "defaultPrompt": "\u5e2e\u6211\u67e5\u8be2 Outlook \u65e5\u5386\u3001\u8054\u7cfb\u4eba\u6216\u90ae\u4ef6\uff1b\u6d89\u53ca\u53d1\u9001\u65f6\u5148\u521b\u5efa\u9884\u89c8\u5e76\u7b49\u5f85\u6211\u786e\u8ba4\u3002"
   },
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "whale": {
+    "apiVersion": 1,
+    "contributions": [
+      {
+        "id": "aihub-token",
+        "type": "credential",
+        "key": "aihub/token",
+        "credentialType": "bearerToken",
+        "label": "AIHub Token",
+        "description": "\u7528\u4e8e\u8bbf\u95ee\u5c0f\u9cb8\u77e5\u8bc6\u5e93\u548c Outlook \u670d\u52a1\u3002",
+        "env": "AIHUB_MCP_TOKEN",
+        "required": true,
+        "scope": "marketplace",
+        "usedBy": {
+          "mcpServers": [
+            "xiaojing-outlook"
+          ]
+        }
+      }
+    ]
+  }
 }

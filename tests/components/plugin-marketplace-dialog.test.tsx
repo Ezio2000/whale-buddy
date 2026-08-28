@@ -104,6 +104,7 @@ const extensionPolicy: ExtensionPolicySnapshot = {
       enabled: true,
       mcpServers: ['fixture-mcp'],
       enabledMcpServers: ['fixture-mcp'],
+      credentials: [],
     },
   ],
   enabledSkillPaths: [],
@@ -146,6 +147,14 @@ beforeEach(() => {
           }],
         },
       }),
+      credentials: vi.fn().mockResolvedValue({
+        pluginId: 'fixture-plugin',
+        credentials: [],
+      }),
+      configureCredential: vi.fn().mockResolvedValue({
+        pluginId: 'fixture-plugin',
+        credentials: [],
+      }),
       uiList: vi.fn().mockResolvedValue([{
         pluginId: 'fixture-plugin',
         pluginName: 'fixture-tools',
@@ -167,6 +176,7 @@ beforeEach(() => {
           },
         ],
         uiMcpPermissions: [],
+        credentials: [],
       }]),
       install: vi.fn().mockResolvedValue({ authPolicy: 'ON_USE', appsNeedingAuth: [] }),
       uninstall: vi.fn().mockResolvedValue(undefined),
@@ -254,6 +264,57 @@ afterEach(() => {
 });
 
 describe('PluginMarketplaceDialog', () => {
+  it('renders host credential contributions and saves secrets through Whale IPC', async () => {
+    const installedPlugin = {
+      ...pluginResponse.marketplaces[0].plugins[0],
+      installed: true,
+      enabled: false,
+    };
+    const credential = {
+      id: 'aihub-token',
+      type: 'credential' as const,
+      key: 'aihub/token',
+      credentialType: 'bearerToken' as const,
+      label: 'AIHub Token',
+      description: '访问小鲸服务',
+      env: 'AIHUB_MCP_TOKEN',
+      required: true,
+      scope: 'marketplace' as const,
+      mcpServers: ['fixture-mcp'],
+      value: null,
+    };
+    vi.mocked(window.whale.plugins.list).mockResolvedValue({
+      ...pluginResponse,
+      marketplaces: [{ ...pluginResponse.marketplaces[0], plugins: [installedPlugin] }],
+    });
+    vi.mocked(window.whale.plugins.credentials).mockResolvedValue({
+      pluginId: 'fixture-plugin',
+      credentials: [credential],
+    });
+    vi.mocked(window.whale.plugins.configureCredential).mockResolvedValue({
+      pluginId: 'fixture-plugin',
+      credentials: [{ ...credential, value: 'fixture-secret' }],
+    });
+
+    render(<PluginMarketplaceDialog />);
+
+    const input = await screen.findByLabelText('AIHub Token 凭据');
+    expect(screen.getByText('缺少凭据')).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'fixture-secret' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => expect(window.whale.plugins.configureCredential).toHaveBeenCalledWith({
+      pluginId: 'fixture-plugin',
+      marketplaceName: 'fixture-marketplace',
+      marketplacePath: '/fixture/marketplace.json',
+      pluginName: 'fixture-tools',
+      credentialId: 'aihub-token',
+      value: 'fixture-secret',
+    }));
+    expect(await screen.findByText('已配置')).toBeInTheDocument();
+    expect(input).toHaveValue('fixture-secret');
+  });
+
   it('keeps contribution rows in the plugin detail pane static and compact', async () => {
     const installedPlugin = {
       ...pluginResponse.marketplaces[0].plugins[0],

@@ -46,8 +46,9 @@ export function PluginUiFrame({
     locale: document.documentElement.lang || 'zh-CN',
     theme,
     threadId,
+    credentials: descriptor.credentials,
     ...(toolCall ? { toolCall } : {}),
-  }), [contribution.id, contribution.type, descriptor.pluginId, descriptor.pluginName, theme, threadId, toolCall]);
+  }), [contribution.id, contribution.type, descriptor.credentials, descriptor.pluginId, descriptor.pluginName, theme, threadId, toolCall]);
 
   const sendContext = useCallback((type: 'host:init' | 'host:context') => {
     iframeRef.current?.contentWindow?.postMessage({
