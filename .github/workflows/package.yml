@@ -24,8 +24,12 @@ env:
   CODEX_EXPECTED_VERSION: codex-cli 0.150.0-alpha.12
 
 jobs:
-  validate-release-input:
-    runs-on: ubuntu-latest
+  macos-arm64:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'macos' }}
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      CODEX_PACKAGE_ASSET: codex-package-aarch64-apple-darwin.tar.gz
     steps:
       - uses: actions/checkout@v4
 
@@ -34,16 +38,6 @@ jobs:
         run: |
           package_version="$(node -p "require('./package.json').version")"
           test "$GITHUB_REF_NAME" = "v$package_version"
-
-  macos-arm64:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'macos' }}
-    needs: validate-release-input
-    runs-on: macos-14
-    timeout-minutes: 45
-    env:
-      CODEX_PACKAGE_ASSET: codex-package-aarch64-apple-darwin.tar.gz
-    steps:
-      - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
@@ -98,13 +92,21 @@ jobs:
 
   windows-x64:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'windows' }}
-    needs: validate-release-input
     runs-on: windows-2025
     timeout-minutes: 45
     env:
       CODEX_PACKAGE_ASSET: codex-package-x86_64-pc-windows-msvc.tar.gz
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify release tag matches package version
+        if: ${{ github.event_name == 'push' }}
+        shell: pwsh
+        run: |
+          $packageVersion = node -p "require('./package.json').version"
+          if ($env:GITHUB_REF_NAME -ne "v$packageVersion") {
+            throw "Release tag $env:GITHUB_REF_NAME does not match package version $packageVersion"
+          }
 
       - uses: pnpm/action-setup@v4
         with:
