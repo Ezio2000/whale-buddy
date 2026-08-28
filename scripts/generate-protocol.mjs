@@ -22,10 +22,12 @@ execFileSync(binary, ['app-server', 'generate-json-schema', '--out', jsonRoot], 
 });
 
 const versionOutput = execFileSync(binary, ['--version'], { encoding: 'utf8' }).trim();
-const submoduleHead = execFileSync('git', ['-C', 'codex-source', 'rev-parse', 'HEAD'], {
-  cwd: projectRoot,
-  encoding: 'utf8',
-}).trim();
+const codexRevision =
+  process.env.WHALE_CODEX_REVISION ??
+  execFileSync('git', ['-C', 'codex-source', 'rev-parse', 'HEAD'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+  }).trim();
 const packageJson = JSON.parse(readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
 
 writeFileSync(
@@ -34,7 +36,7 @@ writeFileSync(
     {
       generatedAt: new Date().toISOString(),
       codexVersion: versionOutput,
-      codexCommit: submoduleHead,
+      codexCommit: codexRevision,
       clientVersion: packageJson.version,
       experimentalApi: false,
     },

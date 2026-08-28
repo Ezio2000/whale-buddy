@@ -1,6 +1,9 @@
 name: Package desktop installers
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       platform:
@@ -16,11 +19,29 @@ on:
 permissions:
   contents: read
 
+env:
+  CODEX_RELEASE_TAG: rust-v0.150.0-alpha.12
+  CODEX_EXPECTED_VERSION: codex-cli 0.150.0-alpha.12
+
 jobs:
+  validate-release-input:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify release tag matches package version
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          test "$GITHUB_REF_NAME" = "v$package_version"
+
   macos-arm64:
-    if: ${{ inputs.platform == 'all' || inputs.platform == 'macos' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'macos' }}
+    needs: validate-release-input
     runs-on: macos-14
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      CODEX_PACKAGE_ASSET: codex-package-aarch64-apple-darwin.tar.gz
     steps:
       - uses: actions/checkout@v4
 
@@ -35,18 +56,33 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Restore pinned Codex sidecar
+      - name: Download official Codex sidecar
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p .sidecar/archive .sidecar/bin
-          gh release download sidecar-3e4707b \
-            --pattern codex-darwin-arm64-3e4707b.zip \
+          mkdir -p .sidecar/archive .sidecar/package
+          gh release download "$CODEX_RELEASE_TAG" \
+            --repo openai/codex \
+            --pattern "$CODEX_PACKAGE_ASSET" \
+            --pattern codex-package_SHA256SUMS \
             --dir .sidecar/archive
-          ditto -x -k .sidecar/archive/codex-darwin-arm64-3e4707b.zip .sidecar/bin
-          chmod +x .sidecar/bin/codex .sidecar/bin/codex-code-mode-host
-          echo "WHALE_CODEX_BIN=$GITHUB_WORKSPACE/.sidecar/bin/codex" >> "$GITHUB_ENV"
+          grep "  $CODEX_PACKAGE_ASSET$" .sidecar/archive/codex-package_SHA256SUMS \
+            > .sidecar/archive/expected.sha256
+          (cd .sidecar/archive && shasum -a 256 -c expected.sha256)
+          tar -xzf ".sidecar/archive/$CODEX_PACKAGE_ASSET" -C .sidecar/package
+          chmod +x .sidecar/package/bin/codex .sidecar/package/bin/codex-code-mode-host
+          echo "WHALE_CODEX_BIN=$GITHUB_WORKSPACE/.sidecar/package/bin/codex" >> "$GITHUB_ENV"
+          echo "WHALE_CODEX_REVISION=$CODEX_RELEASE_TAG" >> "$GITHUB_ENV"
 
+      - name: Verify official Codex sidecar
+        run: |
+          version="$($WHALE_CODEX_BIN --version)"
+          test "$version" = "$CODEX_EXPECTED_VERSION"
+          test -x "$(dirname "$WHALE_CODEX_BIN")/codex-code-mode-host"
+          file "$WHALE_CODEX_BIN" | grep -q 'arm64'
+          file "$(dirname "$WHALE_CODEX_BIN")/codex-code-mode-host" | grep -q 'arm64'
+
+      - run: pnpm protocol:generate
       - run: pnpm sidecar:check
       - run: pnpm plugins:build
       - run: pnpm typecheck
@@ -61,9 +97,12 @@ jobs:
           if-no-files-found: error
 
   windows-x64:
-    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'windows' }}
+    needs: validate-release-input
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      CODEX_PACKAGE_ASSET: codex-package-x86_64-pc-windows-msvc.tar.gz
     steps:
       - uses: actions/checkout@v4
 
@@ -78,29 +117,50 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Restore pinned Codex sidecar
+      - name: Download official Codex sidecar
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Force .sidecar/archive, .sidecar/bin | Out-Null
-          gh release download sidecar-3e4707b `
-            --pattern codex-win32-x64-3e4707b.zip `
+          New-Item -ItemType Directory -Force .sidecar/archive, .sidecar/package | Out-Null
+          gh release download $env:CODEX_RELEASE_TAG `
+            --repo openai/codex `
+            --pattern $env:CODEX_PACKAGE_ASSET `
+            --pattern codex-package_SHA256SUMS `
             --dir .sidecar/archive
-          Expand-Archive .sidecar/archive/codex-win32-x64-3e4707b.zip .sidecar/bin -Force
-          "WHALE_CODEX_BIN=$env:GITHUB_WORKSPACE/.sidecar/bin/codex.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $checksumLine = Get-Content .sidecar/archive/codex-package_SHA256SUMS |
+            Where-Object { $_.EndsWith("  $env:CODEX_PACKAGE_ASSET") } |
+            Select-Object -First 1
+          $checksumMatch = [regex]::Match($checksumLine, '^([0-9a-f]{64})  ')
+          if (-not $checksumMatch.Success) {
+            throw "Missing official checksum for $env:CODEX_PACKAGE_ASSET"
+          }
+          $expected = $checksumMatch.Groups[1].Value
+          $archive = Join-Path $env:GITHUB_WORKSPACE ".sidecar/archive/$env:CODEX_PACKAGE_ASSET"
+          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Codex package checksum mismatch: expected=$expected actual=$actual"
+          }
+          tar -xzf $archive -C .sidecar/package
+          "WHALE_CODEX_BIN=$env:GITHUB_WORKSPACE/.sidecar/package/bin/codex.exe" |
+            Out-File -FilePath $env:GITHUB_ENV -Append
+          "WHALE_CODEX_REVISION=$env:CODEX_RELEASE_TAG" |
+            Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Verify pinned Windows sidecar
+      - name: Verify official Codex sidecar
         shell: pwsh
         run: |
-          $version = & $env:WHALE_CODEX_BIN --version
-          if ($version -ne "codex-cli 0.150.0-alpha.12") {
+          $version = (& $env:WHALE_CODEX_BIN --version).Trim()
+          if ($version -ne $env:CODEX_EXPECTED_VERSION) {
             throw "Unexpected Windows Codex version: $version"
           }
           $hostPath = Join-Path (Split-Path $env:WHALE_CODEX_BIN) "codex-code-mode-host.exe"
           if (-not (Test-Path $hostPath)) {
             throw "Missing Windows Code Mode host: $hostPath"
           }
+
+      - run: pnpm protocol:generate
+      - run: pnpm sidecar:check
       - run: pnpm plugins:build
       - run: pnpm typecheck
       - run: pnpm exec electron-forge make --platform=win32 --arch=x64
@@ -110,3 +170,52 @@ jobs:
           name: AI-Xiaojing-Windows-x64
           path: out/make/squirrel.windows/x64/*
           if-no-files-found: error
+
+  publish-release:
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    needs: [macos-arm64, windows-x64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: AI-Xiaojing-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Stage distributable files
+        run: |
+          mkdir release-files
+          find release-artifacts -type f \
+            \( -name '*.dmg' -o -name '*.zip' -o -name '*Setup.exe' \) \
+            -print0 \
+            | while IFS= read -r -d '' source; do
+                target="release-files/$(basename "$source")"
+                test ! -e "$target"
+                cp "$source" "$target"
+              done
+
+      - name: Create checksums
+        run: |
+          cd release-files
+          find . -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  \./#  #' > SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' files < <(find release-files -type f -print0 | sort -z)
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Whale Buddy $GITHUB_REF_NAME" \
+              --generate-notes
+          fi

@@ -49,6 +49,25 @@ pnpm app:run           # 停止旧实例、构建并启动当前平台应用
 pnpm app:verify        # 构建、启动并确认应用保持运行
 ```
 
+## GitHub 安装包构建
+
+`.github/workflows/package.yml` 直接从 OpenAI 官方 `openai/codex` Release 下载固定版本的
+macOS arm64 与 Windows x64 `codex-package`，使用官方 `codex-package_SHA256SUMS` 校验后，
+分别在 GitHub 的 macOS 和 Windows 原生 runner 上生成协议并制作安装包。该流程不编译
+Codex、不依赖私有 sidecar 缓存，也不需要本地虚拟机、Wine、Rust 或 uv。
+
+可以在 GitHub Actions 中手动选择 `all`、`macos` 或 `windows`。推送与 `package.json`
+版本匹配的 `v*` Tag 时，会构建两个平台、生成 `SHA256SUMS.txt`，并自动创建或更新
+对应的 GitHub Release：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+当前安装包仍未签名：DMG 未做 Developer ID 签名或 Apple 公证，Windows 安装器也未做
+Authenticode 签名。
+
 ## 架构与安全边界
 
 - `src/main` 管理单一 app-server 进程、请求关联、只读过载重试、故障重启、项目记录及
