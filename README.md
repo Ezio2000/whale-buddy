@@ -56,14 +56,51 @@ macOS arm64 与 Windows x64 `codex-package`，使用官方 `codex-package_SHA256
 分别在 GitHub 的 macOS 和 Windows 原生 runner 上生成协议并制作安装包。该流程不编译
 Codex、不依赖私有 sidecar 缓存，也不需要本地虚拟机、Wine、Rust 或 uv。
 
-可以在 GitHub Actions 中手动选择 `all`、`macos` 或 `windows`。推送与 `package.json`
-版本匹配的 `v*` Tag 时，会构建两个平台、生成 `SHA256SUMS.txt`，并自动创建或更新
-对应的 GitHub Release：
+工作流有两种触发方式。
+
+### 手动构建
+
+进入 GitHub 仓库的 **Actions → Package desktop installers → Run workflow**，选择：
+
+- `all`：并行构建 macOS arm64 和 Windows x64；
+- `macos`：只构建 DMG 和 ZIP；
+- `windows`：只构建 Squirrel `Setup.exe`、NUPKG 和 `RELEASES`。
+
+也可以使用 GitHub CLI：
+
+```bash
+gh workflow run package.yml --repo Ezio2000/whale-buddy -f platform=all
+```
+
+手动运行只在 Actions 运行页面底部生成 Artifacts，不会创建正式 GitHub Release。可使用
+网页下载，或执行：
+
+```bash
+gh run list --repo Ezio2000/whale-buddy --workflow package.yml --limit 1
+gh run download <RUN_ID> --repo Ezio2000/whale-buddy
+```
+
+### Tag 自动发布
+
+`package.json` 的版本必须与 Tag 一致。推送匹配的 `v*` Tag 后，工作流会自动构建两个
+平台、生成 `SHA256SUMS.txt`，并创建或更新对应的 GitHub Release：
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+版本不一致（例如 `package.json` 为 `0.1.0`，Tag 为 `v0.2.0`）时会立即停止发布。
+
+### 私有仓库额度不足时
+
+GitHub Free 私有仓库的 Actions 分钟耗尽或被 spending limit 阻止时，标准 runner 不会
+启动。若确认源码可以短暂公开，可在仓库 **Settings → General → Danger Zone → Change
+repository visibility** 中临时改为 Public，触发并等待工作流完成后立即改回 Private。
+公开期间源码、Git 历史和 Actions 日志对所有人可见，已经被克隆的内容无法收回。
+
+当前实测耗时约为 macOS 1 分 28 秒、Windows 3 分 41 秒。仓库保持 Private 时，也可以
+等待每月免费额度重置，或为 Actions 配置付款方式和月度预算。
 
 当前安装包仍未签名：DMG 未做 Developer ID 签名或 Apple 公证，Windows 安装器也未做
 Authenticode 签名。
