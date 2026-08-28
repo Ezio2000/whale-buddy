@@ -3,11 +3,18 @@ import type { JsonValue } from './types';
 
 export const idSchema = z.string().min(1).max(256);
 export const requestIdSchema = z.union([z.string().min(1), z.number().int().nonnegative()]);
+
+export function isAbsoluteFilesystemPath(value: string): boolean {
+  if (value.startsWith('/')) return true;
+  if (/^[A-Za-z]:[\\/]/.test(value)) return true;
+  return /^\\\\[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/.test(value);
+}
+
 export const absolutePathSchema = z
   .string()
   .min(1)
   .max(16_384)
-  .refine((value) => value.startsWith('/'), '必须是绝对路径');
+  .refine(isAbsoluteFilesystemPath, '必须是绝对路径');
 
 export const runtimeBrandingInputSchema = z
   .object({
