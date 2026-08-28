@@ -1,0 +1,90 @@
+name: Package desktop installers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-arm64:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Restore pinned Codex sidecar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .sidecar/archive .sidecar/bin
+          gh release download sidecar-3e4707b \
+            --pattern codex-darwin-arm64-3e4707b.zip \
+            --dir .sidecar/archive
+          ditto -x -k .sidecar/archive/codex-darwin-arm64-3e4707b.zip .sidecar/bin
+          chmod +x .sidecar/bin/codex .sidecar/bin/codex-code-mode-host
+          echo "WHALE_CODEX_BIN=$GITHUB_WORKSPACE/.sidecar/bin/codex" >> "$GITHUB_ENV"
+
+      - run: pnpm sidecar:check
+      - run: pnpm plugins:build
+      - run: pnpm typecheck
+      - run: pnpm exec electron-forge make --platform=darwin --arch=arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Xiaojing-macOS-arm64
+          path: |
+            out/make/*.dmg
+            out/make/zip/darwin/arm64/*.zip
+          if-no-files-found: error
+
+  windows-x64:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Restore pinned Codex sidecar
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force .sidecar/archive, .sidecar/bin | Out-Null
+          gh release download sidecar-3e4707b `
+            --pattern codex-win32-x64-3e4707b.zip `
+            --dir .sidecar/archive
+          Expand-Archive .sidecar/archive/codex-win32-x64-3e4707b.zip .sidecar/bin -Force
+          "WHALE_CODEX_BIN=$env:GITHUB_WORKSPACE/.sidecar/bin/codex.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - run: pnpm sidecar:check
+      - run: pnpm plugins:build
+      - run: pnpm typecheck
+      - run: pnpm exec electron-forge make --platform=win32 --arch=x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Xiaojing-Windows-x64
+          path: out/make/squirrel.windows/x64/*
+          if-no-files-found: error
