@@ -7,6 +7,7 @@ import {
   FolderOpen,
   GitFork,
   MoreHorizontal,
+  PanelTopOpen,
   PackageOpen,
   Plus,
   Settings,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { LocalProject, ThreadSummary } from '../../shared/types';
 import { useAppStore } from '../state/store';
+import { usePluginUi } from '../plugin-ui/PluginUiProvider';
 import { BrandMark } from './BrandMark';
 
 export function Sidebar() {
@@ -35,6 +37,11 @@ export function Sidebar() {
   const brandName = useAppStore((state) => state.branding.name);
   const workspaceView = useAppStore((state) => state.workspaceView);
   const setWorkspaceView = useAppStore((state) => state.setWorkspaceView);
+  const { activeNavigation, descriptors, selectNavigation } = usePluginUi();
+  const navigationPages = descriptors.flatMap((descriptor) => descriptor.contributions
+    .filter((contribution) => contribution.type === 'navigation.page')
+    .map((contribution) => ({ descriptor, contribution })))
+    .sort((left, right) => left.contribution.order - right.contribution.order);
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
   const projectThreads = selectedProject
     ? threads.filter((thread) => ownerProject(thread, projects)?.id === selectedProject.id)
@@ -119,6 +126,36 @@ export function Sidebar() {
           )}
         </div>
       </section>
+
+      {navigationPages.length > 0 && (
+        <section className="sidebar-section plugin-navigation-section">
+          <div className="sidebar-section-heading"><span>插件页面</span></div>
+          <div className="plugin-navigation-list">
+            {navigationPages.map(({ descriptor, contribution }) => {
+              const active = workspaceView === 'plugin'
+                && activeNavigation?.pluginId === descriptor.pluginId
+                && activeNavigation.contributionId === contribution.id;
+              return (
+                <button
+                  className={active ? 'active' : ''}
+                  key={`${descriptor.pluginId}:${contribution.id}`}
+                  title={`${descriptor.displayName} · ${contribution.title}`}
+                  onClick={() => {
+                    selectNavigation({
+                      pluginId: descriptor.pluginId,
+                      contributionId: contribution.id,
+                    });
+                    setWorkspaceView('plugin');
+                  }}
+                >
+                  <PanelTopOpen size={15} />
+                  <span>{contribution.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <div className="sidebar-footer">
         <button

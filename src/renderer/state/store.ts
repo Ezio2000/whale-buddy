@@ -69,7 +69,7 @@ interface AppState {
   commandPaletteOpen: boolean;
   busy: boolean;
   notice: string | null;
-  workspaceView: 'conversation' | 'schedules';
+  workspaceView: 'conversation' | 'schedules' | 'plugin';
   initialize(): Promise<void>;
   recover(): Promise<void>;
   handleEvent(event: WhaleEvent): void;
@@ -102,7 +102,7 @@ interface AppState {
   setPluginMarketplaceOpen(open: boolean): void;
   setCommandPaletteOpen(open: boolean): void;
   setNotice(notice: string | null): void;
-  setWorkspaceView(view: 'conversation' | 'schedules'): void;
+  setWorkspaceView(view: 'conversation' | 'schedules' | 'plugin'): void;
 }
 
 const defaultPreferences: Preferences = {

@@ -91,6 +91,12 @@ jobs:
             out/make/zip/darwin/arm64/*.zip
           if-no-files-found: error
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Whale-Plugin-UI
+          path: marketplaces/xiaojing/plugins/xiaojing-knowledge-base/ui/
+          if-no-files-found: error
+
   windows-x64:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'windows' }}
     runs-on: windows-2025

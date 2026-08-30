@@ -61,8 +61,11 @@ pnpm install --frozen-lockfile # 按锁文件安装测试依赖
 pnpm typecheck         # TypeScript 静态检查
 pnpm platform:check    # 检查平台差异没有越过策略目录边界
 pnpm test              # 单元与组件测试
-pnpm test:package:windows-layout # 在任意开发平台检查 Windows 包内 sidecar 布局
 ```
+
+`pnpm protocol:check` 和 `pnpm test:package:windows-layout` 都需要固定 sidecar，后者还会
+生成本地测试包，因此不属于本地验证命令。协议生成和安装包布局由 GitHub Actions 在下载
+并校验官方 sidecar 后覆盖验证。
 
 ## GitHub 安装包构建（唯一支持的构建方式）
 
@@ -194,6 +197,10 @@ MiniMax-M3 的 Codex 模型能力目录。该目录声明 reasoning、工具和�
   输入框，并把值直接写入 `userData/ui-state/plugin-credentials.json`；renderer 和插件
   iframe 都能读取完整值。相关插件和 MCP 启用时，Whale 会向 sidecar 注入声明的环境变量；
   缺少必填凭据时插件不能启用。同一商城内使用相同 `key` 的插件共享一份凭据。
+- 插件 UI 可声明 `navigation.page`、`command.action`、`thread.toolbarAction`、
+  `composer.action` 和 `message.card`，分别挂载到左侧导航、命令面板、线程标题栏、输入区
+  工具栏和会话消息流。已有的 `composer.widget` 与 `mcp.toolCard` 保持兼容；所有 iframe
+  都通过 `@whale-buddy/plugin-sdk` 接收当前项目、线程、消息和凭据上下文。
 - “商城源”只管理用户手动添加的 Git/本地商城，不包含任何预设来源。开关是运行时授权，
   不是界面过滤；关闭来源会让其插件、Skills 与 MCP
   在 sidecar 重启后全部失效，缓存保持惰性。

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, LoaderCircle, Paperclip, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
+import { ImagePlus, LoaderCircle, Paperclip, Puzzle, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
 import type {
   ExplicitSkillReference,
   ExplicitToolReference,
@@ -27,7 +27,7 @@ export function Composer() {
   const [savingClipboardAttachments, setSavingClipboardAttachments] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendComposer = useAppStore((state) => state.sendComposer);
-  const { descriptors, composerContexts } = usePluginUi();
+  const { descriptors, composerContexts, openAction } = usePluginUi();
   const interrupt = useAppStore((state) => state.interrupt);
   const setNotice = useAppStore((state) => state.setNotice);
   const project = useAppStore((state) =>
@@ -41,6 +41,15 @@ export function Composer() {
       .filter((contribution) => contribution.type === 'composer.widget')
       .map((contribution) => ({ descriptor, contribution })))
     .sort((left, right) => left.contribution.order - right.contribution.order), [descriptors]);
+  const composerActions = useMemo(() => descriptors
+    .flatMap((descriptor) => descriptor.contributions
+      .filter((contribution) => contribution.type === 'composer.action')
+      .map((contribution) => ({ descriptor, contribution })))
+    .sort((left, right) => left.contribution.order - right.contribution.order), [descriptors]);
+  const composerContextContributions = useMemo(
+    () => [...composerWidgets, ...composerActions],
+    [composerActions, composerWidgets],
+  );
   const slashQuery = /^\/([^\s]*)$/.exec(text.trim())?.[1] ?? null;
   const commandMatches = useMemo(
     () =>
@@ -131,7 +140,7 @@ export function Composer() {
 
   const submit = async () => {
     if (!text.trim() && attachments.length === 0) return;
-    const activeContexts = selectedThreadId ? composerWidgets.flatMap(({ descriptor, contribution }) => {
+    const activeContexts = selectedThreadId ? composerContextContributions.flatMap(({ descriptor, contribution }) => {
       const value = composerContextFor(
         composerContexts,
         descriptor,
@@ -398,6 +407,20 @@ export function Composer() {
                 ))}
               </div>
             )}
+            {selectedThreadId && composerActions.map(({ descriptor, contribution }) => (
+              <button
+                className="plugin-composer-action"
+                key={`${descriptor.pluginId}:${contribution.id}`}
+                title={`${descriptor.displayName} · ${contribution.title}`}
+                onClick={() => openAction({
+                  pluginId: descriptor.pluginId,
+                  contributionId: contribution.id,
+                })}
+              >
+                <Puzzle size={14} />
+                <span>{contribution.title}</span>
+              </button>
+            ))}
             {savingClipboardAttachments && <span className="composer-saving-indicator">正在保存…</span>}
           </div>
           {activeTurn ? (

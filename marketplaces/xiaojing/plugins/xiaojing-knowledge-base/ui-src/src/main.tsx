@@ -26,13 +26,30 @@ interface SelectorState {
 function App() {
   const context = useWhalePlugin();
   if (!context) return <div className="loading-line">正在连接 Whale…</div>;
-  return context.contributionType === 'composer.widget'
-    ? <KnowledgeSelector threadId={context.threadId} />
-    : <KnowledgeCard toolCall={context.toolCall} />;
+  switch (context.contributionType) {
+    case 'composer.widget':
+      return <KnowledgeSelector threadId={context.threadId} />;
+    case 'composer.action':
+      return <KnowledgeSelector threadId={context.threadId} embedded />;
+    case 'navigation.page':
+      return <KnowledgeBrowser title="小鲸知识库" description="浏览当前账号获授权的广汽知识库。" />;
+    case 'command.action':
+      return <KnowledgeBrowser title="浏览小鲸知识库" description="从命令面板快速读取知识库目录。" />;
+    case 'thread.toolbarAction':
+      return (
+        <KnowledgeBrowser
+          title="线程知识库"
+          description={context.thread ? `当前线程：${context.thread.name}` : '当前未选择线程'}
+        />
+      );
+    case 'message.card':
+    case 'mcp.toolCard':
+      return <KnowledgeCard toolCall={context.toolCall} />;
+  }
 }
 
-function KnowledgeSelector({ threadId }: { threadId: string }) {
-  const [open, setOpen] = useState(false);
+function KnowledgeSelector({ threadId, embedded = false }: { threadId: string | null; embedded?: boolean }) {
+  const [open, setOpen] = useState(embedded);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [query, setQuery] = useState('');
@@ -58,6 +75,7 @@ function KnowledgeSelector({ threadId }: { threadId: string }) {
 
   useEffect(() => {
     if (!restored) return;
+    if (!threadId) return;
     const selected = datasets.filter((dataset) => selectedIds.includes(dataset.id));
     void persistState({ datasets, selectedIds } as unknown as JsonValue);
     if (selected.length === 0) {
@@ -102,7 +120,7 @@ function KnowledgeSelector({ threadId }: { threadId: string }) {
     `${dataset.name} ${dataset.description}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
 
   return (
-    <div className={`selector-root ${open ? 'open' : ''}`}>
+    <div className={`selector-root ${open ? 'open' : ''} ${embedded ? 'embedded' : ''}`}>
       {open && (
         <section className="selector-panel">
           <div className="panel-title">
@@ -151,16 +169,72 @@ function KnowledgeSelector({ threadId }: { threadId: string }) {
           </div>
         </section>
       )}
-      <button
-        className={`selector-trigger ${selectedIds.length ? 'selected' : ''}`}
-        aria-label="选择知识库"
-        title={selectedIds.length ? `已选择 ${selectedIds.length} 个知识库` : '选择知识库'}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <KnowledgeIcon />
-        {selectedIds.length > 0 && <span className="selection-count">{selectedIds.length}</span>}
-      </button>
+      {!embedded && (
+        <button
+          className={`selector-trigger ${selectedIds.length ? 'selected' : ''}`}
+          aria-label="选择知识库"
+          title={selectedIds.length ? `已选择 ${selectedIds.length} 个知识库` : '选择知识库'}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <KnowledgeIcon />
+          {selectedIds.length > 0 && <span className="selection-count">{selectedIds.length}</span>}
+        </button>
+      )}
     </div>
+  );
+}
+
+function KnowledgeBrowser({ title, description }: { title: string; description: string }) {
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await callOwnMcp<JsonValue>(
+        'xiaojing-knowledge-base',
+        'gac_kb_list_datasets',
+        {},
+      );
+      const next = extractDatasets(response);
+      setDatasets(next);
+      if (next.length === 0) setError('当前账号没有返回可用知识库');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void refresh(); }, []);
+  const visible = useMemo(() => datasets.filter((dataset) =>
+    `${dataset.name} ${dataset.description}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())), [datasets, query]);
+
+  return (
+    <main className="browser-root">
+      <header className="browser-heading">
+        <div>
+          <strong>{title}</strong>
+          <p>{description}</p>
+        </div>
+        <button disabled={loading} onClick={() => void refresh()}>{loading ? '读取中' : '刷新'}</button>
+      </header>
+      <input value={query} placeholder="筛选知识库" onChange={(event) => setQuery(event.target.value)} />
+      <div className="browser-summary">{datasets.length ? `共 ${datasets.length} 个知识库` : '尚未读取知识库'}</div>
+      {error && <p className="error">{error}</p>}
+      <section className="browser-list">
+        {visible.map((dataset) => (
+          <article key={dataset.id}>
+            <KnowledgeIcon />
+            <div><strong>{dataset.name}</strong><p>{dataset.description || '暂无描述'}</p></div>
+          </article>
+        ))}
+        {!loading && !error && visible.length === 0 && <p className="empty">没有匹配的知识库</p>}
+      </section>
+    </main>
   );
 }
 

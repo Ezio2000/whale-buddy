@@ -1,8 +1,9 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { CornerDownLeft, Search, X } from 'lucide-react';
+import { CornerDownLeft, Puzzle, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { commandDescriptions } from '../state/commands';
 import { useAppStore } from '../state/store';
+import { usePluginUi } from '../plugin-ui/PluginUiProvider';
 
 export function CommandPalette() {
   const open = useAppStore((state) => state.commandPaletteOpen);
@@ -11,6 +12,7 @@ export function CommandPalette() {
   const send = useAppStore((state) => state.sendComposer);
   const selectThread = useAppStore((state) => state.selectThread);
   const [query, setQuery] = useState('');
+  const { descriptors, openAction } = usePluginUi();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -42,6 +44,17 @@ export function CommandPalette() {
         : [],
     [normalized, threads],
   );
+  const pluginCommands = useMemo(() => descriptors.flatMap((descriptor) =>
+    descriptor.contributions
+      .filter((contribution) => contribution.type === 'command.action')
+      .map((contribution) => ({ descriptor, contribution })))
+    .filter(({ descriptor, contribution }) => !normalized || [
+      descriptor.displayName,
+      contribution.title,
+      contribution.description,
+      ...contribution.keywords,
+    ].join(' ').toLocaleLowerCase().includes(normalized))
+    .sort((left, right) => left.contribution.order - right.contribution.order), [descriptors, normalized]);
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -76,6 +89,27 @@ export function CommandPalette() {
                 <CornerDownLeft size={13} />
               </button>
             ))}
+            {pluginCommands.length > 0 && (
+              <>
+                <div className="palette-group-label">插件命令</div>
+                {pluginCommands.map(({ descriptor, contribution }) => (
+                  <button
+                    key={`${descriptor.pluginId}:${contribution.id}`}
+                    onClick={() => {
+                      setOpen(false);
+                      openAction({
+                        pluginId: descriptor.pluginId,
+                        contributionId: contribution.id,
+                      });
+                    }}
+                  >
+                    <span className="palette-plugin-command"><Puzzle size={14} /> {contribution.title}</span>
+                    <small>{contribution.description || descriptor.displayName}</small>
+                    <CornerDownLeft size={13} />
+                  </button>
+                ))}
+              </>
+            )}
             {matchedThreads.length > 0 && (
               <>
                 <div className="palette-group-label">线程</div>
@@ -93,7 +127,7 @@ export function CommandPalette() {
                 ))}
               </>
             )}
-            {commands.length === 0 && matchedThreads.length === 0 && (
+            {commands.length === 0 && pluginCommands.length === 0 && matchedThreads.length === 0 && (
               <div className="palette-empty">没有匹配结果</div>
             )}
           </div>

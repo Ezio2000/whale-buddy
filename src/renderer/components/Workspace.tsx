@@ -5,10 +5,13 @@ import {
   MoreHorizontal,
   PanelRightOpen,
   Pencil,
+  Puzzle,
   Trash2,
 } from 'lucide-react';
 import { activeTurnForThread } from '../state/conversation';
 import { useAppStore } from '../state/store';
+import { usePluginUi } from '../plugin-ui/PluginUiProvider';
+import { PluginNavigationPage } from '../plugin-ui/PluginUiSurfaces';
 import { Composer } from './Composer';
 import { ConversationList } from './ConversationList';
 import { DiffPanel } from './DiffPanel';
@@ -32,6 +35,11 @@ export function Workspace() {
   const deleteThread = useAppStore((state) => state.deleteThread);
   const brandName = useAppStore((state) => state.branding.name);
   const workspaceView = useAppStore((state) => state.workspaceView);
+  const { descriptors, openAction } = usePluginUi();
+  const threadActions = descriptors.flatMap((descriptor) => descriptor.contributions
+    .filter((contribution) => contribution.type === 'thread.toolbarAction')
+    .map((contribution) => ({ descriptor, contribution })))
+    .sort((left, right) => left.contribution.order - right.contribution.order);
   const activeTurn = activeTurnForThread(conversation, selectedThreadId);
   const threadView = selectedThreadId ? conversation.threads[selectedThreadId] : null;
   const panelTurns = threadView?.turnOrder.flatMap((turnId) => {
@@ -45,6 +53,15 @@ export function Workspace() {
       <div className="app-shell scheduled-tasks-shell">
         <Sidebar />
         <main className="scheduled-tasks-main"><ScheduledTasksPage /></main>
+      </div>
+    );
+  }
+
+  if (workspaceView === 'plugin') {
+    return (
+      <div className="app-shell plugin-navigation-shell">
+        <Sidebar />
+        <PluginNavigationPage />
       </div>
     );
   }
@@ -65,6 +82,20 @@ export function Workspace() {
                 <span className="spinner-dot" /> Codex 正在工作
               </span>
             )}
+            {selectedThread && threadActions.map(({ descriptor, contribution }) => (
+              <button
+                className="plugin-thread-action-button"
+                key={`${descriptor.pluginId}:${contribution.id}`}
+                title={`${descriptor.displayName} · ${contribution.title}`}
+                onClick={() => openAction({
+                  pluginId: descriptor.pluginId,
+                  contributionId: contribution.id,
+                })}
+              >
+                <Puzzle size={14} />
+                <span>{contribution.title}</span>
+              </button>
+            ))}
             {selectedThread && (
               <button
                 className={`details-toggle-button ${rightPanelOpen ? 'active' : ''}`}

@@ -1204,11 +1204,27 @@ function DetailSection({ icon, title, children }: { icon: React.ReactNode; title
 }
 
 function pluginUiContributionLabel(contribution: PluginUiContribution): string {
-  return contribution.type === 'composer.widget' ? '提问框组件' : '工具结果卡片';
+  switch (contribution.type) {
+    case 'composer.widget': return '提问框组件';
+    case 'mcp.toolCard': return '工具结果卡片';
+    case 'navigation.page': return `导航页面 · ${contribution.title}`;
+    case 'command.action': return `命令操作 · ${contribution.title}`;
+    case 'thread.toolbarAction': return `线程操作 · ${contribution.title}`;
+    case 'composer.action': return `输入区操作 · ${contribution.title}`;
+    case 'message.card': return `消息卡片 · ${contribution.title}`;
+  }
 }
 
 function pluginUiContributionLocation(contribution: PluginUiContribution): string {
-  return contribution.type === 'composer.widget' ? '显示在消息输入区' : '替换匹配工具的结果展示';
+  switch (contribution.type) {
+    case 'composer.widget': return '显示在消息输入区';
+    case 'mcp.toolCard': return '替换匹配工具的结果展示';
+    case 'navigation.page': return '显示在左侧插件导航';
+    case 'command.action': return '显示在命令面板';
+    case 'thread.toolbarAction': return '显示在线程工具栏';
+    case 'composer.action': return '显示在消息输入区工具栏';
+    case 'message.card': return '替换匹配的会话消息展示';
+  }
 }
 
 function SkillsManager({

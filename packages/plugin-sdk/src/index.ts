@@ -17,6 +17,31 @@ export interface ToolCallContext {
   readOnlyHint: boolean | null;
 }
 
+export type MessageItemType =
+  | 'userMessage'
+  | 'agentMessage'
+  | 'reasoning'
+  | 'plan'
+  | 'commandExecution'
+  | 'fileChange'
+  | 'mcpToolCall'
+  | 'dynamicToolCall'
+  | 'collabAgentToolCall'
+  | 'webSearch'
+  | 'imageGeneration'
+  | 'imageView'
+  | 'enteredReviewMode'
+  | 'exitedReviewMode'
+  | 'contextCompaction'
+  | 'sleep';
+
+export interface MessageContext {
+  itemId: string;
+  itemType: MessageItemType;
+  status: string;
+  data: JsonValue;
+}
+
 export interface PluginCredential {
   id: string;
   type: 'credential';
@@ -36,12 +61,22 @@ export interface WhalePluginContext {
   pluginId: string;
   pluginName: string;
   contributionId: string;
-  contributionType: 'composer.widget' | 'mcp.toolCard';
+  contributionType:
+    | 'composer.widget'
+    | 'mcp.toolCard'
+    | 'navigation.page'
+    | 'command.action'
+    | 'thread.toolbarAction'
+    | 'composer.action'
+    | 'message.card';
   locale: string;
   theme: 'light' | 'dark';
-  threadId: string;
+  threadId: string | null;
+  project: { id: string; name: string; path: string } | null;
+  thread: { id: string; name: string; cwd: string } | null;
   credentials: PluginCredential[];
   toolCall?: ToolCallContext;
+  message?: MessageContext;
 }
 
 interface InitMessage {

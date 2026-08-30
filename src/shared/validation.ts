@@ -183,7 +183,7 @@ export const pluginUiCallToolSchema = z
   .object({
     pluginId: idSchema,
     contributionId: idSchema,
-    threadId: idSchema,
+    threadId: idSchema.nullable(),
     server: catalogNameSchema,
     tool: catalogNameSchema,
     arguments: jsonValueSchema.optional(),

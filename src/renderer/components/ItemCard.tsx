@@ -25,6 +25,7 @@ import { PluginUiFrame } from '../plugin-ui/PluginUiFrame';
 import { usePluginUi } from '../plugin-ui/PluginUiProvider';
 import { useAppStore } from '../state/store';
 import type {
+  PluginMessageContext,
   PluginToolCardContext,
   PluginUiDescriptor,
 } from '../../shared/plugin-ui';
@@ -42,8 +43,20 @@ export function ItemCard({
   approvals,
   onRespondApproval,
 }: ItemCardProps) {
+  const { descriptors } = usePluginUi();
+  const threadId = useAppStore((state) => state.selectedThreadId);
+  const customMessage = customMessageCard(item, descriptors);
   let content: React.ReactNode;
-  switch (item.type) {
+  if (customMessage && threadId) {
+    content = (
+      <PluginMessageItem
+        item={item}
+        threadId={threadId}
+        descriptor={customMessage.descriptor}
+        contribution={customMessage.contribution}
+      />
+    );
+  } else switch (item.type) {
     case 'userMessage':
       content = <UserMessage item={item} />;
       break;
@@ -101,6 +114,43 @@ export function ItemCard({
         />
       ))}
     </div>
+  );
+}
+
+function PluginMessageItem({
+  item,
+  threadId,
+  descriptor,
+  contribution,
+}: {
+  item: ItemView;
+  threadId: string;
+  descriptor: PluginUiDescriptor;
+  contribution: Extract<PluginUiDescriptor['contributions'][number], { type: 'message.card' }>;
+}) {
+  const status = string(item.status) ?? 'completed';
+  return (
+    <article className="tool-card plugin-message-card">
+      <header className="plugin-message-card-heading">
+        <span className="tool-icon teal"><PlugZap size={15} /></span>
+        <span className="tool-title-grow">
+          <strong>{contribution.title}</strong>
+          <small>{descriptor.displayName}</small>
+        </span>
+        <ToolElapsed item={item} status={status} />
+      </header>
+      <div className="plugin-message-card-content">
+        <PluginUiFrame
+          descriptor={descriptor}
+          contribution={contribution}
+          threadId={threadId}
+          message={pluginMessageContext(item, status)}
+          {...(item.type === 'mcpToolCall' ? { toolCall: pluginToolContext(item, status) } : {})}
+          className="plugin-message-frame"
+          fallback={<p className="plugin-ui-fallback">插件消息卡片不可用，原始消息仍保留在会话记录中。</p>}
+        />
+      </div>
+    </article>
   );
 }
 
@@ -401,6 +451,33 @@ function customToolCard(item: ItemView, descriptors: PluginUiDescriptor[]) {
       contribution.type === 'mcp.toolCard'
       && contribution.server === string(item.server)
       && contribution.tools.includes(string(item.tool) ?? '')) ?? null;
+}
+
+function customMessageCard(item: ItemView, descriptors: PluginUiDescriptor[]) {
+  const pluginId = string(item.pluginId);
+  if (!pluginId) return null;
+  return descriptors.flatMap((descriptor) => descriptor.pluginId === pluginId
+    ? descriptor.contributions
+      .filter((contribution) => contribution.type === 'message.card')
+      .map((contribution) => ({ descriptor, contribution }))
+    : [])
+    .filter(({ contribution }) => contribution.itemTypes.includes(
+      item.type as typeof contribution.itemTypes[number],
+    ))
+    .filter(({ contribution }) => contribution.server === null || (
+      contribution.server === string(item.server)
+      && contribution.tools.includes(string(item.tool) ?? '')
+    ))
+    .sort((left, right) => left.contribution.order - right.contribution.order)[0] ?? null;
+}
+
+function pluginMessageContext(item: ItemView, status: string): PluginMessageContext {
+  return {
+    itemId: item.id,
+    itemType: item.type as PluginMessageContext['itemType'],
+    status,
+    data: toJson(item) ?? {},
+  };
 }
 
 function pluginToolContext(item: ItemView, status: string): PluginToolCardContext {

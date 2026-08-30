@@ -5,6 +5,7 @@ import { PluginMarketplaceDialog } from './components/PluginMarketplaceDialog';
 import { SettingsDialog } from './components/SettingsDialog';
 import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
+import { PluginActionDialog } from './plugin-ui/PluginUiSurfaces';
 import { useAppStore } from './state/store';
 
 export function App() {
@@ -80,6 +81,7 @@ export function App() {
       <SettingsDialog />
       <PluginMarketplaceDialog />
       <CommandPalette />
+      <PluginActionDialog />
     </>
   );
 }

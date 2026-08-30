@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type {
   PluginComposerContextValue,
+  PluginMessageContext,
   PluginToolCardContext,
   PluginUiContribution,
   PluginUiDescriptor,
   PluginUiFrameContext,
 } from '../../shared/plugin-ui';
 import { WHALE_PLUGIN_MESSAGE_CHANNEL } from '../../shared/plugin-ui';
+import { useAppStore } from '../state/store';
 import { contextKey, pluginStateKey, usePluginUi } from './PluginUiProvider';
 
 interface PluginUiFrameProps {
   descriptor: PluginUiDescriptor;
   contribution: PluginUiContribution;
-  threadId: string;
+  threadId: string | null;
   toolCall?: PluginToolCardContext;
+  message?: PluginMessageContext;
   className?: string;
   fallback?: ReactNode;
 }
@@ -23,9 +26,18 @@ export function PluginUiFrame({
   contribution,
   threadId,
   toolCall,
+  message,
   className,
   fallback = null,
 }: PluginUiFrameProps) {
+  const selectedProject = useAppStore((state) =>
+    state.projects.find((project) => project.id === state.selectedProjectId) ?? null);
+  const selectedThread = useAppStore((state) =>
+    state.threads.find((thread) => thread.id === threadId) ?? null);
+  const surface = contribution.type === 'navigation.page'
+    || contribution.type === 'command.action'
+    || contribution.type === 'thread.toolbarAction'
+    || contribution.type === 'composer.action';
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const nonce = useMemo(() => crypto.randomUUID(), []);
   const [height, setHeight] = useState(contribution.type === 'composer.widget' ? 26 : 120);
@@ -46,9 +58,20 @@ export function PluginUiFrame({
     locale: document.documentElement.lang || 'zh-CN',
     theme,
     threadId,
+    project: selectedProject ? {
+      id: selectedProject.id,
+      name: selectedProject.name,
+      path: selectedProject.path,
+    } : null,
+    thread: selectedThread ? {
+      id: selectedThread.id,
+      name: selectedThread.name || selectedThread.preview || '未命名线程',
+      cwd: selectedThread.cwd,
+    } : null,
     credentials: descriptor.credentials,
     ...(toolCall ? { toolCall } : {}),
-  }), [contribution.id, contribution.type, descriptor.credentials, descriptor.pluginId, descriptor.pluginName, theme, threadId, toolCall]);
+    ...(message ? { message } : {}),
+  }), [contribution.id, contribution.type, descriptor.credentials, descriptor.pluginId, descriptor.pluginName, message, selectedProject, selectedThread, theme, threadId, toolCall]);
 
   const sendContext = useCallback((type: 'host:init' | 'host:context') => {
     iframeRef.current?.contentWindow?.postMessage({
@@ -87,6 +110,7 @@ export function PluginUiFrame({
         return;
       }
       if (message.type === 'plugin:resize') {
+        if (surface) return;
         const requested = typeof message.height === 'number' ? message.height : 0;
         const min = contribution.type === 'composer.widget' ? 26 : 40;
         const max = contribution.type === 'composer.widget' ? 360 : 640;
@@ -128,11 +152,12 @@ export function PluginUiFrame({
 
     const handleRequest = async (method: string, raw: unknown): Promise<unknown> => {
       const payload = asRecord(raw) ?? {};
+      const stateScope = threadId ?? 'global';
       if (method === 'state.get') {
-        return readPluginState(descriptor.pluginId, contribution.id, threadId);
+        return readPluginState(descriptor.pluginId, contribution.id, stateScope);
       }
       if (method === 'state.set') {
-        writePluginState(descriptor.pluginId, contribution.id, threadId, payload.value);
+        writePluginState(descriptor.pluginId, contribution.id, stateScope, payload.value);
         return null;
       }
       if (method === 'mcp.callOwn') {
@@ -148,14 +173,20 @@ export function PluginUiFrame({
         });
       }
       if (method === 'composer.setContext') {
-        if (contribution.type !== 'composer.widget') throw new Error('只有输入区 Widget 可以设置上下文');
+        if (contribution.type !== 'composer.widget' && contribution.type !== 'composer.action') {
+          throw new Error('只有输入区贡献可以设置上下文');
+        }
+        if (!threadId) throw new Error('请先选择线程');
         const value = parseComposerContext(payload);
         assertOwnTools(value, descriptor);
         setComposerContext(descriptor.pluginId, contribution.id, threadId, value);
         return null;
       }
       if (method === 'composer.clearContext') {
-        if (contribution.type !== 'composer.widget') throw new Error('只有输入区 Widget 可以清除上下文');
+        if (contribution.type !== 'composer.widget' && contribution.type !== 'composer.action') {
+          throw new Error('只有输入区贡献可以清除上下文');
+        }
+        if (!threadId) throw new Error('请先选择线程');
         setComposerContext(descriptor.pluginId, contribution.id, threadId, null);
         return null;
       }
@@ -177,7 +208,7 @@ export function PluginUiFrame({
       sandbox="allow-scripts allow-same-origin"
       scrolling="no"
       style={{
-        height,
+        height: surface ? '100%' : height,
         ...(contribution.type === 'composer.widget' ? { width } : {}),
       }}
       onLoad={() => sendContext('host:init')}
@@ -240,7 +271,7 @@ function parseComposerContext(value: Record<string, unknown>): PluginComposerCon
 function assertOwnTools(value: PluginComposerContextValue, descriptor: PluginUiDescriptor): void {
   for (const tool of value.explicitTools ?? []) {
     const declaredByCard = descriptor.contributions.some((entry) =>
-      entry.type === 'mcp.toolCard'
+      (entry.type === 'mcp.toolCard' || entry.type === 'message.card')
       && entry.server === tool.server
       && entry.tools.includes(tool.name));
     if (!declaredByCard) {

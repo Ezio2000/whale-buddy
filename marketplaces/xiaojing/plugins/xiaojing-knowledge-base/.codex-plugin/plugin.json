@@ -1,6 +1,6 @@
 {
   "name": "xiaojing-knowledge-base",
-  "version": "0.2.0+codex.20260828093141",
+  "version": "0.3.0+codex.20260831031345",
   "description": "\u641c\u7d22\u5f53\u524d\u7528\u6237\u83b7\u6388\u6743\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
   "author": {
     "name": "AI\u5c0f\u9cb8"
@@ -42,6 +42,56 @@
           "gac_kb_list_datasets",
           "gac_kb_search"
         ]
+      },
+      {
+        "id": "knowledge-navigation",
+        "type": "navigation.page",
+        "entry": "./ui/index.html",
+        "title": "小鲸知识库",
+        "order": 100
+      },
+      {
+        "id": "knowledge-command",
+        "type": "command.action",
+        "entry": "./ui/index.html",
+        "title": "浏览小鲸知识库",
+        "description": "读取并浏览当前账号获授权的知识库。",
+        "keywords": [
+          "知识库",
+          "小鲸",
+          "AIHub",
+          "dataset"
+        ],
+        "order": 100
+      },
+      {
+        "id": "knowledge-thread-action",
+        "type": "thread.toolbarAction",
+        "entry": "./ui/index.html",
+        "title": "线程知识库",
+        "order": 100
+      },
+      {
+        "id": "knowledge-composer-action",
+        "type": "composer.action",
+        "entry": "./ui/index.html",
+        "title": "选择知识库",
+        "order": 100
+      },
+      {
+        "id": "knowledge-message-card",
+        "type": "message.card",
+        "entry": "./ui/index.html",
+        "title": "小鲸知识库结果",
+        "itemTypes": [
+          "mcpToolCall"
+        ],
+        "server": "xiaojing-knowledge-base",
+        "tools": [
+          "gac_kb_list_datasets",
+          "gac_kb_search"
+        ],
+        "order": 100
       },
       {
         "id": "aihub-token",

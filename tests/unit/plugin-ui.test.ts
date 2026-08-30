@@ -30,6 +30,42 @@ describe('plugin UI manifest', () => {
             server: 'fixture-mcp',
             tools: ['inspect'],
           },
+          {
+            id: 'navigation',
+            type: 'navigation.page',
+            entry: './ui/index.html',
+            title: 'Fixture Home',
+            order: 5,
+          },
+          {
+            id: 'command',
+            type: 'command.action',
+            entry: './ui/index.html',
+            title: 'Fixture Command',
+            description: 'Open fixture',
+            keywords: ['fixture'],
+          },
+          {
+            id: 'thread-action',
+            type: 'thread.toolbarAction',
+            entry: './ui/index.html',
+            title: 'Fixture Thread',
+          },
+          {
+            id: 'composer-action',
+            type: 'composer.action',
+            entry: './ui/index.html',
+            title: 'Fixture Composer',
+          },
+          {
+            id: 'message',
+            type: 'message.card',
+            entry: './ui/index.html',
+            title: 'Fixture Result',
+            itemTypes: ['mcpToolCall'],
+            server: 'fixture-mcp',
+            tools: ['inspect'],
+          },
         ],
         uiMcpPermissions: [
           { server: 'fixture-mcp', tools: ['list'] },
@@ -40,12 +76,57 @@ describe('plugin UI manifest', () => {
 
     const descriptor = readPluginUiDescriptor(pluginResponse(root));
 
-    expect(descriptor?.contributions).toHaveLength(2);
+    expect(descriptor?.contributions).toHaveLength(7);
     expect(descriptor?.contributions[0].entryUrl).toBe(
       'whale-plugin://plugin/fixture-plugin/ui/index.html',
     );
     expect(descriptor?.uiMcpPermissions).toEqual([
       { server: 'fixture-mcp', tools: ['list'] },
+    ]);
+    expect(descriptor?.contributions.slice(2)).toEqual([
+      expect.objectContaining({ id: 'navigation', type: 'navigation.page', title: 'Fixture Home' }),
+      expect.objectContaining({ id: 'command', type: 'command.action', keywords: ['fixture'] }),
+      expect.objectContaining({ id: 'thread-action', type: 'thread.toolbarAction' }),
+      expect.objectContaining({ id: 'composer-action', type: 'composer.action' }),
+      expect.objectContaining({
+        id: 'message',
+        type: 'message.card',
+        itemTypes: ['mcpToolCall'],
+        server: 'fixture-mcp',
+        tools: ['inspect'],
+      }),
+    ]);
+  });
+
+  it('drops malformed host contributions without hiding valid entries', async () => {
+    const root = await fixtureRoot({
+      whale: {
+        apiVersion: 1,
+        contributions: [
+          { id: 'valid', type: 'navigation.page', entry: './ui/index.html', title: 'Valid' },
+          { id: 'missing-title', type: 'command.action', entry: './ui/index.html' },
+          {
+            id: 'foreign-message',
+            type: 'message.card',
+            entry: './ui/index.html',
+            title: 'Foreign',
+            itemTypes: ['mcpToolCall'],
+            server: 'foreign-mcp',
+            tools: ['inspect'],
+          },
+          {
+            id: 'unknown-message',
+            type: 'message.card',
+            entry: './ui/index.html',
+            title: 'Unknown',
+            itemTypes: ['inventedMessage'],
+          },
+        ],
+      },
+    });
+
+    expect(readPluginUiDescriptor(pluginResponse(root))?.contributions).toEqual([
+      expect.objectContaining({ id: 'valid', type: 'navigation.page' }),
     ]);
   });
 

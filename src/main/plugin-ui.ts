@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { PluginReadResponse } from '../generated/protocol/typescript/v2/PluginReadResponse';
 import {
   WHALE_PLUGIN_UI_API_VERSION,
+  PLUGIN_MESSAGE_ITEM_TYPES,
   type PluginUiContribution,
   type PluginUiDescriptor,
 } from '../shared/plugin-ui';
@@ -175,14 +176,13 @@ function parseContributions(
     const resolvedEntry = resolveEntry(root, entry);
     if (!resolvedEntry) continue;
     const entryUrl = pluginAssetUrl(pluginId, path.relative(root, resolvedEntry));
+    const order = boundedOrder(contribution?.order);
     if (type === 'composer.widget') {
       result.push({
         id,
         type,
         entryUrl,
-        order: typeof contribution?.order === 'number'
-          ? Math.max(-10_000, Math.min(10_000, contribution.order))
-          : 0,
+        order,
       });
       seen.add(id);
       continue;
@@ -193,9 +193,51 @@ function parseContributions(
       if (!server || !declaredServers.has(server) || tools.length === 0) continue;
       result.push({ id, type, entryUrl, server, tools });
       seen.add(id);
+      continue;
+    }
+    if (type === 'navigation.page' || type === 'thread.toolbarAction' || type === 'composer.action') {
+      const title = boundedString(contribution?.title, 128);
+      if (!title) continue;
+      result.push({ id, type, entryUrl, title, order });
+      seen.add(id);
+      continue;
+    }
+    if (type === 'command.action') {
+      const title = boundedString(contribution?.title, 128);
+      if (!title) continue;
+      result.push({
+        id,
+        type,
+        entryUrl,
+        title,
+        description: boundedString(contribution?.description, 512) ?? '',
+        keywords: stringArray(contribution?.keywords, 64).slice(0, 16),
+        order,
+      });
+      seen.add(id);
+      continue;
+    }
+    if (type === 'message.card') {
+      const title = boundedString(contribution?.title, 128);
+      const requestedItemTypes = stringArray(contribution?.itemTypes, 64);
+      const itemTypes = PLUGIN_MESSAGE_ITEM_TYPES.filter((itemType) =>
+        requestedItemTypes.includes(itemType));
+      const server = boundedString(contribution?.server, 512) ?? null;
+      const tools = stringArray(contribution?.tools, 512);
+      if (!title || itemTypes.length === 0) continue;
+      if (server && (!declaredServers.has(server) || tools.length === 0)) continue;
+      if (!server && tools.length > 0) continue;
+      result.push({ id, type, entryUrl, title, itemTypes, server, tools, order });
+      seen.add(id);
     }
   }
   return result;
+}
+
+function boundedOrder(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(-10_000, Math.min(10_000, value))
+    : 0;
 }
 
 function parsePermissions(
