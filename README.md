@@ -7,7 +7,29 @@ Codex 的对话、命令、文件变更、审批和 Diff 汇集到一个中文�
 当前版本不包含签名、公证或自动更新。所有可运行 App 和安装包必须由 GitHub Actions
 构建，本地只用于源码编辑与静态、单元测试验证，禁止生成或部署本地构建产物。
 
-## 快速开始
+## 获取与安装
+
+唯一支持的安装来源是当前目标提交触发的 GitHub Actions Artifact。提交并推送代码后，
+通过 **Actions → Package desktop installers → Run workflow** 选择目标平台，或执行：
+
+```bash
+gh workflow run package.yml --repo Ezio2000/whale-buddy --ref main -f platform=macos
+```
+
+部署前必须确认工作流成功，并且 `headSha` 与准备部署的提交完全一致：
+
+```bash
+git rev-parse HEAD
+gh run view <RUN_ID> --repo Ezio2000/whale-buddy \
+  --json headSha,status,conclusion,url
+gh run download <RUN_ID> --repo Ezio2000/whale-buddy \
+  --name AI-Xiaojing-macOS-arm64
+```
+
+macOS Artifact 同时包含 DMG 和 ZIP；Windows Artifact 包含 Squirrel 安装文件。不得使用
+其他提交的 Artifact，也不得使用本地 `out/`、本地 sidecar 或 Electron Forge 产物部署。
+
+## 本地源码验证
 
 本地验证环境要求：
 
@@ -15,7 +37,7 @@ Codex 的对话、命令、文件变更、审批和 Diff 汇集到一个中文�
 - Node.js 22 或更高版本
 - pnpm 11
 
-首次拉取并验证源码：
+首次拉取后可以执行：
 
 ```bash
 git submodule update --init --recursive
@@ -28,7 +50,9 @@ pnpm platform:check
 本地不得运行 `pnpm codex:build`、`pnpm protocol:generate`、`pnpm build`、`pnpm make`、
 `pnpm app:run`、`pnpm app:verify` 或直接调用 Electron Forge 的 package/make 命令。
 协议生成、官方 sidecar 下载、平台打包和安装产物制作统一由
-`.github/workflows/package.yml` 完成；本地部署也只能使用该工作流下载的 Artifact。
+`.github/workflows/package.yml` 完成。本地验证结束后，应通过 `git status --short --branch`
+确认没有意外修改；需要保持无本地缓存时，还应确认 `node_modules/`、`out/`、`.sidecar/`
+和 `codex-source/codex-rs/target/` 均不存在。
 
 ## 常用命令
 
@@ -60,15 +84,19 @@ Codex、不依赖私有 sidecar 缓存，也不需要本地虚拟机、Wine、Ru
 也可以使用 GitHub CLI：
 
 ```bash
-gh workflow run package.yml --repo Ezio2000/whale-buddy -f platform=all
+gh workflow run package.yml --repo Ezio2000/whale-buddy --ref main -f platform=all
 ```
 
 手动运行只在 Actions 运行页面底部生成 Artifacts，不会创建正式 GitHub Release。可使用
 网页下载，或执行：
 
 ```bash
-gh run list --repo Ezio2000/whale-buddy --workflow package.yml --limit 1
-gh run download <RUN_ID> --repo Ezio2000/whale-buddy
+gh run list --repo Ezio2000/whale-buddy --workflow package.yml \
+  --branch main --event workflow_dispatch --limit 5
+gh run view <RUN_ID> --repo Ezio2000/whale-buddy \
+  --json headSha,status,conclusion,url
+gh run download <RUN_ID> --repo Ezio2000/whale-buddy \
+  --name AI-Xiaojing-macOS-arm64
 ```
 
 ### Tag 自动发布
@@ -154,12 +182,14 @@ MiniMax-M3 的 Codex 模型能力目录。该目录声明 reasoning、工具和�
 `plugin/search`。商城搜索在已加载目录中本地完成：
 
 - “插件”把下载和启用分成两步。下载只写入 Whale 私有缓存；启用时默认打开该插件的全部
-  Skills 与 MCP。插件详情提供 Skill/MCP 圆角预览卡和开关；点击卡片会弹出路径、内容、配置
-  及工具预览详情，
-  不提供独立工具页。
-- “Skills”按当前项目列出已启用插件贡献的 Skill，并允许逐项停用或重新启用。
-- “MCP”只列出插件声明的服务，可在插件启用后逐项停用或重新启用。每次停用或卸载插件后
-  再启用，插件下的全部 Skills 与 MCP 都恢复为默认开启。
+  Skills 与 MCP。插件详情提供紧凑的 Skill/MCP 清单和开关，不提供独立工具页。
+- “Skills”列出当前项目扫描到的 Skill，包括已下载但整插件尚未启用的静态声明；列表状态
+  只表示可见与开关结果，未启用插件的 Skill 不会注入线程。选择条目后在右侧查看内容。
+- “MCP”合并当前运行时服务与已下载插件的静态 MCP 声明。整插件未启用时仍显示服务并标记
+  “未启用”；插件已启用但单个 MCP 关闭时显示“已停用”；配置已开启但服务尚未上报时显示
+  “未载入”。未载入时仍可在右侧查看 `.mcp.json`，工具清单要等运行时载入后发现。
+- 插件启用后可逐项停用或重新启用 Skill/MCP。每次停用或卸载插件后再启用，插件下的全部
+  Skills 与 MCP 都恢复为默认开启。
 - 插件可在 `whale.contributions` 中声明 `credential`。Whale 会在插件详情中生成明文
   输入框，并把值直接写入 `userData/ui-state/plugin-credentials.json`；renderer 和插件
   iframe 都能读取完整值。相关插件和 MCP 启用时，Whale 会向 sidecar 注入声明的环境变量；
