@@ -18,18 +18,21 @@ import type {
   RuntimeBrandingSettingsInput,
   RuntimeConnectionSettings,
   RuntimeConnectionSettingsInput,
+  RuntimeModelCapabilities,
   RuntimeProviderMode,
   RuntimeProxyMode,
+  RuntimeReasoningEffort,
 } from '../shared/types';
-import { MINIMAX_M3_MODEL_CATALOG_JSON } from './minimax-model-catalog';
+import {
+  defaultRuntimeModelCapabilities,
+  runtimeModelCatalogJson,
+} from './model-catalog';
 
-const SETTINGS_VERSION = 4;
+const SETTINGS_VERSION = 5;
 const SETTINGS_FILE = 'runtime-settings.json';
 const PROVIDER_API_KEY_ENV = 'WHALE_CUSTOM_PROVIDER_API_KEY';
-const MINIMAX_PROVIDER_ID = 'minimax_token_plan';
-const MINIMAX_RESPONSES_BASE_URL = 'https://api.minimaxi.com/v1';
 const MODEL_CATALOGS_DIRECTORY = 'model-catalogs';
-const MINIMAX_MODEL_CATALOG_FILE = 'minimax-m3.json';
+const RUNTIME_MODEL_CATALOG_FILE = 'runtime-model.json';
 const PROXY_ENV_KEYS = [
   'HTTP_PROXY',
   'HTTPS_PROXY',
@@ -63,6 +66,7 @@ interface StoredSettings {
     name: string;
     baseUrl: string;
     model: string;
+    capabilities: RuntimeModelCapabilities;
   };
   apiKey: string;
 }
@@ -84,20 +88,21 @@ const DEFAULT_SETTINGS: StoredSettings = {
     name: 'Custom Responses',
     baseUrl: '',
     model: '',
+    capabilities: defaultRuntimeModelCapabilities({ id: 'custom', baseUrl: '', model: '' }),
   },
   apiKey: '',
 };
 
 export class RuntimeSettingsStore {
   readonly filePath: string;
-  readonly minimaxModelCatalogPath: string;
+  readonly modelCatalogPath: string;
   private settings: StoredSettings;
   private shouldPersistAfterLoad = false;
 
   constructor(uiStateRoot: string) {
     this.filePath = path.join(uiStateRoot, SETTINGS_FILE);
-    this.minimaxModelCatalogPath = writeMinimaxModelCatalog(uiStateRoot);
     this.settings = this.load();
+    this.modelCatalogPath = writeRuntimeModelCatalog(uiStateRoot, this.settings.provider);
     if (this.shouldPersistAfterLoad) this.persist();
   }
 
@@ -144,6 +149,7 @@ export class RuntimeSettingsStore {
       name: input.provider.name.trim(),
       baseUrl: normalizeBaseUrl(input.provider.baseUrl),
       model: input.provider.model.trim(),
+      capabilities: configuredModelCapabilities(input.provider.capabilities),
     } satisfies StoredSettings['provider'];
 
     validateResponsesBaseUrl(provider.baseUrl);
@@ -160,6 +166,7 @@ export class RuntimeSettingsStore {
       provider,
       apiKey,
     };
+    writeRuntimeModelCatalog(path.dirname(this.filePath), provider);
     this.persist();
     return this.publicSettings();
   }
@@ -203,18 +210,9 @@ export class RuntimeSettingsStore {
         `model_providers.${provider.id}.request_max_retries=2`,
         `model_providers.${provider.id}.stream_max_retries=2`,
         `model_providers.${provider.id}.stream_idle_timeout_ms=300000`,
+        `model_context_window=${provider.capabilities.contextWindow}`,
+        configString('model_catalog_json', this.modelCatalogPath),
       );
-      if (
-        provider.id === MINIMAX_PROVIDER_ID &&
-        provider.baseUrl === MINIMAX_RESPONSES_BASE_URL &&
-        provider.model === 'MiniMax-M3'
-      ) {
-        configOverrides.push(
-          'model_context_window=1000000',
-          configString('model_catalog_json', this.minimaxModelCatalogPath),
-          'model_supports_reasoning_summaries=true',
-        );
-      }
       if (apiKey) {
         configOverrides.push(
           configString(`model_providers.${provider.id}.env_key`, PROVIDER_API_KEY_ENV),
@@ -253,6 +251,13 @@ export class RuntimeSettingsStore {
         Object.hasOwn(raw, 'encryptedApiKey');
       const mode = proxyMode(proxy?.mode);
       const providerModeValue = providerMode(provider?.mode);
+      const loadedProvider = {
+        mode: providerModeValue,
+        id: safeProviderId(provider?.id),
+        name: stringValue(provider?.name) || DEFAULT_SETTINGS.provider.name,
+        baseUrl: normalizeBaseUrl(stringValue(provider?.baseUrl)),
+        model: stringValue(provider?.model),
+      };
       const loaded: StoredSettings = {
         version: SETTINGS_VERSION,
         brand: {
@@ -265,11 +270,8 @@ export class RuntimeSettingsStore {
           noProxy: stringValue(proxy?.noProxy) || DEFAULT_SETTINGS.proxy.noProxy,
         },
         provider: {
-          mode: providerModeValue,
-          id: safeProviderId(provider?.id),
-          name: stringValue(provider?.name) || DEFAULT_SETTINGS.provider.name,
-          baseUrl: normalizeBaseUrl(stringValue(provider?.baseUrl)),
-          model: stringValue(provider?.model),
+          ...loadedProvider,
+          capabilities: loadedModelCapabilities(provider?.capabilities, loadedProvider),
         },
         apiKey: stringValue(raw.apiKey).trim(),
       };
@@ -292,21 +294,22 @@ export class RuntimeSettingsStore {
   }
 }
 
-function writeMinimaxModelCatalog(uiStateRoot: string): string {
+function writeRuntimeModelCatalog(
+  uiStateRoot: string,
+  provider: StoredSettings['provider'],
+): string {
   const catalogsDirectory = path.join(uiStateRoot, MODEL_CATALOGS_DIRECTORY);
-  const catalogPath = path.join(catalogsDirectory, MINIMAX_MODEL_CATALOG_FILE);
+  const catalogPath = path.join(catalogsDirectory, RUNTIME_MODEL_CATALOG_FILE);
+  const catalogJson = runtimeModelCatalogJson(provider);
   mkdirSync(catalogsDirectory, { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
 
-  if (
-    existsSync(catalogPath) &&
-    readFileSync(catalogPath, 'utf8') === MINIMAX_M3_MODEL_CATALOG_JSON
-  ) {
+  if (existsSync(catalogPath) && readFileSync(catalogPath, 'utf8') === catalogJson) {
     hardenPrivateFile(catalogPath);
     return catalogPath;
   }
 
   const temporaryPath = `${catalogPath}.tmp-${process.pid}`;
-  writeFileSync(temporaryPath, MINIMAX_M3_MODEL_CATALOG_JSON, {
+  writeFileSync(temporaryPath, catalogJson, {
     encoding: 'utf8',
     mode: PRIVATE_FILE_MODE,
   });
@@ -353,6 +356,78 @@ function providerMode(_value: unknown): RuntimeProviderMode {
 function safeProviderId(value: unknown): string {
   const candidate = stringValue(value);
   return /^[a-z][a-z0-9_-]*$/.test(candidate) ? candidate : DEFAULT_SETTINGS.provider.id;
+}
+
+function configuredModelCapabilities(value: RuntimeModelCapabilities): RuntimeModelCapabilities {
+  if (!Number.isInteger(value.contextWindow) || value.contextWindow < 1_024 || value.contextWindow > 10_000_000) {
+    throw new Error('上下文窗口必须是 1,024 到 10,000,000 之间的整数');
+  }
+  const reasoningEfforts = uniqueReasoningEfforts(value.reasoningEfforts);
+  if (!reasoningEfforts.length) throw new Error('至少需要保留一个推理档位');
+  if (!reasoningEfforts.includes(value.defaultReasoningEffort)) {
+    throw new Error('默认推理档位必须包含在支持档位中');
+  }
+  return {
+    contextWindow: value.contextWindow,
+    imageInput: value.imageInput,
+    supportsReasoning: value.supportsReasoning,
+    reasoningEfforts,
+    defaultReasoningEffort: value.defaultReasoningEffort,
+    supportsReasoningSummaries: value.supportsReasoningSummaries,
+  };
+}
+
+function loadedModelCapabilities(
+  value: unknown,
+  provider: Pick<StoredSettings['provider'], 'id' | 'baseUrl' | 'model'>,
+): RuntimeModelCapabilities {
+  const fallback = defaultRuntimeModelCapabilities(provider);
+  const capabilities = record(value);
+  if (!capabilities) return fallback;
+  try {
+    return configuredModelCapabilities({
+      contextWindow: numberValue(capabilities.contextWindow, fallback.contextWindow),
+      imageInput: booleanValue(capabilities.imageInput, fallback.imageInput),
+      supportsReasoning: booleanValue(capabilities.supportsReasoning, fallback.supportsReasoning),
+      reasoningEfforts: Array.isArray(capabilities.reasoningEfforts)
+        ? capabilities.reasoningEfforts.filter(isRuntimeReasoningEffort)
+        : fallback.reasoningEfforts,
+      defaultReasoningEffort: isRuntimeReasoningEffort(capabilities.defaultReasoningEffort)
+        ? capabilities.defaultReasoningEffort
+        : fallback.defaultReasoningEffort,
+      supportsReasoningSummaries: booleanValue(
+        capabilities.supportsReasoningSummaries,
+        fallback.supportsReasoningSummaries,
+      ),
+    });
+  } catch {
+    return fallback;
+  }
+}
+
+function uniqueReasoningEfforts(values: RuntimeReasoningEffort[]): RuntimeReasoningEffort[] {
+  return values.filter((value, index) => isRuntimeReasoningEffort(value) && values.indexOf(value) === index);
+}
+
+function isRuntimeReasoningEffort(value: unknown): value is RuntimeReasoningEffort {
+  return [
+    'none',
+    'minimal',
+    'low',
+    'medium',
+    'high',
+    'xhigh',
+    'max',
+    'ultra',
+  ].includes(String(value));
+}
+
+function numberValue(value: unknown, fallback: number): number {
+  return typeof value === 'number' ? value : fallback;
+}
+
+function booleanValue(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
 }
 
 function stringValue(value: unknown): string {

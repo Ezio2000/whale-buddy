@@ -322,6 +322,37 @@ const responsesBaseUrlSchema = z
     }
   }, 'Provider 地址必须是无内嵌凭据的 HTTP/HTTPS URL');
 
+const runtimeReasoningEffortSchema = z.enum([
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+]);
+
+const runtimeModelCapabilitiesSchema = z
+  .object({
+    contextWindow: z.number().int().min(1_024).max(10_000_000),
+    imageInput: z.boolean(),
+    supportsReasoning: z.boolean(),
+    reasoningEfforts: z.array(runtimeReasoningEffortSchema).min(1).max(8),
+    defaultReasoningEffort: runtimeReasoningEffortSchema,
+    supportsReasoningSummaries: z.boolean(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (!value.reasoningEfforts.includes(value.defaultReasoningEffort)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['defaultReasoningEffort'],
+        message: '默认推理档位必须包含在支持档位中',
+      });
+    }
+  });
+
 export const runtimeConnectionInputSchema = z
   .object({
     proxy: z
@@ -338,6 +369,7 @@ export const runtimeConnectionInputSchema = z
         name: z.string().trim().max(160),
         baseUrl: responsesBaseUrlSchema,
         model: z.string().trim().max(256),
+        capabilities: runtimeModelCapabilitiesSchema,
         apiKey: z.string().max(16_384).optional(),
       })
       .strict(),

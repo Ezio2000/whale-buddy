@@ -43,6 +43,24 @@ export interface RuntimeStatus {
 
 export type RuntimeProxyMode = 'inherit' | 'off' | 'custom';
 export type RuntimeProviderMode = 'custom';
+export type RuntimeReasoningEffort =
+  | 'none'
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh'
+  | 'max'
+  | 'ultra';
+
+export interface RuntimeModelCapabilities {
+  contextWindow: number;
+  imageInput: boolean;
+  supportsReasoning: boolean;
+  reasoningEfforts: RuntimeReasoningEffort[];
+  defaultReasoningEffort: RuntimeReasoningEffort;
+  supportsReasoningSummaries: boolean;
+}
 
 export interface RuntimeConnectionSettings {
   proxy: {
@@ -56,6 +74,7 @@ export interface RuntimeConnectionSettings {
     name: string;
     baseUrl: string;
     model: string;
+    capabilities: RuntimeModelCapabilities;
     hasApiKey: boolean;
   };
 }

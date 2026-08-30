@@ -30,6 +30,14 @@ describe('RuntimeSettingsStore', () => {
           name: 'Acme Responses',
           baseUrl: 'https://gateway.example/v1/',
           model: 'acme-code',
+          capabilities: {
+            contextWindow: 64_000,
+            imageInput: true,
+            supportsReasoning: true,
+            reasoningEfforts: ['minimal', 'high'],
+            defaultReasoningEffort: 'high',
+            supportsReasoningSummaries: false,
+          },
           apiKey: secret,
         },
       }),
@@ -38,6 +46,13 @@ describe('RuntimeSettingsStore', () => {
     expect(saved.provider).toMatchObject({
       mode: 'custom',
       baseUrl: 'https://gateway.example/v1',
+      capabilities: {
+        contextWindow: 64_000,
+        imageInput: true,
+        reasoningEfforts: ['minimal', 'high'],
+        defaultReasoningEffort: 'high',
+        supportsReasoningSummaries: false,
+      },
       hasApiKey: true,
     });
     expect(JSON.stringify(saved)).not.toContain(secret);
@@ -45,7 +60,7 @@ describe('RuntimeSettingsStore', () => {
 
     const persisted = await readFile(store.filePath, 'utf8');
     expect(persisted).toContain(secret);
-    expect(JSON.parse(persisted)).toMatchObject({ version: 4, apiKey: secret });
+    expect(JSON.parse(persisted)).toMatchObject({ version: 5, apiKey: secret });
     if (currentPlatformStrategy().enforcesPrivateMode) {
       expect((await stat(store.filePath)).mode & 0o777).toBe(0o600);
     }
@@ -59,9 +74,21 @@ describe('RuntimeSettingsStore', () => {
     expect(launch.configOverrides).toContain(
       'model_providers.acme_responses.wire_api="responses"',
     );
-    expect(launch.configOverrides.some((value) => value.startsWith('model_catalog_json='))).toBe(
-      false,
+    expect(launch.configOverrides).toContain('model_context_window=64000');
+    expect(launch.configOverrides).toContain(
+      `model_catalog_json=${JSON.stringify(store.modelCatalogPath)}`,
     );
+    const catalog = JSON.parse(await readFile(store.modelCatalogPath, 'utf8'));
+    expect(catalog).toMatchObject({
+      models: [{
+        slug: 'acme-code',
+        default_reasoning_level: 'high',
+        supported_reasoning_levels: [{ effort: 'minimal' }, { effort: 'high' }],
+        supports_reasoning_summary_parameter: false,
+        context_window: 64_000,
+        input_modalities: ['text', 'image'],
+      }],
+    });
     expect(JSON.stringify(launch.configOverrides)).not.toContain(secret);
 
     const reloaded = new RuntimeSettingsStore(root);
@@ -96,7 +123,18 @@ describe('RuntimeSettingsStore', () => {
     expect(store.revealProviderApiKey()).toBe(secret);
     const migrated = await readFile(settingsPath, 'utf8');
     expect(migrated).not.toContain('credentialSource');
-    expect(JSON.parse(migrated)).toMatchObject({ version: 4, apiKey: secret });
+    expect(JSON.parse(migrated)).toMatchObject({
+      version: 5,
+      apiKey: secret,
+      provider: {
+        capabilities: {
+          contextWindow: 1_000_000,
+          imageInput: true,
+          reasoningEfforts: ['none', 'high'],
+          defaultReasoningEffort: 'high',
+        },
+      },
+    });
   });
 
   it('can explicitly remove inherited proxy variables', async () => {
@@ -123,7 +161,7 @@ describe('RuntimeSettingsStore', () => {
     expect(launch.configOverrides).toContain('model_provider="custom"');
   });
 
-  it('applies the MiniMax Responses context preset from manual settings', async () => {
+  it('applies configured MiniMax model capabilities', async () => {
     const root = await temporaryRoot();
     const secret = 'minimax-token-plan-test-secret';
     const store = new RuntimeSettingsStore(root);
@@ -134,6 +172,14 @@ describe('RuntimeSettingsStore', () => {
           name: 'MiniMax',
           baseUrl: 'https://api.minimaxi.com/v1',
           model: 'MiniMax-M3',
+          capabilities: {
+            contextWindow: 1_000_000,
+            imageInput: true,
+            supportsReasoning: true,
+            reasoningEfforts: ['none', 'high'],
+            defaultReasoningEffort: 'high',
+            supportsReasoningSummaries: true,
+          },
           apiKey: secret,
         },
       }),
@@ -149,11 +195,10 @@ describe('RuntimeSettingsStore', () => {
     expect(launch.environment.WHALE_CUSTOM_PROVIDER_API_KEY).toBe(secret);
     expect(launch.configOverrides).toContain('model_context_window=1000000');
     expect(launch.configOverrides).toContain(
-      `model_catalog_json=${JSON.stringify(store.minimaxModelCatalogPath)}`,
+      `model_catalog_json=${JSON.stringify(store.modelCatalogPath)}`,
     );
-    expect(launch.configOverrides).toContain('model_supports_reasoning_summaries=true');
 
-    const catalog = JSON.parse(await readFile(store.minimaxModelCatalogPath, 'utf8'));
+    const catalog = JSON.parse(await readFile(store.modelCatalogPath, 'utf8'));
     expect(catalog).toMatchObject({
       models: [
         {
@@ -165,8 +210,47 @@ describe('RuntimeSettingsStore', () => {
       ],
     });
     if (currentPlatformStrategy().enforcesPrivateMode) {
-      expect((await stat(store.minimaxModelCatalogPath)).mode & 0o777).toBe(0o600);
+      expect((await stat(store.modelCatalogPath)).mode & 0o777).toBe(0o600);
     }
+  });
+
+  it('migrates a vision model to visible, configurable capability defaults', async () => {
+    const root = await temporaryRoot();
+    const settingsPath = path.join(root, 'runtime-settings.json');
+    await writeFile(
+      settingsPath,
+      JSON.stringify({
+        version: 4,
+        brand: { name: 'AI小鲸', iconPath: '' },
+        proxy: { mode: 'inherit', url: '', noProxy: 'localhost,127.0.0.1,::1' },
+        provider: {
+          mode: 'custom',
+          id: 'sub2api',
+          name: 'sub2api',
+          baseUrl: 'https://sub2api.example/v1',
+          model: 'deepseek-v4-flash-vision-exp',
+        },
+        apiKey: 'vision-test-key',
+      }),
+      { mode: 0o600 },
+    );
+
+    const store = new RuntimeSettingsStore(root);
+    expect(store.read().provider.capabilities).toEqual({
+      contextWindow: 128_000,
+      imageInput: true,
+      supportsReasoning: true,
+      reasoningEfforts: ['low', 'medium', 'high'],
+      defaultReasoningEffort: 'medium',
+      supportsReasoningSummaries: true,
+    });
+    expect(JSON.parse(await readFile(settingsPath, 'utf8'))).toMatchObject({ version: 5 });
+    expect(JSON.parse(await readFile(store.modelCatalogPath, 'utf8'))).toMatchObject({
+      models: [{
+        slug: 'deepseek-v4-flash-vision-exp',
+        input_modalities: ['text', 'image'],
+      }],
+    });
   });
 
   it('rejects an Anthropic URL and an endpoint URL that already includes /responses', async () => {
@@ -210,7 +294,7 @@ describe('RuntimeSettingsStore', () => {
     expect(branding).toMatchObject({ name: '研发助手', iconPath });
     expect(branding.iconUrl).toBe(new URL(`file://${iconPath}`).href);
     expect(JSON.parse(await readFile(store.filePath, 'utf8'))).toMatchObject({
-      version: 4,
+      version: 5,
       brand: { name: '研发助手', iconPath },
     });
 
@@ -246,6 +330,14 @@ function customInput(
       name: 'Custom Responses',
       baseUrl: 'https://gateway.example/v1',
       model: 'custom-model',
+      capabilities: {
+        contextWindow: 128_000,
+        imageInput: false,
+        supportsReasoning: true,
+        reasoningEfforts: ['low', 'medium', 'high'],
+        defaultReasoningEffort: 'medium',
+        supportsReasoningSummaries: true,
+      },
       apiKey: 'test-provider-key',
       ...patch.provider,
     },

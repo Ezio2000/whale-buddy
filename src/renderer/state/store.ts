@@ -524,7 +524,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       pluginContexts,
       cwd: project.path,
       ...(preferences.model ? { model: preferences.model } : {}),
-      effort: preferences.effort,
+      ...(get().connectionSettings?.provider.capabilities.supportsReasoning
+        ? { effort: preferences.effort }
+        : {}),
       approvalPolicy: preferences.approvalPolicy,
       sandboxMode: preferences.sandboxMode,
     };
@@ -601,11 +603,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   async applyRuntimeSettings(input) {
     try {
       const connectionSettings = await window.whale.runtime.configure(input);
+      const supportsReasoning = connectionSettings.provider.capabilities.supportsReasoning;
+      const supportedEfforts = connectionSettings.provider.capabilities.reasoningEfforts;
+      const effort = supportsReasoning
+        && supportedEfforts.some((candidate) => candidate === get().preferences.effort)
+        ? get().preferences.effort
+        : connectionSettings.provider.capabilities.defaultReasoningEffort;
       const preferences = {
         ...get().preferences,
         model: connectionSettings.provider.model,
+        ...(supportsReasoning ? { effort } : {}),
       };
       persistPreferences(preferences);
+      if (get().runtime?.phase === 'ready') {
+        await window.whale.config.write({
+          keyPath: 'model_reasoning_effort',
+          value: supportsReasoning ? effort : null,
+        });
+      }
       set({
         connectionSettings,
         preferences,

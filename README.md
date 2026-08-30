@@ -165,11 +165,17 @@ Whale Buddy 不提供 ChatGPT/OpenAI 账号登录，只支持通过 Provider API
 Responses API 的服务。首次启动必须填写 Provider ID、Base URL、原始模型 ID 和 API Key；
 Base URL 应是 API 根地址（通常以 `/v1` 结尾），不要包含末尾的 `/responses`。
 
+设置页的“模型”区域可查看并配置上下文窗口、视觉输入、推理能力、支持的推理档位、
+默认推理档位和推理摘要。保存后 Whale Buddy 会在
+`userData/ui-state/model-catalogs/runtime-model.json` 生成当前 Provider 专用的 Codex 模型
+能力目录，并随 sidecar 重启一起生效。旧配置升级时使用 128,000 token、文本输入和常用
+推理档位作为默认值；模型 ID 包含 `vision`、`vl`、`omni` 或 `multimodal` 时会默认开启
+视觉输入，之后仍可在设置中修改。
+
 使用 MiniMax-M3 时可手动填写 Provider ID `minimax_token_plan`、Responses Base URL
 `https://api.minimaxi.com/v1`、模型 ID `MiniMax-M3` 和 API Key。Whale Buddy 会对这组
-配置应用 1,000,000 token 上下文设置，并在 `userData/ui-state/model-catalogs` 中维护
-MiniMax-M3 的 Codex 模型能力目录。该目录声明 reasoning、工具和输入模态，避免 Codex
-退回通用模型元数据。
+旧配置自动迁移为 1,000,000 token 上下文、文本与视觉输入，以及“关闭 / 高”两个推理
+档位；这些能力同样可以在设置页继续调整。
 
 ## 使用提示
 

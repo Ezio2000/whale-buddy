@@ -354,7 +354,9 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       pluginContexts: task.pluginContexts,
       cwd: task.cwd,
       ...(task.model ? { model: task.model } : {}),
-      effort: task.effort,
+      ...(runtimeSettings.read().provider.capabilities.supportsReasoning
+        ? { effort: task.effort }
+        : {}),
       approvalPolicy: task.approvalPolicy,
       sandboxMode: task.sandboxMode,
     };

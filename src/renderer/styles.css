@@ -2186,6 +2186,57 @@ pre {
   color: var(--text-faint);
 }
 
+.settings-number-input {
+  width: 170px;
+}
+
+.model-capability-summary {
+  display: flex;
+  width: 280px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.model-capability-summary span,
+.reasoning-effort-picker button {
+  padding: 4px 7px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 999px;
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.reasoning-effort-picker {
+  display: flex;
+  width: 280px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 9px 0;
+}
+
+.reasoning-effort-picker button {
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-color: var(--border);
+  cursor: pointer;
+}
+
+.reasoning-effort-picker button.selected {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.reasoning-effort-picker button:disabled {
+  cursor: default;
+}
+
 .settings-secret-field {
   position: relative;
   width: 280px;
@@ -2292,6 +2343,10 @@ pre {
 }
 
 .branding-save-row {
+  padding-bottom: 5px;
+}
+
+.model-capability-save-row {
   padding-bottom: 5px;
 }
 

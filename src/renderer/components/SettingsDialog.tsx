@@ -15,6 +15,7 @@ import {
 import type {
   RuntimeBrandingSettingsInput,
   RuntimeConnectionSettingsInput,
+  RuntimeReasoningEffort,
 } from '../../shared/types';
 import { useAppStore, type Preferences } from '../state/store';
 import { BrandMark } from './BrandMark';
@@ -23,7 +24,6 @@ export function SettingsDialog() {
   const open = useAppStore((state) => state.settingsOpen);
   const setOpen = useAppStore((state) => state.setSettingsOpen);
   const preferences = useAppStore((state) => state.preferences);
-  const models = useAppStore((state) => state.models);
   const update = useAppStore((state) => state.updatePreferences);
   const connectionSettings = useAppStore((state) => state.connectionSettings);
   const applyRuntimeSettings = useAppStore((state) => state.applyRuntimeSettings);
@@ -52,25 +52,11 @@ export function SettingsDialog() {
     setBrandingMessage(null);
   }, [open]);
 
-  const selectedModel =
-    models.find((model) => model.model === preferences.model) ??
-    models.find((model) => model.isDefault);
-  const supportedEfforts = selectedModel?.supportedReasoningEfforts ?? [];
-  const effortOptions = (supportedEfforts.length
-    ? supportedEfforts.map((option) => ({
-        value: option.reasoningEffort,
-        label: reasoningEffortLabel(option.reasoningEffort),
-      }))
-    : [
-        { value: 'low', label: '低' },
-        { value: 'medium', label: '中' },
-        { value: 'high', label: '高' },
-        { value: 'xhigh', label: '超高' },
-      ]
-  ).filter(
-    (option, index, values) =>
-      values.findIndex((candidate) => candidate.value === option.value) === index,
-  );
+  const capabilities = connectionDraft.provider.capabilities;
+  const effortOptions: Array<{ value: string; label: string }> = capabilities.reasoningEfforts.map((effort) => ({
+    value: effort,
+    label: reasoningEffortLabel(effort),
+  }));
   if (!effortOptions.some((option) => option.value === preferences.effort)) {
     effortOptions.push({
       value: preferences.effort,
@@ -87,6 +73,20 @@ export function SettingsDialog() {
       ? [{ value: 'custom', label: '自定义组合' }]
       : []),
   ];
+  const saveConnection = async () => {
+    setSaving(true);
+    setConnectionMessage(null);
+    try {
+      const saved = await applyRuntimeSettings(connectionDraft);
+      setConnectionDraft(draftFromSettings(saved));
+      setShowApiKey(false);
+      setConnectionMessage('设置已生效，sidecar 已重启。');
+    } catch (error) {
+      setConnectionMessage(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -257,20 +257,7 @@ export function SettingsDialog() {
                 <button
                   className="button primary"
                   disabled={saving}
-                  onClick={async () => {
-                    setSaving(true);
-                    setConnectionMessage(null);
-                    try {
-                      const saved = await applyRuntimeSettings(connectionDraft);
-                      setConnectionDraft(draftFromSettings(saved));
-                      setShowApiKey(false);
-                      setConnectionMessage('设置已生效，sidecar 已重启。');
-                    } catch (error) {
-                      setConnectionMessage(errorMessage(error));
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
+                  onClick={() => void saveConnection()}
                 >
                   {saving ? <LoaderCircle className="spin" size={13} /> : <Save size={13} />}
                   保存并重连
@@ -282,13 +269,107 @@ export function SettingsDialog() {
               <SettingRow label="使用模型" hint="由上方 Provider 的模型名称决定。">
                 <code>{connectionDraft.provider.model || '尚未配置'}</code>
               </SettingRow>
-              <SettingRow label="推理强度" hint="更高强度通常需要更多时间和用量。">
-                <SelectField
-                  value={preferences.effort}
-                  onChange={(effort) => void update({ effort })}
-                  options={effortOptions}
+              <SettingRow label="能力概览" hint="保存后写入 Codex 模型目录，决定运行时可用能力。">
+                <div className="model-capability-summary">
+                  <span>文本</span>
+                  {capabilities.imageInput && <span>视觉</span>}
+                  {capabilities.supportsReasoning && <span>推理</span>}
+                  {capabilities.supportsReasoning && capabilities.supportsReasoningSummaries && (
+                    <span>推理摘要</span>
+                  )}
+                  <span>{formatTokenCount(capabilities.contextWindow)} 上下文</span>
+                </div>
+              </SettingRow>
+              <SettingRow label="上下文窗口" hint="模型可接收的最大 token 数；范围 1,024 到 10,000,000。">
+                <NumberField
+                  ariaLabel="模型上下文窗口"
+                  value={capabilities.contextWindow}
+                  min={1_024}
+                  max={10_000_000}
+                  onChange={(contextWindow) =>
+                    updateCapabilityDraft(setConnectionDraft, { contextWindow })
+                  }
                 />
               </SettingRow>
+              <SettingRow label="视觉输入" hint="允许把图片附件作为模型输入发送。">
+                <SwitchField
+                  ariaLabel="视觉输入"
+                  enabled={capabilities.imageInput}
+                  onChange={(imageInput) =>
+                    updateCapabilityDraft(setConnectionDraft, { imageInput })
+                  }
+                />
+              </SettingRow>
+              <SettingRow label="推理能力" hint="关闭后模型目录不再声明任何推理档位。">
+                <SwitchField
+                  ariaLabel="推理能力"
+                  enabled={capabilities.supportsReasoning}
+                  onChange={(supportsReasoning) =>
+                    updateCapabilityDraft(setConnectionDraft, { supportsReasoning })
+                  }
+                />
+              </SettingRow>
+              {capabilities.supportsReasoning && (
+                <>
+                  <SettingRow label="支持推理档位" hint="至少选择一个；这些档位会出现在会话设置中。">
+                    <ReasoningEffortPicker
+                      values={capabilities.reasoningEfforts}
+                      onChange={(reasoningEfforts) => {
+                        const currentDefault = capabilities.defaultReasoningEffort;
+                        updateCapabilityDraft(setConnectionDraft, {
+                          reasoningEfforts,
+                          defaultReasoningEffort: reasoningEfforts.includes(currentDefault)
+                            ? currentDefault
+                            : reasoningEfforts[0],
+                        });
+                      }}
+                    />
+                  </SettingRow>
+                  <SettingRow label="默认推理档位" hint="新会话首次加载该模型时使用。">
+                    <SelectField
+                      value={capabilities.defaultReasoningEffort}
+                      onChange={(defaultReasoningEffort) =>
+                        updateCapabilityDraft(setConnectionDraft, {
+                          defaultReasoningEffort: defaultReasoningEffort as RuntimeReasoningEffort,
+                        })
+                      }
+                      options={capabilities.reasoningEfforts.map((effort) => ({
+                        value: effort,
+                        label: reasoningEffortLabel(effort),
+                      }))}
+                    />
+                  </SettingRow>
+                  <SettingRow label="推理摘要" hint="允许 Responses API 接收 reasoning.summary 参数。">
+                    <SwitchField
+                      ariaLabel="推理摘要"
+                      enabled={capabilities.supportsReasoningSummaries}
+                      onChange={(supportsReasoningSummaries) =>
+                        updateCapabilityDraft(setConnectionDraft, { supportsReasoningSummaries })
+                      }
+                    />
+                  </SettingRow>
+                </>
+              )}
+              {capabilities.supportsReasoning && (
+                <SettingRow label="会话推理强度" hint="当前会话默认值；更高强度通常需要更多时间和用量。">
+                  <SelectField
+                    value={preferences.effort}
+                    onChange={(effort) => void update({ effort })}
+                    options={effortOptions}
+                  />
+                </SettingRow>
+              )}
+              <div className="connection-save-row model-capability-save-row">
+                <div className="connection-message" role="status">{connectionMessage}</div>
+                <button
+                  className="button primary"
+                  disabled={saving}
+                  onClick={() => void saveConnection()}
+                >
+                  {saving ? <LoaderCircle className="spin" size={13} /> : <Save size={13} />}
+                  保存能力并重连
+                </button>
+              </div>
             </section>
             <section>
               <h3>执行权限</h3>
@@ -488,6 +569,14 @@ function draftFromSettings(
       name: settings?.provider.name ?? 'Custom Responses',
       baseUrl: settings?.provider.baseUrl ?? '',
       model: settings?.provider.model ?? '',
+      capabilities: settings?.provider.capabilities ?? {
+        contextWindow: 128_000,
+        imageInput: false,
+        supportsReasoning: true,
+        reasoningEfforts: ['low', 'medium', 'high'],
+        defaultReasoningEffort: 'medium',
+        supportsReasoningSummaries: true,
+      },
       apiKey: '',
     },
   };
@@ -500,6 +589,19 @@ function updateProviderDraft(
   setter((draft) => ({
     ...draft,
     provider: { ...draft.provider, ...patch },
+  }));
+}
+
+function updateCapabilityDraft(
+  setter: React.Dispatch<React.SetStateAction<RuntimeConnectionSettingsInput>>,
+  patch: Partial<RuntimeConnectionSettingsInput['provider']['capabilities']>,
+): void {
+  setter((draft) => ({
+    ...draft,
+    provider: {
+      ...draft.provider,
+      capabilities: { ...draft.provider.capabilities, ...patch },
+    },
   }));
 }
 
@@ -526,9 +628,19 @@ function reasoningEffortLabel(effort: string): string {
       return '高';
     case 'xhigh':
       return '超高';
+    case 'max':
+      return '最大';
+    case 'ultra':
+      return '极致';
     default:
       return effort;
   }
+}
+
+function formatTokenCount(value: number): string {
+  if (value >= 1_000_000 && value % 1_000_000 === 0) return `${value / 1_000_000}M`;
+  if (value >= 1_000 && value % 1_000 === 0) return `${value / 1_000}K`;
+  return value.toLocaleString('zh-CN');
 }
 
 function SettingRow({
@@ -574,6 +686,103 @@ function SelectField({
         ))}
       </select>
       <ChevronDown aria-hidden="true" size={13} />
+    </div>
+  );
+}
+
+function NumberField({
+  ariaLabel,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  ariaLabel: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  return (
+    <input
+      className="settings-input settings-number-input"
+      aria-label={ariaLabel}
+      type="number"
+      value={draft}
+      min={min}
+      max={max}
+      step={1_024}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        if (Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber);
+      }}
+      onBlur={() => setDraft(String(value))}
+    />
+  );
+}
+
+function SwitchField({
+  ariaLabel,
+  enabled,
+  onChange,
+}: {
+  ariaLabel: string;
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-label={ariaLabel}
+      aria-checked={enabled}
+      className={`toggle-switch ${enabled ? 'enabled' : ''}`}
+      onClick={() => onChange(!enabled)}
+    >
+      <span />
+    </button>
+  );
+}
+
+const REASONING_EFFORTS: RuntimeReasoningEffort[] = [
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+];
+
+function ReasoningEffortPicker({
+  values,
+  onChange,
+}: {
+  values: RuntimeReasoningEffort[];
+  onChange: (values: RuntimeReasoningEffort[]) => void;
+}) {
+  return (
+    <div className="reasoning-effort-picker">
+      {REASONING_EFFORTS.map((effort) => {
+        const selected = values.includes(effort);
+        return (
+          <button
+            key={effort}
+            type="button"
+            aria-pressed={selected}
+            disabled={selected && values.length === 1}
+            className={selected ? 'selected' : ''}
+            onClick={() => onChange(
+              selected ? values.filter((value) => value !== effort) : [...values, effort],
+            )}
+          >
+            {reasoningEffortLabel(effort)}
+          </button>
+        );
+      })}
     </div>
   );
 }
