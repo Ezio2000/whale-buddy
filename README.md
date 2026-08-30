@@ -4,60 +4,50 @@ Whale Buddy 是一个面向 macOS 与 Windows 的 Codex 桌面客户端。它以
 TypeScript 构建，通过 stdio JSONL 连接仓库中固定版本的 `codex app-server`，并把
 Codex 的对话、命令、文件变更、审批和 Diff 汇集到一个中文桌面工作台中。
 
-当前版本面向本机开发验证，不包含签名、公证、自动更新或公开分发。
+当前版本不包含签名、公证或自动更新。所有可运行 App 和安装包必须由 GitHub Actions
+构建，本地只用于源码编辑与静态、单元测试验证，禁止生成或部署本地构建产物。
 
 ## 快速开始
 
-环境要求：
+本地验证环境要求：
 
 - macOS（Apple Silicon 或 Intel），或 Windows 10/11（x64）
 - Node.js 22 或更高版本
 - pnpm 11
-- uv（用于按上游固定版本下载并校验 Code Mode 的 V8 构建产物）
-- Rust stable toolchain（仅构建固定 sidecar 时需要）
 
-首次拉取并运行：
+首次拉取并验证源码：
 
 ```bash
 git submodule update --init --recursive
 pnpm install --frozen-lockfile
-pnpm codex:build
-pnpm protocol:generate
-pnpm dev
+pnpm typecheck
+pnpm test
+pnpm platform:check
 ```
 
-开发时可以用 `WHALE_CODEX_BIN=/absolute/path/to/codex` 临时覆盖 sidecar。该二进制的
-同一目录必须包含配套的 `codex-code-mode-host`（Windows 上为 `.exe`）。未设置时，应用使用
-当前平台的 `codex-source/codex-rs/target/release/codex[.exe]`，再回退到 debug 产物。启动前会校验
-二进制版本、配套 Code Mode host 与已生成协议清单一致。
+本地不得运行 `pnpm codex:build`、`pnpm protocol:generate`、`pnpm build`、`pnpm make`、
+`pnpm app:run`、`pnpm app:verify` 或直接调用 Electron Forge 的 package/make 命令。
+协议生成、官方 sidecar 下载、平台打包和安装产物制作统一由
+`.github/workflows/package.yml` 完成；本地部署也只能使用该工作流下载的 Artifact。
 
 ## 常用命令
 
 ```bash
-pnpm codex:build       # 构建固定版本 codex 与配套 Code Mode host
-pnpm protocol:generate # 从该二进制生成稳定 TypeScript 与 JSON Schema
-pnpm protocol:check    # 检查已提交协议是否漂移
-pnpm dev               # 校验 sidecar 后启动开发版
+pnpm install --frozen-lockfile # 按锁文件安装测试依赖
 pnpm typecheck         # TypeScript 静态检查
 pnpm platform:check    # 检查平台差异没有越过策略目录边界
 pnpm test              # 单元与组件测试
-pnpm test:e2e          # 使用可控假 app-server 测试 Electron/IPC/恢复
 pnpm test:package:windows-layout # 在任意开发平台检查 Windows 包内 sidecar 布局
-pnpm test:smoke        # 使用真实 sidecar 和临时 CODEX_HOME 冒烟测试
-pnpm build             # 生成当前平台的未签名应用目录
-pnpm make              # macOS 生成 DMG/ZIP，Windows 生成 Squirrel 安装包
-pnpm app:run           # 停止旧实例、构建并启动当前平台应用
-pnpm app:verify        # 构建、启动并确认应用保持运行
 ```
 
-## GitHub 安装包构建
+## GitHub 安装包构建（唯一支持的构建方式）
 
 `.github/workflows/package.yml` 直接从 OpenAI 官方 `openai/codex` Release 下载固定版本的
 macOS arm64 与 Windows x64 `codex-package`，使用官方 `codex-package_SHA256SUMS` 校验后，
 分别在 GitHub 的 macOS 和 Windows 原生 runner 上生成协议并制作安装包。该流程不编译
 Codex、不依赖私有 sidecar 缓存，也不需要本地虚拟机、Wine、Rust 或 uv。
 
-工作流有两种触发方式。
+禁止使用本地 sidecar、`out/` 目录或本地 Electron Forge 产物部署。工作流有两种触发方式。
 
 ### 手动构建
 
@@ -116,7 +106,7 @@ Authenticode 签名。
 - `src/platform/macos` 与 `src/platform/windows` 分别实现路径、窗口、菜单、生命周期、文件
   权限、sidecar 和安装包布局差异；应用代码只依赖统一平台接口。sandbox preload 使用同一
   平台目录下的轻量入口，不会加载主进程文件系统模块。
-- `scripts/platform/macos` 与 `scripts/platform/windows` 隔离本地构建、启动和进程管理差异；
+- `scripts/platform/macos` 与 `scripts/platform/windows` 隔离平台打包、启动和进程管理差异；
   `pnpm platform:check` 会阻止平台判断重新散落到业务代码、Forge 配置或通用脚本。
 - `src/shared` 是 IPC 和运行时事件的公共边界；`src/generated/protocol` 来自固定
   sidecar，默认不启用实验协议。

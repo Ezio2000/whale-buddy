@@ -670,4 +670,52 @@ describe('PluginMarketplaceDialog', () => {
       enabled: true,
     }));
   });
+
+  it('shows a downloaded plugin MCP even when the plugin is disabled', async () => {
+    const installedPlugin = {
+      ...pluginResponse.marketplaces[0].plugins[0],
+      installed: true,
+      enabled: false,
+    };
+    const disabledPolicy = {
+      ...extensionPolicy,
+      plugins: extensionPolicy.plugins.map((plugin) => ({
+        ...plugin,
+        enabled: false,
+        enabledMcpServers: [],
+      })),
+    };
+    vi.mocked(window.whale.plugins.list).mockResolvedValue({
+      ...pluginResponse,
+      marketplaces: [{
+        ...pluginResponse.marketplaces[0],
+        plugins: [installedPlugin],
+      }],
+    });
+    vi.mocked(window.whale.marketplaces.sources).mockResolvedValue(disabledPolicy);
+    vi.mocked(window.whale.mcp.list).mockResolvedValue({ data: [], nextCursor: null });
+
+    render(<PluginMarketplaceDialog />);
+
+    const tabs = within(screen.getByRole('navigation', { name: '插件商城分类' }));
+    fireEvent.click(tabs.getByRole('button', { name: /^MCP/ }));
+
+    const detailButton = await screen.findByRole('button', { name: '查看 fixture-mcp 详情' });
+    const card = detailButton.closest('.plugin-card') as HTMLElement;
+    expect(within(card).getByText('未启用')).toBeInTheDocument();
+    expect(within(card).getByText('插件已下载；启用插件后加载此 MCP')).toBeInTheDocument();
+    expect(within(card).getByText('工具将在载入后发现')).toBeInTheDocument();
+    const mcpSwitch = within(card).getByRole('switch', { name: 'fixture-mcp 已停用' });
+    expect(mcpSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(mcpSwitch).toBeDisabled();
+
+    fireEvent.click(detailButton);
+    await waitFor(() => expect(screen.getByText(/Bearer plaintext-fixture-token/)).toBeInTheDocument());
+    expect(window.whale.plugins.contributions).toHaveBeenCalledWith({
+      pluginId: 'fixture-plugin',
+      marketplaceName: 'fixture-marketplace',
+      marketplacePath: '/fixture/marketplace.json',
+      pluginName: 'fixture-tools',
+    });
+  });
 });

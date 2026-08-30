@@ -49,6 +49,12 @@ interface LocatedPlugin {
   location: PluginLocationInput;
 }
 
+type McpDisplayServer = McpServerStatus & {
+  declaredOnly: boolean;
+  pluginEnabled: boolean;
+  enabled: boolean;
+};
+
 type ContributionDialogState =
   | {
       kind: 'skill';
@@ -251,9 +257,13 @@ export function PluginMarketplaceDialog() {
     () => filterSkills(skills, ''),
     [skills],
   );
+  const effectiveMcp = useMemo(
+    () => mergeDeclaredMcpServers(mcp.data, extensionPolicy.plugins, locatedPlugins),
+    [extensionPolicy.plugins, locatedPlugins, mcp.data],
+  );
   const visibleMcp = useMemo(
-    () => filterMcp(mcp.data, query),
-    [mcp.data, query],
+    () => filterMcp(effectiveMcp, query),
+    [effectiveMcp, query],
   );
   const visibleSkillErrors = useMemo(
     () => skills.data.flatMap((entry) => entry.errors),
@@ -706,7 +716,6 @@ export function PluginMarketplaceDialog() {
               <McpManager
                 brandName={brandName}
                 servers={visibleMcp}
-                pluginPolicies={extensionPolicy.plugins}
                 detail={capabilityDetail?.kind === 'mcp' ? capabilityDetail : null}
                 mutationKey={mutationKey}
                 onLogin={(server) => void loginMcp(server)}
@@ -1264,7 +1273,6 @@ function SkillsManager({
 function McpManager({
   brandName,
   servers,
-  pluginPolicies,
   detail,
   mutationKey,
   onLogin,
@@ -1272,8 +1280,7 @@ function McpManager({
   onPreview,
 }: {
   brandName: string;
-  servers: McpServerStatus[];
-  pluginPolicies: ExtensionPluginPolicy[];
+  servers: McpDisplayServer[];
   detail: Extract<ContributionDialogState, { kind: 'mcp' }> | null;
   mutationKey: string | null;
   onLogin: (server: McpServerStatus) => void;
@@ -1286,40 +1293,37 @@ function McpManager({
         {servers.map((server) => {
           const tools = Object.keys(server.tools);
           const needsAuth = server.authStatus === 'notLoggedIn' || server.runtimeStatus === 'authenticationRequired';
-          const enabled = server.pluginId
-            ? pluginPolicies.find((plugin) => plugin.pluginId === server.pluginId)
-                ?.enabledMcpServers.includes(server.name) === true
-            : true;
           const selected = detail?.name === server.name;
           return (
             <article
               className={`plugin-card ${selected ? 'selected' : ''}`}
-              key={server.name}
+              key={server.pluginId ? `${server.pluginId}:${server.name}` : server.name}
             >
-              <button className="plugin-card-main" aria-label={`查看 ${server.name} 详情`} onClick={() => onPreview(server, enabled)}>
+              <button className="plugin-card-main" aria-label={`查看 ${server.name} 详情`} onClick={() => onPreview(server, server.enabled)}>
                 <span className={`capability-icon ${mcpTone(server.runtimeStatus)}`}><Server size={15} /></span>
                 <span className="plugin-card-copy">
                   <span className="plugin-card-title"><strong>{server.name}</strong><McpStatusBadge server={server} />{server.pluginId && <span className="scope-pill plugin-owned">插件提供</span>}</span>
                   <span>{mcpSummary(server)}</span>
-                  <small>{tools.length ? `${tools.length} 个工具` : '没有工具'}</small>
+                  <small>{tools.length ? `${tools.length} 个工具` : server.declaredOnly ? '工具将在载入后发现' : '没有工具'}</small>
                 </span>
               </button>
               {server.pluginId && (
                 <button
                   role="switch"
-                  aria-label={`${server.name} ${enabled ? '已启用' : '已停用'}`}
-                  aria-checked={enabled}
-                  className={`toggle-switch ${enabled ? 'enabled' : ''}`}
-                  disabled={mutationKey === `mcp-toggle:${server.name}`}
+                  aria-label={`${server.name} ${server.enabled ? '已启用' : '已停用'}`}
+                  aria-checked={server.enabled}
+                  className={`toggle-switch ${server.enabled ? 'enabled' : ''}`}
+                  disabled={!server.pluginEnabled || mutationKey === `mcp-toggle:${server.name}`}
+                  title={server.pluginEnabled ? '单独控制此 MCP 是否启动' : '先启用插件，再启用 MCP'}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onToggle(server, !enabled);
+                    onToggle(server, !server.enabled);
                   }}
                 >
                   {mutationKey === `mcp-toggle:${server.name}` ? <LoaderCircle className="spin" size={11} /> : <span />}
                 </button>
               )}
-              {enabled && needsAuth && (
+              {server.enabled && needsAuth && (
                 <button
                   className="button secondary"
                   disabled={mutationKey === `mcp:${server.name}`}
@@ -1425,7 +1429,15 @@ function pluginPolicyEnabled(
   return policies.find((policy) => policy.pluginId === pluginId)?.enabled === true;
 }
 
-function McpStatusBadge({ server }: { server: McpServerStatus }) {
+function McpStatusBadge({ server }: { server: McpDisplayServer }) {
+  if (server.declaredOnly) {
+    const label = !server.pluginEnabled
+      ? '未启用'
+      : server.enabled
+        ? '未载入'
+        : '已停用';
+    return <span className="mcp-status declared"><CircleOff size={10} />{label}</span>;
+  }
   const { runtimeStatus: status } = server;
   const loaded = status === null && (
     server.serverInfo !== null
@@ -1485,10 +1497,61 @@ function filterSkills(
     .sort((left, right) => Number(right.enabled) - Number(left.enabled) || skillDisplayName(left).localeCompare(skillDisplayName(right), 'zh-CN'));
 }
 
+function mergeDeclaredMcpServers(
+  runtimeServers: McpServerStatus[],
+  policies: ExtensionPluginPolicy[],
+  locatedPlugins: LocatedPlugin[],
+): McpDisplayServer[] {
+  const policiesByPluginId = new Map(policies.map((policy) => [policy.pluginId, policy]));
+  const installedPluginIds = new Set(
+    locatedPlugins
+      .filter(({ plugin }) => plugin.installed)
+      .map(({ plugin }) => plugin.id),
+  );
+  const merged = runtimeServers.map((server): McpDisplayServer => {
+    const policy = server.pluginId ? policiesByPluginId.get(server.pluginId) : undefined;
+    const pluginEnabled = policy?.enabled ?? true;
+    const enabled = server.pluginId
+      ? pluginEnabled && policy?.enabledMcpServers.includes(server.name) === true
+      : true;
+    return { ...server, declaredOnly: false, pluginEnabled, enabled };
+  });
+  const runtimeKeys = new Set(merged.map(mcpIdentity));
+
+  for (const policy of policies) {
+    if (!installedPluginIds.has(policy.pluginId)) continue;
+    for (const name of policy.mcpServers) {
+      const identity = mcpIdentity({ name, pluginId: policy.pluginId });
+      if (runtimeKeys.has(identity)) continue;
+      const pluginEnabled = policy.enabled;
+      merged.push({
+        name,
+        runtimeStatus: null,
+        pluginId: policy.pluginId,
+        serverInfo: null,
+        tools: {},
+        resources: [],
+        resourceTemplates: [],
+        authStatus: 'unknown',
+        declaredOnly: true,
+        pluginEnabled,
+        enabled: pluginEnabled && policy.enabledMcpServers.includes(name),
+      });
+      runtimeKeys.add(identity);
+    }
+  }
+
+  return merged;
+}
+
+function mcpIdentity(server: Pick<McpServerStatus, 'name' | 'pluginId'>): string {
+  return `${server.pluginId ?? ''}\u0000${server.name}`;
+}
+
 function filterMcp(
-  servers: McpServerStatus[],
+  servers: McpDisplayServer[],
   query: string,
-): McpServerStatus[] {
+): McpDisplayServer[] {
   const needle = normalizeSearch(query);
   return servers
     .filter((server) => !needle || normalizeSearch(`${server.name} ${Object.keys(server.tools).join(' ')}`).includes(needle));
@@ -1538,7 +1601,12 @@ function mcpTone(status: McpServerStatus['runtimeStatus']): string {
   return 'blue';
 }
 
-function mcpSummary(server: McpServerStatus): string {
+function mcpSummary(server: McpDisplayServer): string {
+  if (server.declaredOnly) {
+    if (!server.pluginEnabled) return '插件已下载；启用插件后加载此 MCP';
+    if (!server.enabled) return '插件已启用；开启此 MCP 后加载';
+    return '配置已启用；等待运行时载入';
+  }
   const toolCount = Object.keys(server.tools).length;
   const inventory = [`${toolCount} 个工具`];
   if (server.resources.length) inventory.push(`${server.resources.length} 个资源`);
