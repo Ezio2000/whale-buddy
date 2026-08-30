@@ -1131,7 +1131,11 @@ function readPluginContributionDetails(
       return contents === null ? [] : [{ name: skill.name, path: skill.path, contents }];
     })
     : [];
-  return { skills, mcp: root ? readPluginMcpConfig(root) : null };
+  return {
+    skills,
+    mcp: root ? readPluginMcpConfig(root) : null,
+    ui: readPluginUiDescriptor(response)?.contributions ?? [],
+  };
 }
 
 function readPluginMcpConfig(root: string): PluginContributionDetails['mcp'] {

@@ -36,7 +36,7 @@ import type {
   ExtensionPolicySnapshot,
   ExtensionSource,
 } from '../../shared/extension-policy';
-import type { PluginUiContribution, PluginUiDescriptor } from '../../shared/plugin-ui';
+import type { PluginUiContribution } from '../../shared/plugin-ui';
 import type { PluginCredentialValue } from '../../shared/plugin-credentials';
 import type { PluginLocationInput } from '../../shared/types';
 import { useAppStore } from '../state/store';
@@ -99,7 +99,7 @@ export function PluginMarketplaceDialog() {
   const [plugins, setPlugins] = useState<PluginListResponse>(emptyPluginResponse);
   const [skills, setSkills] = useState<SkillsListResponse>(emptySkillResponse);
   const [mcp, setMcp] = useState<ListMcpServerStatusResponse>(emptyMcpResponse);
-  const [pluginUi, setPluginUi] = useState<PluginUiDescriptor[]>([]);
+  const [uiContributions, setUiContributions] = useState<PluginUiContribution[]>([]);
   const [extensionPolicy, setExtensionPolicy] =
     useState<ExtensionPolicySnapshot>(emptyExtensionPolicy);
   const [selectedLocation, setSelectedLocation] = useState<PluginLocationInput | null>(null);
@@ -120,12 +120,11 @@ export function PluginMarketplaceDialog() {
       setLoading(true);
       setError(null);
       const context = selectedProject?.path ? { cwd: selectedProject.path } : {};
-      const [pluginResult, skillResult, mcpResult, policyResult, pluginUiResult] = await Promise.allSettled([
+      const [pluginResult, skillResult, mcpResult, policyResult] = await Promise.allSettled([
         window.whale.plugins.list({ ...context, forceRefetch: force }),
         window.whale.skills.list({ ...context, forceReload: force }),
         window.whale.mcp.list({}),
         window.whale.marketplaces.sources(),
-        window.whale.plugins.uiList(),
       ]);
       const failures: string[] = [];
       const resolvedPolicy = policyResult.status === 'fulfilled'
@@ -155,8 +154,6 @@ export function PluginMarketplaceDialog() {
       if (policyResult.status === 'rejected') {
         failures.push(`扩展策略：${errorMessage(policyResult.reason)}`);
       }
-      if (pluginUiResult.status === 'fulfilled') setPluginUi(pluginUiResult.value);
-      else failures.push(`插件 UI：${errorMessage(pluginUiResult.reason)}`);
       setError(failures.length ? failures.join('；') : null);
       setLoading(false);
       return failures;
@@ -201,17 +198,20 @@ export function PluginMarketplaceDialog() {
     if (!open || !selectedLocation) {
       setDetail(null);
       setCredentials([]);
+      setUiContributions([]);
       return;
     }
     let cancelled = false;
     setDetailLoading(true);
     setDetail(null);
     setCredentials([]);
+    setUiContributions([]);
     void Promise.allSettled([
       window.whale.plugins.read(selectedLocation),
       window.whale.plugins.credentials(selectedLocation),
+      window.whale.plugins.contributions(selectedLocation),
     ])
-      .then(([detailResult, credentialResult]) => {
+      .then(([detailResult, credentialResult, contributionResult]) => {
         if (cancelled) return;
         if (detailResult.status === 'fulfilled') setDetail(detailResult.value.plugin);
         else setError(`读取插件详情失败：${errorMessage(detailResult.reason)}`);
@@ -219,6 +219,11 @@ export function PluginMarketplaceDialog() {
           setCredentials(credentialResult.value.credentials);
         } else {
           setError(`读取插件凭据失败：${errorMessage(credentialResult.reason)}`);
+        }
+        if (contributionResult.status === 'fulfilled') {
+          setUiContributions(contributionResult.value.ui ?? []);
+        } else {
+          setError(`读取插件贡献失败：${errorMessage(contributionResult.reason)}`);
         }
       })
       .finally(() => {
@@ -690,7 +695,7 @@ export function PluginMarketplaceDialog() {
                 mutationKey={mutationKey}
                 pluginPolicies={extensionPolicy.plugins}
                 effectiveSkills={effectiveSkills}
-                pluginUi={pluginUi}
+                uiContributions={uiContributions}
                 credentials={credentials}
                 onSelect={setSelectedLocation}
                 onMutate={(located) => void mutatePlugin(located)}
@@ -776,7 +781,7 @@ function PluginBrowser({
   mutationKey,
   pluginPolicies,
   effectiveSkills,
-  pluginUi,
+  uiContributions,
   credentials,
   onSelect,
   onMutate,
@@ -793,7 +798,7 @@ function PluginBrowser({
   mutationKey: string | null;
   pluginPolicies: ExtensionPluginPolicy[];
   effectiveSkills: SkillMetadata[];
-  pluginUi: PluginUiDescriptor[];
+  uiContributions: PluginUiContribution[];
   credentials: PluginCredentialValue[];
   onSelect: (location: PluginLocationInput) => void;
   onMutate: (plugin: LocatedPlugin) => void;
@@ -853,9 +858,7 @@ function PluginBrowser({
             ? pluginPolicies.find((policy) => policy.pluginId === selectedPlugin.plugin.id) ?? null
             : null}
           effectiveSkills={effectiveSkills}
-          uiContributions={selectedPlugin
-            ? pluginUi.find((descriptor) => descriptor.pluginId === selectedPlugin.plugin.id)?.contributions ?? []
-            : []}
+          uiContributions={selectedPlugin ? uiContributions : []}
           credentials={credentials}
           mutationKey={mutationKey}
           onMutate={() => selectedPlugin && onMutate(selectedPlugin)}

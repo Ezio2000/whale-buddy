@@ -146,21 +146,7 @@ beforeEach(() => {
             },
           }],
         },
-      }),
-      credentials: vi.fn().mockResolvedValue({
-        pluginId: 'fixture-plugin',
-        credentials: [],
-      }),
-      configureCredential: vi.fn().mockResolvedValue({
-        pluginId: 'fixture-plugin',
-        credentials: [],
-      }),
-      uiList: vi.fn().mockResolvedValue([{
-        pluginId: 'fixture-plugin',
-        pluginName: 'fixture-tools',
-        displayName: 'Fixture Tools',
-        apiVersion: 1,
-        contributions: [
+        ui: [
           {
             id: 'fixture-composer',
             type: 'composer.widget',
@@ -175,9 +161,16 @@ beforeEach(() => {
             tools: ['inspect_fixture'],
           },
         ],
-        uiMcpPermissions: [],
+      }),
+      credentials: vi.fn().mockResolvedValue({
+        pluginId: 'fixture-plugin',
         credentials: [],
-      }]),
+      }),
+      configureCredential: vi.fn().mockResolvedValue({
+        pluginId: 'fixture-plugin',
+        credentials: [],
+      }),
+      uiList: vi.fn().mockResolvedValue([]),
       install: vi.fn().mockResolvedValue({ authPolicy: 'ON_USE', appsNeedingAuth: [] }),
       uninstall: vi.fn().mockResolvedValue(undefined),
       setEnabled: vi.fn().mockResolvedValue(extensionPolicy),

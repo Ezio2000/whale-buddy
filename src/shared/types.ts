@@ -9,7 +9,11 @@ import type { SkillsConfigWriteResponse } from '../generated/protocol/typescript
 import type { ExtensionPolicySnapshot } from './extension-policy';
 import type { SkillsListResponse } from '../generated/protocol/typescript/v2/SkillsListResponse';
 import type { ModelProviderCapabilitiesReadResponse } from '../generated/protocol/typescript/v2/ModelProviderCapabilitiesReadResponse';
-import type { PluginUiCallToolInput, PluginUiDescriptor } from './plugin-ui';
+import type {
+  PluginUiCallToolInput,
+  PluginUiContribution,
+  PluginUiDescriptor,
+} from './plugin-ui';
 import type { PluginCredentialsSnapshot } from './plugin-credentials';
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -266,6 +270,7 @@ export interface PluginContributionDetails {
     contents: string;
     servers: Array<{ name: string; config: Record<string, unknown> }>;
   } | null;
+  ui: PluginUiContribution[];
 }
 
 export interface MarketplaceAddInput {
