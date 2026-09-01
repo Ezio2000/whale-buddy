@@ -32,6 +32,8 @@ try {
         WHALE_FORGE_OUT_DIR: 'out-platform-check',
       },
       stdio: 'inherit',
+      // Node 安全修复后无 shell 直接执行 .cmd 会抛 EINVAL，Windows 需经 shell 解析。
+      shell: true,
     },
   );
   if (result.error) throw result.error;
