@@ -107,6 +107,37 @@ describe('Composer', () => {
     ));
   });
 
+  it('adds dropped files through the unified attachment flow', async () => {
+    const droppedAttachment = {
+      name: 'report.docx',
+      path: '/private/whale/attachments/report.docx',
+      kind: 'file' as const,
+    };
+    saveClipboardAttachment.mockResolvedValueOnce(droppedAttachment);
+    const { container } = render(<Composer />);
+    const dropZone = container.querySelector('.composer-shell');
+    const file = new File(['office document'], 'report.docx', {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+    const dataTransfer = {
+      files: [file],
+      types: ['Files'],
+      dropEffect: 'none',
+    };
+
+    fireEvent.dragEnter(dropZone!, { dataTransfer });
+    expect(screen.getByText('松开以添加文件')).toBeInTheDocument();
+    fireEvent.dragOver(dropZone!, { dataTransfer });
+    fireEvent.drop(dropZone!, { dataTransfer });
+
+    await waitFor(() => expect(saveClipboardAttachment).toHaveBeenCalledWith({
+      dataUrl: expect.stringMatching(/^data:application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document;base64,/),
+      name: 'report.docx',
+    }));
+    expect(await screen.findByText('report.docx')).toBeInTheDocument();
+    expect(screen.queryByText('松开以添加文件')).not.toBeInTheDocument();
+  });
+
   it('selects an enabled Skill and MCP Tool with the dollar picker', async () => {
     render(<Composer />);
     const textarea = screen.getByRole('textbox');

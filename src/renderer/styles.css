@@ -1578,6 +1578,25 @@ pre {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 11%, transparent), 0 5px 20px rgb(30 30 26 / 6%);
 }
 
+.composer-shell.dragging-files {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent), 0 5px 20px rgb(30 30 26 / 6%);
+}
+
+.composer-drop-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 650;
+  pointer-events: none;
+}
+
 .composer-shell textarea {
   display: block;
   width: 100%;

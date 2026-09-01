@@ -26,8 +26,10 @@ export function Composer() {
   const [capabilitiesLoading, setCapabilitiesLoading] = useState(false);
   const [capabilityError, setCapabilityError] = useState<string | null>(null);
   const [activeCapabilityIndex, setActiveCapabilityIndex] = useState(0);
-  const [savingClipboardAttachments, setSavingClipboardAttachments] = useState(false);
+  const [savingAttachments, setSavingAttachments] = useState(false);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileDragDepth = useRef(0);
   const sendComposer = useAppStore((state) => state.sendComposer);
   const { descriptors, composerContexts, openAction } = usePluginHost();
   const interrupt = useAppStore((state) => state.interrupt);
@@ -242,14 +244,14 @@ export function Composer() {
     setText((current) => removeCapabilityToken(current, `$${tool.name}`));
   };
 
-  const pasteAttachments = async (files: File[]) => {
+  const addFileAttachments = async (files: File[]) => {
     const remaining = Math.max(0, 20 - attachments.length);
     if (remaining === 0) {
       setNotice('一次消息最多添加 20 个文件');
       return;
     }
     const selected = files.slice(0, remaining);
-    setSavingClipboardAttachments(true);
+    setSavingAttachments(true);
     try {
       const saved = await Promise.all(
         selected.map(async (file) => window.whale.files.saveClipboardAttachment({
@@ -259,15 +261,42 @@ export function Composer() {
       );
       setAttachments((current) => mergeAttachments(current, saved).slice(0, 20));
     } catch (error) {
-      setNotice(`粘贴文件失败：${errorMessage(error)}`);
+      setNotice(`添加文件失败：${errorMessage(error)}`);
     } finally {
-      setSavingClipboardAttachments(false);
+      setSavingAttachments(false);
     }
   };
 
   return (
     <div className="composer-area">
-      <div className="composer-shell">
+      <div
+        className={`composer-shell${draggingFiles ? ' dragging-files' : ''}`}
+        onDragEnter={(event) => {
+          if (!selectedThreadId || !hasDraggedFiles(event.dataTransfer)) return;
+          event.preventDefault();
+          fileDragDepth.current += 1;
+          setDraggingFiles(true);
+        }}
+        onDragOver={(event) => {
+          if (!selectedThreadId || !hasDraggedFiles(event.dataTransfer)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }}
+        onDragLeave={(event) => {
+          if (!hasDraggedFiles(event.dataTransfer)) return;
+          fileDragDepth.current = Math.max(0, fileDragDepth.current - 1);
+          if (fileDragDepth.current === 0) setDraggingFiles(false);
+        }}
+        onDrop={(event) => {
+          if (!selectedThreadId || !hasDraggedFiles(event.dataTransfer)) return;
+          event.preventDefault();
+          fileDragDepth.current = 0;
+          setDraggingFiles(false);
+          const files = Array.from(event.dataTransfer.files);
+          if (files.length > 0) void addFileAttachments(files);
+        }}
+      >
+        {draggingFiles && <div className="composer-drop-hint">松开以添加文件</div>}
         {(commandMatches.length > 0 || fileResults.length > 0 || capabilityQuery !== null) && (
           <div className="composer-suggestions">
             {commandMatches.map((command) => (
@@ -391,7 +420,7 @@ export function Composer() {
               .filter((file): file is File => file !== null);
             if (!files.length) return;
             event.preventDefault();
-            void pasteAttachments(files);
+            void addFileAttachments(files);
           }}
           onKeyDown={(event) => {
             if (capabilityQuery !== null && capabilityMatches.length > 0 && event.key === 'ArrowDown') {
@@ -461,7 +490,7 @@ export function Composer() {
                 <span>{contribution.title}</span>
               </button>
             ))}
-            {savingClipboardAttachments && <span className="composer-saving-indicator">正在保存…</span>}
+            {savingAttachments && <span className="composer-saving-indicator">正在保存…</span>}
           </div>
           {activeTurn ? (
             <button className="send-button stop-button" aria-label="中断当前回合" onClick={() => void interrupt()}>
@@ -544,6 +573,10 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('无法读取剪贴板文件'));
     reader.readAsDataURL(file);
   });
+}
+
+function hasDraggedFiles(dataTransfer: DataTransfer): boolean {
+  return Array.from(dataTransfer.types).includes('Files');
 }
 
 function mergeAttachments(current: LocalAttachment[], incoming: LocalAttachment[]): LocalAttachment[] {
