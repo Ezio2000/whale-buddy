@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import path from 'node:path';
-import type { WhaleAuthState, WhaleUser } from '../shared/types';
+import type { IdentityContext, WhaleAuthState, WhaleUser } from '../shared/types';
 import { PRIVATE_FILE_MODE, hardenPrivateFile } from './filesystem-security';
 
 export interface WhaleAuthConfig {
@@ -37,6 +37,8 @@ interface StoredAuthSession {
   accessToken: string;
   refreshToken: string | null;
   expiresAt: number;
+  sessionId: string;
+  authenticatedAt: number;
   user: WhaleUser;
 }
 
@@ -103,6 +105,17 @@ export class WhaleAuthManager {
       this.clearSession();
     }
     return this.state;
+  }
+
+  async identityContext(): Promise<IdentityContext | null> {
+    const state = await this.status();
+    if (state.status !== 'logged-in' || !this.session) return null;
+    return {
+      userId: state.user.id,
+      username: state.user.username,
+      displayName: state.user.displayName,
+      sessionId: this.session.sessionId,
+    };
   }
 
   async login(): Promise<WhaleAuthState> {
@@ -271,6 +284,8 @@ export class WhaleAuthManager {
       accessToken: token.access_token,
       refreshToken: token.refresh_token ?? null,
       expiresAt: Date.now() + (token.expires_in ?? 3600) * 1000,
+      sessionId: this.session?.sessionId ?? randomBase64Url(24),
+      authenticatedAt: this.session?.authenticatedAt ?? Date.now(),
       user,
     };
     const temporaryPath = `${this.sessionPath}.tmp`;
@@ -298,6 +313,12 @@ export class WhaleAuthManager {
         accessToken: value.accessToken,
         refreshToken: typeof value.refreshToken === 'string' ? value.refreshToken : null,
         expiresAt: value.expiresAt,
+        sessionId: typeof value.sessionId === 'string'
+          ? value.sessionId
+          : createHash('sha256').update(value.accessToken).digest('base64url').slice(0, 32),
+        authenticatedAt: typeof value.authenticatedAt === 'number'
+          ? value.authenticatedAt
+          : Math.max(0, value.expiresAt - 3_600_000),
         user: value.user,
       };
     } catch {

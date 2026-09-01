@@ -1,4 +1,4 @@
-import type { HistoryPage, TurnChangesSnapshot, WhaleEvent } from '../../shared/types';
+import type { HistoryPage, OperationRecord, TurnChangesSnapshot, WhaleEvent } from '../../shared/types';
 
 export interface ItemView {
   id: string;
@@ -24,6 +24,7 @@ export interface TurnView {
   fileChanges: TurnChangesSnapshot['files'];
   plan: PlanStepView[];
   planExplanation: string | null;
+  operation?: OperationRecord | null;
 }
 
 export interface ThreadView {
@@ -288,6 +289,11 @@ export function hydrateHistory(
     turn.diff = snapshot.diff;
     turn.fileChanges = snapshot.files.map((change) => ({ ...change }));
   }
+  for (const operation of page.operations ?? []) {
+    if (!operation.turnId) continue;
+    const turn = thread.turns[operation.turnId];
+    if (turn) turn.operation = structuredClone(operation);
+  }
   return state;
 }
 
@@ -423,6 +429,7 @@ function ensureTurn(thread: ThreadView, id: string): TurnView {
       fileChanges: [],
       plan: [],
       planExplanation: null,
+      operation: null,
     };
     thread.turnOrder.push(id);
   }

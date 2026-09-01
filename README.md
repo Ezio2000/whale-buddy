@@ -151,6 +151,9 @@ Developer ID 签名或 Apple 公证；Windows 安装器也未做 Authenticode �
 
 - `src/main` 管理单一 app-server 进程、请求关联、只读过载重试、故障重启、项目记录及
   受限 IPC。
+- 主进程以轻量操作边界关联登录身份、现有执行/审批决策和回合生命周期事件。记录写入
+  `userData/ui-state/operations.json`，并通过历史读取回填到执行详情；它不包含独立规则引擎
+  或审计后台。
 - `src/preload` 只暴露经过运行时校验的 `window.whale` API。Renderer 开启
   `contextIsolation` 和 sandbox，且没有 Node.js、文件系统或任意子进程能力。
 - `src/renderer` 提供项目/线程导航、流式会话、工具活动、内联审批、输入与 Diff 面板。

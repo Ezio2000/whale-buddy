@@ -102,6 +102,13 @@ describe('WhaleAuthManager', () => {
     });
     expect(JSON.parse(readFileSync(path.join(stateRoot, 'auth-session.json'), 'utf8')))
       .toMatchObject({ accessToken: 'access-token', refreshToken: 'refresh-token' });
+    const identity = await manager.identityContext();
+    expect(identity).toMatchObject({
+      userId: 'built-in/alice',
+      username: 'alice',
+      displayName: 'Alice',
+      sessionId: expect.any(String),
+    });
 
     const restored = new WhaleAuthManager({
       stateRoot,
@@ -110,7 +117,9 @@ describe('WhaleAuthManager', () => {
       openExternal: async () => undefined,
     });
     expect(await restored.status()).toEqual(states.at(-1));
+    expect(await restored.identityContext()).toEqual(identity);
     expect(await restored.logout()).toEqual({ status: 'logged-out', user: null, message: null });
+    expect(await restored.identityContext()).toBeNull();
 
     await manager.dispose();
     await restored.dispose();

@@ -125,6 +125,18 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
               <dt>活动项</dt>
               <dd>{turn?.itemOrder.length ?? 0}</dd>
             </div>
+            <div>
+              <dt>提交人</dt>
+              <dd>{turn?.operation?.identity?.displayName ?? '未关联登录身份'}</dd>
+            </div>
+            <div>
+              <dt>操作 ID</dt>
+              <dd>{turn?.operation?.operationId ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>策略记录</dt>
+              <dd>{turn?.operation?.decisions.length ?? 0}</dd>
+            </div>
           </dl>
           {turn?.error != null && <pre className="json-output error-output">{JSON.stringify(turn.error, null, 2)}</pre>}
         </div>

@@ -31,6 +31,23 @@ const turn: TurnView = {
   }],
   plan: [{ step: '验证 sidecar', status: 'completed' }],
   planExplanation: '固定协议版本',
+  operation: {
+    operationId: 'operation-1',
+    identity: {
+      userId: 'user-1', username: 'alice', displayName: 'Alice', sessionId: 'session-1',
+    },
+    action: 'turn.execute',
+    resource: { source: 'composer' },
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    createdAt: 1,
+    updatedAt: 2,
+    decisions: [{
+      id: 'decision-1', source: 'execution-policy', action: 'turn.execute', effect: 'allow',
+      reason: '校验通过', decidedAt: 1, requestId: null,
+    }],
+    events: [],
+  },
 };
 
 describe('DiffPanel', () => {
@@ -43,6 +60,9 @@ describe('DiffPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /计划/ }));
     expect(screen.getByText('验证 sidecar')).toBeInTheDocument();
     expect(screen.getByText('已完成')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /执行/ }));
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('operation-1')).toBeInTheDocument();
   });
 
   it('switches between every conversation turn', () => {

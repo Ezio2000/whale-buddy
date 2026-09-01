@@ -20,6 +20,7 @@ import { resolveSidecarPath } from './sidecar-path';
 import { registerPluginProtocol, registerPluginSchemes } from './plugin-host';
 import { PluginCredentialStore } from './plugin-credential-store';
 import { WhaleAuthManager } from './auth';
+import { OperationStore } from './operations';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -48,6 +49,7 @@ async function createWindow(): Promise<void> {
   const runtimeSettings = new RuntimeSettingsStore(data.uiStateRoot);
   const turnPlans = new TurnPlanStore(data.uiStateRoot);
   const turnChanges = new TurnChangesStore(data.uiStateRoot);
+  const operations = new OperationStore(data.uiStateRoot);
   const scheduledTasks = new ScheduledTaskStore(data.uiStateRoot);
   const branding = runtimeSettings.readBranding();
   const pluginCredentialEnvironment = () => {
@@ -143,6 +145,7 @@ async function createWindow(): Promise<void> {
       pluginCredentials,
       turnPlans,
       turnChanges,
+      operations,
       scheduledTasks,
       attachmentsRoot: data.attachmentsRoot,
       window: mainWindow,
@@ -191,6 +194,7 @@ async function createWindow(): Promise<void> {
       pluginCredentials,
       turnPlans,
       turnChanges,
+      operations,
       scheduledTasks,
       attachmentsRoot: data.attachmentsRoot,
       window: mainWindow,

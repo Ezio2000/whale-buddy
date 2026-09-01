@@ -55,6 +55,7 @@ import type { PluginCredentialStore } from './plugin-credential-store';
 import type { TurnPlanStore } from './turn-plans';
 import type { TurnChangesStore } from './turn-changes';
 import type { WhaleAuthManager } from './auth';
+import { approvalEffect, type OperationStore } from './operations';
 import {
   ScheduledTaskScheduler,
   type ScheduledTaskStore,
@@ -91,6 +92,7 @@ interface RegisterIpcOptions {
   pluginCredentials: PluginCredentialStore;
   turnPlans: TurnPlanStore;
   turnChanges: TurnChangesStore;
+  operations: OperationStore;
   scheduledTasks: ScheduledTaskStore;
   attachmentsRoot: string;
   window: BrowserWindow;
@@ -126,6 +128,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     pluginCredentials,
     turnPlans,
     turnChanges,
+    operations,
     scheduledTasks,
     attachmentsRoot,
     window,
@@ -172,6 +175,21 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
         threadId: stringValue(params?.threadId),
         turnId: stringValue(params?.turnId),
       });
+      const outstandingRequest = outstanding.get(requestKey(id));
+      if (
+        outstandingRequest?.turnId
+        && method !== 'item/tool/requestUserInput'
+        && method !== 'item/tool/call'
+      ) {
+        const requestId = requestKey(id);
+        operations.addDecisionByTurn(outstandingRequest.turnId, {
+          source: 'tool-approval',
+          action: approvalAction(method),
+          effect: 'confirm',
+          reason: '现有工具或沙箱策略要求用户确认',
+          requestId,
+        });
+      }
       const scheduledTurnId = stringValue(params?.turnId);
       if (scheduledTurnId && method !== 'item/tool/call') {
         scheduler?.handleApprovalStarted(scheduledTurnId);
@@ -225,9 +243,11 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       const turnId = stringValue(turn?.id) ?? stringValue(params?.turnId);
       const threadId = stringValue(params?.threadId);
       if (turnId) {
+        const status = stringValue(turn?.status) ?? 'completed';
+        operations.completeTurn(turnId, status, auditError(turn?.error));
         scheduler?.handleTurnCompleted(
           turnId,
-          stringValue(turn?.status) ?? 'completed',
+          status,
           turn?.error,
         );
         for (const [key, request] of outstanding) {
@@ -381,9 +401,37 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       approvalPolicy: task.approvalPolicy,
       sandboxMode: task.sandboxMode,
     };
-    const response = asRecord(await appServer.request('turn/start', buildTurnParams(input)));
+    const operationId = operations.start({
+      identity: await auth.identityContext(),
+      action: 'turn.execute',
+      resource: {
+        source: 'schedule',
+        taskId: task.id,
+        sandboxMode: task.sandboxMode,
+        approvalPolicy: task.approvalPolicy,
+      },
+      threadId,
+    });
+    operations.addDecisionByOperation(operationId, {
+      source: 'execution-policy',
+      action: 'turn.execute',
+      effect: 'allow',
+      reason: '定时任务执行预设已通过现有校验',
+      requestId: null,
+    });
+    let response: Record<string, unknown> | null;
+    try {
+      response = asRecord(await appServer.request('turn/start', buildTurnParams(input)));
+    } catch (error) {
+      operations.fail(operationId, errorMessage(error));
+      throw error;
+    }
     const turnId = stringValue(asRecord(response?.turn)?.id);
-    if (!turnId) throw new Error('启动定时任务回合失败');
+    if (!turnId) {
+      operations.fail(operationId, 'app-server 未返回定时任务回合 ID');
+      throw new Error('启动定时任务回合失败');
+    }
+    operations.attachTurn(operationId, threadId, turnId);
     turnChanges.begin(turnId, task.cwd, before);
     return { threadId, turnId };
   };
@@ -617,6 +665,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       items: itemData,
       plans: turnPlans.find(turnIds),
       changes: turnChanges.find(turnIds),
+      operations: operations.find(turnIds),
       turnsNextCursor: stringValue(turns?.nextCursor),
       itemsNextCursor: stringValue(items?.nextCursor),
     };
@@ -628,23 +677,55 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   handle(IPC.turnsStart, startTurnSchema, async (input) => {
     await loadAndReconcileSkills(input.cwd ? { cwd: input.cwd } : {});
     const before = input.cwd ? await turnChanges.capture(input.cwd) : null;
-    const response = await appServer.request('turn/start', buildTurnParams(input));
+    const operationId = operations.start({
+      identity: await auth.identityContext(),
+      action: 'turn.execute',
+      resource: {
+        source: 'composer',
+        sandboxMode: input.sandboxMode ?? 'workspace-write',
+        approvalPolicy: input.approvalPolicy ?? 'untrusted',
+      },
+      threadId: input.threadId,
+    });
+    operations.addDecisionByOperation(operationId, {
+      source: 'execution-policy',
+      action: 'turn.execute',
+      effect: 'allow',
+      reason: '执行预设已通过现有 IPC 和沙箱配置校验',
+      requestId: null,
+    });
+    let response: unknown;
+    try {
+      response = await appServer.request('turn/start', buildTurnParams(input));
+    } catch (error) {
+      operations.fail(operationId, errorMessage(error));
+      throw error;
+    }
     const turn = asRecord(asRecord(response)?.turn);
     const turnId = stringValue(turn?.id);
-    if (before && input.cwd && turnId) turnChanges.begin(turnId, input.cwd, before);
+    if (turnId) {
+      operations.attachTurn(operationId, input.threadId, turnId);
+      if (before && input.cwd) turnChanges.begin(turnId, input.cwd, before);
+    } else {
+      operations.fail(operationId, 'app-server 未返回回合 ID');
+    }
     return response;
   });
   handle(IPC.turnsSteer, steerTurnSchema, async (input) => {
     await loadAndReconcileSkills(input.cwd ? { cwd: input.cwd } : {});
-    return appServer.request('turn/steer', {
+    const response = await appServer.request('turn/steer', {
       threadId: input.threadId,
       expectedTurnId: input.turnId,
       input: buildUserInput(input),
     });
+    operations.addEventByTurn(input.turnId, 'operation.steered', 'started');
+    return response;
   });
-  handle(IPC.turnsInterrupt, interruptSchema, ({ threadId, turnId }) =>
-    appServer.request('turn/interrupt', { threadId, turnId }),
-  );
+  handle(IPC.turnsInterrupt, interruptSchema, async ({ threadId, turnId }) => {
+    const response = await appServer.request('turn/interrupt', { threadId, turnId });
+    operations.addEventByTurn(turnId, 'operation.interrupt-requested', 'started');
+    return response;
+  });
   handle(IPC.turnsReview, threadIdSchema, async ({ threadId }) => {
     const response = await appServer.request('thread/read', {
       threadId,
@@ -663,6 +744,20 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     const request = outstanding.get(key);
     if (!request || request.method !== input.method) throw new Error('审批请求已过期或不匹配');
     outstanding.delete(key);
+    if (
+      request.turnId
+      && input.method !== 'item/tool/requestUserInput'
+      && input.method !== 'item/tool/call'
+    ) {
+      const effect = approvalEffect(input.response);
+      operations.addDecisionByTurn(request.turnId, {
+        source: 'user-approval',
+        action: approvalAction(input.method),
+        effect,
+        reason: effect === 'allow' ? '用户已允许该操作' : '用户已拒绝该操作',
+        requestId: key,
+      });
+    }
     appServer.respond(input.requestId, input.response);
   });
 
@@ -1147,6 +1242,30 @@ function isThreadMissingError(error: unknown): boolean {
 
 function requestKey(value: string | number): string {
   return `${typeof value}:${String(value)}`;
+}
+
+function approvalAction(method: string): string {
+  if (method.includes('command') || method === 'execCommandApproval') return 'command.execute';
+  if (method.includes('fileChange') || method === 'applyPatchApproval') return 'file.write';
+  if (method.includes('permissions')) return 'permission.grant';
+  if (method.includes('elicitation')) return 'mcp.elicit';
+  if (method === 'item/tool/call') return 'tool.execute';
+  return method;
+}
+
+function auditError(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Error) return value.message;
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function pluginLocationParams(input: {

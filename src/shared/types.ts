@@ -21,6 +21,59 @@ export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue | undefined };
 
+export interface IdentityContext {
+  userId: string;
+  username: string;
+  displayName: string;
+  sessionId: string;
+}
+
+export interface PolicyDecision {
+  id: string;
+  source: 'execution-policy' | 'tool-approval' | 'user-approval';
+  action: string;
+  effect: 'allow' | 'deny' | 'confirm';
+  reason: string;
+  decidedAt: number;
+  requestId: string | null;
+}
+
+export interface AuditEvent {
+  id: string;
+  operationId: string;
+  type:
+    | 'operation.started'
+    | 'operation.steered'
+    | 'operation.interrupt-requested'
+    | 'approval.requested'
+    | 'policy.decided'
+    | 'operation.completed';
+  action: string;
+  outcome:
+    | 'started'
+    | 'confirmation-required'
+    | 'allowed'
+    | 'denied'
+    | 'succeeded'
+    | 'failed'
+    | 'cancelled';
+  timestamp: number;
+  reason: string | null;
+}
+
+export interface OperationRecord {
+  operationId: string;
+  identity: IdentityContext | null;
+  action: string;
+  resource: JsonObject;
+  threadId: string | null;
+  turnId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  decisions: PolicyDecision[];
+  events: AuditEvent[];
+}
+
 export type RuntimePhase =
   | 'stopped'
   | 'starting'
@@ -148,6 +201,7 @@ export interface HistoryPage {
   items: unknown[];
   plans: TurnPlanSnapshot[];
   changes: TurnChangesSnapshot[];
+  operations?: OperationRecord[];
   turnsNextCursor: string | null;
   itemsNextCursor: string | null;
 }

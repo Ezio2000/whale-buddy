@@ -304,6 +304,36 @@ describe('conversation reducer', () => {
     expect(latestTurnWithDetails(state, 'thread-1')?.id).toBe('turn-1');
   });
 
+  it('associates a persisted operation boundary with its turn', () => {
+    const state = hydrateHistory(emptyConversationState(), 'thread-1', {
+      turns: [{ id: 'turn-1', status: 'completed', itemsView: 'summary', items: [] }],
+      items: [],
+      plans: [],
+      changes: [],
+      operations: [{
+        operationId: 'operation-1',
+        identity: {
+          userId: 'user-1', username: 'alice', displayName: 'Alice', sessionId: 'session-1',
+        },
+        action: 'turn.execute',
+        resource: { source: 'composer' },
+        threadId: 'thread-1',
+        turnId: 'turn-1',
+        createdAt: 1,
+        updatedAt: 2,
+        decisions: [],
+        events: [],
+      }],
+      turnsNextCursor: null,
+      itemsNextCursor: null,
+    });
+
+    expect(state.threads['thread-1'].turns['turn-1'].operation).toMatchObject({
+      operationId: 'operation-1',
+      identity: { displayName: 'Alice' },
+    });
+  });
+
   it('keeps the newest turn with plan or diff available after a later plain turn', () => {
     let state = hydrateHistory(emptyConversationState(), 'thread-1', {
       turns: [
