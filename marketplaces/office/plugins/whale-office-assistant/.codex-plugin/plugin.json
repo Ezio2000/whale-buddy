@@ -37,8 +37,18 @@
               "format": { "type": "string", "enum": ["html", "docx", "xlsx"] },
               "summary": { "type": "string" },
               "content": { "type": "string" },
+              "sheetName": { "type": "string", "description": "XLSX 工作表名称，最长 31 个字符。" },
               "columns": { "type": "array", "items": { "type": "string" } },
-              "rows": { "type": "array", "items": { "type": "object" } }
+              "rows": {
+                "type": "array",
+                "description": "XLSX 数据行。可传与 columns 对齐的二维数组，或键名与 columns 完全一致的对象数组。",
+                "items": {
+                  "anyOf": [
+                    { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
+                    { "type": "array", "items": { "type": ["string", "number", "boolean", "null"] } }
+                  ]
+                }
+              }
             },
             "required": ["taskId", "title", "format", "summary", "content"],
             "additionalProperties": false

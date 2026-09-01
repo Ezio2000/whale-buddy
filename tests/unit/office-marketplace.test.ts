@@ -16,4 +16,17 @@ describe('bundled office marketplace', () => {
       policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
     });
   });
+
+  it('declares both object and column-aligned array rows for Excel staging', async () => {
+    const plugin = JSON.parse(
+      await readFile(path.resolve('marketplaces/office/plugins/whale-office-assistant/.codex-plugin/plugin.json'), 'utf8'),
+    ) as { whale: { webMcp: { tools: Array<{ inputSchema: { properties: Record<string, unknown> } }> } } };
+    const properties = plugin.whale.webMcp.tools[0].inputSchema.properties as {
+      sheetName?: { type: string };
+      rows: { items: { anyOf: Array<{ type: string }> } };
+    };
+
+    expect(properties.sheetName?.type).toBe('string');
+    expect(properties.rows.items.anyOf.map((variant) => variant.type)).toEqual(['object', 'array']);
+  });
 });

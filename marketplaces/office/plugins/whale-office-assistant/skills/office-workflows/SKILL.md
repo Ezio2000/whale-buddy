@@ -10,5 +10,5 @@ When the user starts a Whale office task, use the supplied extracted material an
 1. Follow the requested task type and output format.
 2. State material limitations instead of inventing missing facts.
 3. For HTML and DOCX, put the complete human-readable draft in `content`.
-4. For XLSX, provide stable `columns` and object `rows`; also summarize the table in `content`.
+4. For XLSX, provide non-empty stable `columns`, a concise `sheetName`, and non-empty `rows`. Rows may be objects whose keys exactly match `columns`, or arrays whose values exactly align with `columns`; do not omit or add cells. Also summarize the table in `content`.
 5. Finish by calling `whale_office_stage_artifact` exactly once. This call creates a preview only. Never claim that a file was saved until the user confirms generation in the result card.

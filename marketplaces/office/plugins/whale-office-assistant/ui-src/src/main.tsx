@@ -14,17 +14,17 @@ import {
 import { definePluginRuntime } from '@whale-buddy/plugin-sdk/runtime';
 import type { HostArtifact, HostAttachment } from '@whale-buddy/plugin-sdk/ui';
 import { renderHtmlDocument } from './html-document';
+import { parseOfficeDraft, renderXlsxArtifact, type OfficeDraft } from './office-artifact';
 import './styles.css';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type Format = 'html' | 'docx' | 'xlsx';
-interface Draft { taskId: string; title: string; format: Format; summary: string; content: string; columns?: string[]; rows?: Array<Record<string, JsonValue>> }
-interface StoredState { draft?: Draft; artifact?: HostArtifact }
+interface StoredState { draft?: OfficeDraft; artifact?: HostArtifact }
 
 definePluginRuntime({
   'stage-artifact': async (input, services) => {
-    const draft = asDraft(input);
+    const draft = parseOfficeDraft(input);
     await services.setState('thread', { draft } as unknown as JsonValue, services.context.threadId ?? undefined);
     return { staged: true, taskId: draft.taskId, title: draft.title, format: draft.format, summary: draft.summary };
   },
@@ -119,7 +119,7 @@ function ResultCard({ threadId }: { threadId: string | null }) {
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
   };
   if (!draft) return <div className="preview">正在读取办公成果预览…</div>;
-  return <article className="preview"><h3>{draft.title}</h3><p>{draft.summary}</p><pre>{previewText(draft)}</pre><div className="actions">
+  return <article className="preview"><h3>{draft.title}</h3><p>{draft.summary}</p>{draft.format === 'xlsx' ? <SpreadsheetPreview draft={draft} /> : <pre>{draft.content}</pre>}<div className="actions">
     {!state?.artifact && <button className="primary" onClick={() => void confirm()}>确认并生成 {draft.format.toUpperCase()}</button>}
     {state?.artifact && <><button className="secondary" onClick={() => void openArtifact(state.artifact!.id)}>打开成果</button><button className="secondary" onClick={() => void saveArtifactAs(state.artifact!.id)}>另存为</button></>}
   </div>{message && <p>{message}</p>}</article>;
@@ -154,27 +154,27 @@ async function extractPptx(bytes: Uint8Array): Promise<string> {
   return (await Promise.all(names.map(async (name) => (await zip.file(name)!.async('text')).replace(/<a:br\s*\/>/g, '\n').replace(/<[^>]+>/g, ' ')))).join('\n');
 }
 
-async function renderArtifact(draft: Draft): Promise<string> {
+function SpreadsheetPreview({ draft }: { draft: OfficeDraft }) {
+  const columns = draft.columns ?? [];
+  const rows = draft.rows ?? [];
+  return <section className="sheet-preview" aria-label="Excel 表格预览">
+    <p className="sheet-meta">工作表：{draft.sheetName} · {rows.length} 行 × {columns.length} 列{rows.length > 20 ? '（预览前 20 行）' : ''}</p>
+    <div className="sheet-scroll"><table><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
+      <tbody>{rows.slice(0, 20).map((row, rowIndex) => <tr key={rowIndex}>{columns.map((column) => <td key={column}>{formatCell(row[column])}</td>)}</tr>)}</tbody>
+    </table></div>
+  </section>;
+}
+
+function formatCell(value: unknown) { return value === null || value === undefined ? '' : String(value); }
+
+async function renderArtifact(draft: OfficeDraft): Promise<string> {
   if (draft.format === 'html') return toBase64(new TextEncoder().encode(renderHtmlDocument(draft.title, draft.content)));
   if (draft.format === 'docx') {
     const document = new Document({ sections: [{ children: [new Paragraph({ children: [new TextRun({ text: draft.title, bold: true, size: 32 })] }), ...draft.content.split(/\n+/).map((line) => new Paragraph(line))] }] });
     return blobToBase64(await Packer.toBlob(document));
   }
-  const rows = draft.rows?.length ? draft.rows : draft.content.split('\n').filter(Boolean).map((value) => ({ 内容: value }));
-  const sheet = XLSX.utils.json_to_sheet(rows, { header: draft.columns });
-  const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, sheet, '成果');
-  return toBase64(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }));
+  return toBase64(renderXlsxArtifact(draft));
 }
-
-function asDraft(value: JsonValue): Draft {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('办公成果参数无效');
-  const record = value as Record<string, JsonValue>;
-  const format = record.format;
-  if (format !== 'html' && format !== 'docx' && format !== 'xlsx') throw new Error('办公成果格式无效');
-  const required = (key: string) => { const result = record[key]; if (typeof result !== 'string' || !result.trim()) throw new Error(`办公成果缺少 ${key}`); return result; };
-  return { taskId: required('taskId'), title: required('title'), format, summary: required('summary'), content: required('content'), columns: Array.isArray(record.columns) ? record.columns.filter((item): item is string => typeof item === 'string') : undefined, rows: Array.isArray(record.rows) ? record.rows.filter((item): item is Record<string, JsonValue> => Boolean(item) && typeof item === 'object' && !Array.isArray(item)) : undefined };
-}
-function previewText(draft: Draft) { return draft.format === 'xlsx' && draft.rows?.length ? JSON.stringify(draft.rows.slice(0, 20), null, 2) : draft.content; }
 function fromBase64(value: string) { const binary = atob(value); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
 function toBase64(value: ArrayBuffer | Uint8Array) { const bytes = value instanceof Uint8Array ? value : new Uint8Array(value); let binary = ''; for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)); return btoa(binary); }
 async function blobToBase64(blob: Blob) { return toBase64(await blob.arrayBuffer()); }
