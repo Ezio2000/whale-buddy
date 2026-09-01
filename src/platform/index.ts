@@ -22,8 +22,12 @@ export function platformStrategyFor(platform: DesktopPlatform): DesktopPlatformS
 
 export function currentPlatformStrategy(
   platform: NodeJS.Platform = process.platform,
+  environment: NodeJS.ProcessEnv = process.env,
 ): DesktopPlatformStrategy {
-  return platformStrategyFor(requireDesktopPlatform(platform));
+  const configured = environment.WHALE_TARGET_PLATFORM;
+  return platformStrategyFor(requireDesktopPlatform(
+    (configured ?? platform) as NodeJS.Platform,
+  ));
 }
 
 export function forgeTargetPlatform(

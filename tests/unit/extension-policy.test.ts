@@ -114,6 +114,17 @@ describe('ExtensionPolicyStore', () => {
     expect(store.enabledGitMarketplaceNames()).toEqual(['remote-tools']);
   });
 
+  it('keeps the bundled office source removable only by disabling it', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
+    const store = new ExtensionPolicyStore(root);
+    store.addMarketplace('whale-office', '/Applications/Whale Buddy.app/Contents/Resources/office', null, true);
+
+    expect(store.source('whale-office')).toMatchObject({ preset: true, enabled: true });
+    expect(() => store.removeMarketplace('whale-office')).toThrow('预置商城源不能删除');
+    store.setSourceEnabled('whale-office', false);
+    expect(new ExtensionPolicyStore(root).source('whale-office')).toMatchObject({ preset: true, enabled: false });
+  });
+
   it('keeps cached plugin intent inert while its source is disabled', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'whale-extension-policy-'));
     const store = new ExtensionPolicyStore(root);

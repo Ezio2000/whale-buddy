@@ -21,6 +21,7 @@ import { registerPluginProtocol, registerPluginSchemes } from './plugin-host';
 import { PluginCredentialStore } from './plugin-credential-store';
 import { WhaleAuthManager } from './auth';
 import { OperationStore } from './operations';
+import { ArtifactStore } from './artifacts';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -50,6 +51,7 @@ async function createWindow(): Promise<void> {
   const turnPlans = new TurnPlanStore(data.uiStateRoot);
   const turnChanges = new TurnChangesStore(data.uiStateRoot);
   const operations = new OperationStore(data.uiStateRoot);
+  const artifacts = new ArtifactStore(data.artifactsRoot);
   const scheduledTasks = new ScheduledTaskStore(data.uiStateRoot);
   const branding = runtimeSettings.readBranding();
   const pluginCredentialEnvironment = () => {
@@ -146,6 +148,7 @@ async function createWindow(): Promise<void> {
       turnPlans,
       turnChanges,
       operations,
+      artifacts,
       scheduledTasks,
       attachmentsRoot: data.attachmentsRoot,
       window: mainWindow,
@@ -156,9 +159,11 @@ async function createWindow(): Promise<void> {
       },
       quit: () => app.quit(),
     });
-    void appServer.start().catch((error) => {
-      diagnosticLog.write('runtime', error instanceof Error ? error.message : String(error));
-    });
+    void appServer.start()
+      .then(() => ensureOfficeMarketplace(appServer!, extensionPolicy, projectRoot))
+      .catch((error) => {
+        diagnosticLog.write('runtime', error instanceof Error ? error.message : String(error));
+      });
   } catch (error) {
     diagnosticLog.write('runtime', error instanceof Error ? error.message : String(error));
     // A missing or mismatched sidecar should still produce a usable diagnostics window.
@@ -195,6 +200,7 @@ async function createWindow(): Promise<void> {
       turnPlans,
       turnChanges,
       operations,
+      artifacts,
       scheduledTasks,
       attachmentsRoot: data.attachmentsRoot,
       window: mainWindow,
@@ -213,6 +219,23 @@ async function createWindow(): Promise<void> {
   } else {
     await mainWindow.loadFile(path.join(moduleDirectory, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+}
+
+async function ensureOfficeMarketplace(
+  client: AppServerClient,
+  policy: ExtensionPolicyStore,
+  root: string,
+): Promise<void> {
+  if (policy.source('whale-office')) return;
+  const source = app.isPackaged
+    ? path.join(process.resourcesPath, 'office')
+    : path.join(root, 'marketplaces', 'office');
+  const response = await client.request('marketplace/add', {
+    source, refName: null, sparsePaths: null,
+  }) as { marketplaceName?: unknown };
+  if (response.marketplaceName !== 'whale-office') throw new Error('办公商城清单名称无效');
+  policy.addMarketplace('whale-office', source, null, true);
+  await client.restart();
 }
 
 app.whenReady().then(async () => {

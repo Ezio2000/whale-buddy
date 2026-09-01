@@ -11,12 +11,14 @@ export function prepareDataDirectories(userDataRoot: string): {
   codexHome: string;
   uiStateRoot: string;
   attachmentsRoot: string;
+  artifactsRoot: string;
   logsRoot: string;
 } {
   const sidecarHome = path.join(userDataRoot, 'sidecar-home');
   const codexHome = path.join(userDataRoot, 'codex-home');
   const uiStateRoot = path.join(userDataRoot, 'ui-state');
   const attachmentsRoot = path.join(uiStateRoot, 'attachments');
+  const artifactsRoot = path.join(uiStateRoot, 'artifacts');
   const logsRoot = path.join(userDataRoot, 'logs');
   const privateDirectories = [
     sidecarHome,
@@ -29,6 +31,7 @@ export function prepareDataDirectories(userDataRoot: string): {
     codexHome,
     uiStateRoot,
     attachmentsRoot,
+    artifactsRoot,
     logsRoot,
   ];
   for (const directory of privateDirectories) {
@@ -36,7 +39,7 @@ export function prepareDataDirectories(userDataRoot: string): {
     hardenPrivateDirectory(directory);
   }
   sanitizeStandaloneMcpConfig(codexHome);
-  return { sidecarHome, codexHome, uiStateRoot, attachmentsRoot, logsRoot };
+  return { sidecarHome, codexHome, uiStateRoot, attachmentsRoot, artifactsRoot, logsRoot };
 }
 
 /** Whale only accepts MCP servers contributed by installed plugins. */

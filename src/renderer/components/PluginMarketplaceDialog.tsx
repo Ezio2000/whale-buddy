@@ -620,7 +620,7 @@ export function PluginMarketplaceDialog() {
               <span className="marketplace-title-icon"><PackageOpen size={19} /></span>
               <div>
                 <Dialog.Title>插件商城</Dialog.Title>
-                <Dialog.Description>初始不包含任何商城；只有用户添加并启用的来源才会进入运行时。</Dialog.Description>
+                <Dialog.Description>内置办公插件商城来源；插件仍由员工确认下载和启用，其他来源也可手动添加。</Dialog.Description>
               </div>
             </div>
             <Dialog.Close className="icon-button dialog-close-target" aria-label="关闭插件商城">
@@ -1412,7 +1412,7 @@ function MarketplaceSources({
       <div className="source-authorization-note">
         未启用的来源不会获取目录、启动 MCP、加载 Skill 或向线程注入能力。缓存只作为惰性文件保留。
       </div>
-      <div className="sources-heading"><div><h3>已添加商城源</h3><p>{brandName} 不内置商城，只显示你手动添加的来源。</p></div></div>
+      <div className="sources-heading"><div><h3>已添加商城源</h3><p>{brandName} 预置办公插件商城，也显示你手动添加的来源。</p></div></div>
       <div className="source-list">
         {sources.map((sourceEntry) => {
           const enabled = sourceEntry.enabled;
@@ -1433,13 +1433,13 @@ function MarketplaceSources({
               </label>
               {sourceEntry.kind === 'marketplace' && (
                 <div className="source-actions">
-                <button className="icon-button danger" aria-label={`移除 ${sourceEntry.title}`} disabled={mutationKey === `source:remove:${sourceEntry.name}`} onClick={() => onRemove(sourceEntry)}><Trash2 size={14} /></button>
+                {!sourceEntry.preset && <button className="icon-button danger" aria-label={`移除 ${sourceEntry.title}`} disabled={mutationKey === `source:remove:${sourceEntry.name}`} onClick={() => onRemove(sourceEntry)}><Trash2 size={14} /></button>}
                 </div>
               )}
             </article>
           );
         })}
-        {!sources.length && <EmptyState icon={<Cloud size={24} />} title="还没有商城源" description={`${brandName} 默认不包含商城；请在上方手动添加。`} />}
+        {!sources.length && <EmptyState icon={<Cloud size={24} />} title="还没有商城源" description="办公商城正在初始化；也可以在上方手动添加其他来源。" />}
       </div>
     </div>
   );

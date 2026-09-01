@@ -1,0 +1,12 @@
+{
+  "name": "whale-office",
+  "interface": { "displayName": "Whale 办公商城" },
+  "plugins": [
+    {
+      "name": "whale-office-assistant",
+      "source": { "source": "local", "path": "./plugins/whale-office-assistant" },
+      "policy": { "installation": "AVAILABLE", "authentication": "NONE" },
+      "category": "Productivity"
+    }
+  ]
+}

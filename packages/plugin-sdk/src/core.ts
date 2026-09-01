@@ -1,6 +1,14 @@
 export const WHALE_PLUGIN_MESSAGE_CHANNEL = 'whale-plugin-v2';
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export type PluginStateScope = 'global' | 'project' | 'thread';
+export interface HostAttachment {
+  id?: string; name: string; path: string; kind: 'image' | 'file'; mimeType?: string;
+  size?: number; sha256?: string; originalPath?: string | null;
+}
+export interface HostArtifact {
+  id: string; name: string; path: string; format: 'html' | 'docx' | 'xlsx'; mimeType: string;
+  size: number; sha256: string; threadId: string; taskId: string; createdAt: number;
+}
 
 export interface ToolCallContext {
   itemId: string; server: string; tool: string; status: string;

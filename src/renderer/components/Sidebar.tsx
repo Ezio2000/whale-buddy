@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Folder,
   FolderOpen,
+  FileArchive,
   GitFork,
   MoreHorizontal,
   PanelTopOpen,
@@ -160,6 +161,13 @@ export function Sidebar() {
 
       <div className="sidebar-footer">
         <AccountButton />
+        <button
+          className={workspaceView === 'artifacts' ? 'active' : ''}
+          onClick={() => setWorkspaceView('artifacts')}
+        >
+          <FileArchive size={15} />
+          <span>成果库</span>
+        </button>
         <button
           className={workspaceView === 'schedules' ? 'active' : ''}
           onClick={() => setWorkspaceView('schedules')}

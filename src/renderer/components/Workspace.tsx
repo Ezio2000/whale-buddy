@@ -17,6 +17,7 @@ import { ConversationList } from './ConversationList';
 import { DiffPanel } from './DiffPanel';
 import { Sidebar } from './Sidebar';
 import { ScheduledTasksPage } from './ScheduledTasksPage';
+import { ArtifactsPage } from './ArtifactsPage';
 
 export function Workspace() {
   const selectedThreadId = useAppStore((state) => state.selectedThreadId);
@@ -54,6 +55,15 @@ export function Workspace() {
       <div className="app-shell scheduled-tasks-shell">
         <Sidebar />
         <main className="scheduled-tasks-main"><ScheduledTasksPage /></main>
+      </div>
+    );
+  }
+
+  if (workspaceView === 'artifacts') {
+    return (
+      <div className="app-shell artifacts-shell">
+        <Sidebar />
+        <main className="artifacts-main"><ArtifactsPage /></main>
       </div>
     );
   }

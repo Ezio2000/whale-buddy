@@ -94,6 +94,19 @@ OAUTH_MOCK_SCAN_BASE_URL=http://192.168.1.10:9000
 `app-whale` 默认显示密码登录和 `Local OAuth Mock`。将来接入企业微信时，只需在
 Casdoor 中为这个 Application 增加 WeCom Provider，Whale 不需要增加企业微信专用代码。
 
+### 正式企业微信接入
+
+在企业微信管理后台创建自建应用，记录企业 ID（CorpID）、AgentId 与 Secret，并把 Casdoor
+对外地址加入企业微信可信域名。随后在 Casdoor 创建 `WeChat Enterprise` / `WeCom` Provider，
+填入这三项凭据，将 Provider 加入 `app-whale`，并保持该应用的 OIDC Redirect URI 为
+`http://127.0.0.1:17891/oauth/callback`。如需同步通讯录，再创建同一组织下的 WeCom Syncer，
+同步用户及部门；Whale 会从 OIDC `departments`（兼容 `groups`）读取部门数组，并从
+`properties.primaryDepartmentId` 读取主部门。
+
+客户端不再固定 Issuer。在 Whale“设置 → Whale 身份”中填写正式 Casdoor Issuer（例如
+`https://auth.example.com`）并保存；保存会清除旧会话，员工随后使用企业微信扫码重新登录。
+Whale 的 Client ID 固定为 `whale-buddy-desktop`，企业微信凭据只保存在 Casdoor 服务器端。
+
 重复检查运行状态和配置：
 
 ```bash

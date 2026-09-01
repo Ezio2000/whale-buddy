@@ -19,6 +19,7 @@ export interface ExtensionSource {
   source: string | null;
   refName: string | null;
   enabled: boolean;
+  preset?: boolean;
 }
 
 export interface ExtensionPluginPolicy {

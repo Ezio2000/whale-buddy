@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
   currentContext, onContext, onHostEvent, reportSize, request,
-  type HostEvent, type JsonValue, type PluginContext, type PluginStateScope,
+  type HostArtifact, type HostAttachment, type HostEvent, type JsonValue, type PluginContext, type PluginStateScope,
 } from './core';
-export type { HostEvent, JsonValue, MessageContext, PluginContext, PluginCredential, PluginStateScope, ToolCallContext } from './core';
+export type { HostArtifact, HostAttachment, HostEvent, JsonValue, MessageContext, PluginContext, PluginCredential, PluginStateScope, ToolCallContext } from './core';
 
 export function usePluginContext(): PluginContext | null {
   const [value, setValue] = useState(currentContext());
@@ -30,4 +30,15 @@ export function callMcp<T = JsonValue>(server: string, tool: string, args: JsonV
 export function invokeTool<T = JsonValue>(toolId: string, args: JsonValue = {}): Promise<T> {
   return request('tool.invoke', { toolId, arguments: args });
 }
+export function pickAttachments(): Promise<HostAttachment[]> { return request('attachments.pick', {}); }
+export function readAttachment(path: string): Promise<{ dataBase64: string }> { return request('attachments.read', { path }); }
+export function startTask(input: { toolName: string; title: string; prompt: string; attachments: HostAttachment[]; context: JsonValue }): Promise<{ threadId: string }> {
+  return request('tasks.start', input);
+}
+export function createArtifact(input: { name: string; format: 'html' | 'docx' | 'xlsx'; dataBase64: string; threadId: string; taskId: string }): Promise<HostArtifact> {
+  return request('artifacts.create', input);
+}
+export function listArtifacts(threadId?: string): Promise<HostArtifact[]> { return request('artifacts.list', { threadId }); }
+export async function openArtifact(id: string): Promise<void> { await request('artifacts.open', { id }); }
+export function saveArtifactAs(id: string): Promise<string | null> { return request('artifacts.saveAs', { id }); }
 export { reportSize };

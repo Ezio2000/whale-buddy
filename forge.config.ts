@@ -30,7 +30,10 @@ const config: ForgeConfig = {
     executableName: 'Whale Buddy',
     extraResource: isE2ePackage
       ? []
-      : sidecarBundleResources(canonicalSidecar, existsSync, targetPlatform),
+      : [
+          ...sidecarBundleResources(canonicalSidecar, existsSync, targetPlatform),
+          path.resolve('marketplaces/office'),
+        ],
   },
   rebuildConfig: {},
   makers: forgePlatform.makers,

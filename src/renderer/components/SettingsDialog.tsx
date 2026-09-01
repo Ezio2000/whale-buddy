@@ -42,6 +42,11 @@ export function SettingsDialog() {
   }));
   const [savingBranding, setSavingBranding] = useState(false);
   const [brandingMessage, setBrandingMessage] = useState<string | null>(null);
+  const [authIssuer, setAuthIssuer] = useState('');
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [savingAuth, setSavingAuth] = useState(false);
+  const [auditCount, setAuditCount] = useState<number | null>(null);
+  const [auditMessage, setAuditMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setConnectionDraft(draftFromSettings(connectionSettings));
@@ -50,6 +55,14 @@ export function SettingsDialog() {
     setConnectionMessage(null);
     setBrandingDraft({ name: branding.name, iconPath: branding.iconPath });
     setBrandingMessage(null);
+    setAuthMessage(null);
+    setAuditMessage(null);
+    if (typeof window.whale?.auth?.settings === 'function') {
+      void window.whale.auth.settings().then((settings) => setAuthIssuer(settings.issuer));
+    }
+    if (typeof window.whale?.audit?.list === 'function') {
+      void window.whale.audit.list().then((records) => setAuditCount(records.length));
+    }
   }, [open]);
 
   const capabilities = connectionDraft.provider.capabilities;
@@ -103,6 +116,39 @@ export function SettingsDialog() {
             </Dialog.Close>
           </div>
           <div className="settings-groups">
+            <section>
+              <h3>Whale 身份</h3>
+              <SettingRow label="Casdoor 地址" hint="修改后会退出当前 Whale 账号，下次登录使用新的 OIDC 服务。">
+                <TextField ariaLabel="Casdoor Issuer" value={authIssuer} placeholder="https://identity.example.com" onChange={setAuthIssuer} />
+              </SettingRow>
+              <div className="settings-actions">
+                <button className="button secondary" disabled={savingAuth || !authIssuer.trim()} onClick={() => {
+                  setSavingAuth(true); setAuthMessage(null);
+                  void window.whale.auth.configure({ issuer: authIssuer.trim() })
+                    .then((settings) => { setAuthIssuer(settings.issuer); setAuthMessage('Casdoor 地址已保存，请重新登录。'); })
+                    .catch((error) => setAuthMessage(errorMessage(error)))
+                    .finally(() => setSavingAuth(false));
+                }}>
+                  {savingAuth ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />} 保存身份服务
+                </button>
+                {authMessage && <span>{authMessage}</span>}
+              </div>
+            </section>
+            <section>
+              <h3>本地审计</h3>
+              <SettingRow label="操作记录" hint="身份、策略决策和关键事件只保存在本机，除非员工手动清除，否则永久保留。">
+                <span>{auditCount === null ? '正在统计…' : `${auditCount} 条任务记录`}</span>
+              </SettingRow>
+              <div className="settings-actions">
+                <button className="button secondary" onClick={() => {
+                  if (!window.confirm('确认永久清除全部本地审计记录？此操作无法撤销。')) return;
+                  void window.whale.audit.clear()
+                    .then(() => { setAuditCount(0); setAuditMessage('本地审计记录已清除。'); })
+                    .catch((error) => setAuditMessage(errorMessage(error)));
+                }}>清除审计记录</button>
+                {auditMessage && <span>{auditMessage}</span>}
+              </div>
+            </section>
             <section>
               <h3>网络</h3>
               <SettingRow label="代理方式" hint={`仅作用于 ${branding.name} 自己启动的 Codex sidecar。`}>

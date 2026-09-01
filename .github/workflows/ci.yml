@@ -28,6 +28,10 @@ jobs:
     # package.yml 在真实目标平台完成，避免每次 push 重复打包。
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # Exercise a real desktop strategy on Linux while production still
+      # rejects unsupported platforms when this explicit target is absent.
+      WHALE_TARGET_PLATFORM: darwin
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +45,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm plugins:build
       - run: pnpm typecheck
       - run: pnpm platform:check
       - run: pnpm test

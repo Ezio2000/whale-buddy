@@ -1,0 +1,51 @@
+{
+  "name": "whale-office-assistant",
+  "version": "0.1.0",
+  "description": "总结办公文件、起草材料、整理数据并生成 HTML、Word 和 Excel 成果。",
+  "author": { "name": "Whale Buddy" },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Whale 办公助手",
+    "shortDescription": "办公材料处理与成果生成。",
+    "longDescription": "读取 PDF、Word、Excel、PPT、CSV 等材料，通过当前 Codex 线程完成总结、起草和数据整理，并在确认后生成正式成果。",
+    "developerName": "Whale Buddy",
+    "category": "Productivity",
+    "capabilities": ["Documents", "Spreadsheets", "Artifacts"],
+    "brandColor": "#3973A8"
+  },
+  "whale": {
+    "apiVersion": 2,
+    "uiContributions": [
+      { "id": "office-home", "type": "page", "placement": "navigation", "entry": "./ui/index.html", "title": "办公任务", "order": 20 },
+      { "id": "office-command", "type": "action", "placement": "commandPalette", "entry": "./ui/index.html", "title": "新建办公任务", "description": "总结、起草、整理或生成办公成果。", "keywords": ["办公", "Word", "Excel", "总结"], "order": 20 },
+      { "id": "office-result", "type": "card", "placement": "message", "entry": "./ui/index.html", "title": "办公成果预览", "match": { "itemTypes": ["dynamicToolCall"] }, "order": 20 }
+    ],
+    "webMcp": {
+      "entry": "./ui/index.html",
+      "tools": [
+        {
+          "id": "stage-artifact",
+          "name": "whale_office_stage_artifact",
+          "title": "暂存办公成果预览",
+          "description": "根据办公任务生成结构化预览。只暂存预览，必须等待用户确认后才会写出正式文件。",
+          "scope": "thread",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "taskId": { "type": "string" },
+              "title": { "type": "string" },
+              "format": { "type": "string", "enum": ["html", "docx", "xlsx"] },
+              "summary": { "type": "string" },
+              "content": { "type": "string" },
+              "columns": { "type": "array", "items": { "type": "string" } },
+              "rows": { "type": "array", "items": { "type": "object" } }
+            },
+            "required": ["taskId", "title", "format", "summary", "content"],
+            "additionalProperties": false
+          },
+          "annotations": { "readOnlyHint": false, "untrustedContentHint": false }
+        }
+      ]
+    }
+  }
+}

@@ -1658,6 +1658,113 @@ pre {
   background: var(--danger);
 }
 
+.turn-control-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.pause-button {
+  background: var(--warning, #b7791f);
+}
+
+.resume-button {
+  background: var(--success, #2f855a);
+}
+
+.artifacts-main {
+  min-width: 0;
+  overflow: auto;
+  background: var(--surface-muted);
+}
+
+.artifacts-page {
+  width: min(980px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.artifacts-header,
+.artifact-card,
+.artifact-actions {
+  display: flex;
+  align-items: center;
+}
+
+.artifacts-header {
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.artifacts-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 6px;
+}
+
+.artifacts-header p,
+.artifact-copy span,
+.artifact-copy code,
+.artifacts-empty span {
+  color: var(--text-muted);
+}
+
+.artifact-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.artifact-card {
+  gap: 14px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.artifact-format {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: white;
+  background: var(--accent);
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.artifact-format.docx { background: #2b579a; }
+.artifact-format.xlsx { background: #217346; }
+
+.artifact-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+.artifact-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-copy code { font-size: 10px; }
+.artifact-actions { gap: 7px; }
+.artifact-actions button { display: flex; align-items: center; gap: 5px; }
+
+.artifacts-empty {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  color: var(--text-muted);
+}
+
 .composer-attachments {
   margin: 0 0 6px;
 }

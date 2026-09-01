@@ -9,6 +9,23 @@ import type { JsonValue } from './types';
 export const idSchema = z.string().min(1).max(256);
 export const requestIdSchema = z.union([z.string().min(1), z.number().int().nonnegative()]);
 
+export const authSettingsSchema = z.object({
+  issuer: z.string().trim().url().max(2_048).refine((value) => {
+    const protocol = new URL(value).protocol;
+    return protocol === 'http:' || protocol === 'https:';
+  }, 'Casdoor 地址必须使用 HTTP(S)'),
+}).strict();
+
+export const artifactCreateSchema = z.object({
+  name: z.string().trim().min(1).max(256),
+  format: z.enum(['html', 'docx', 'xlsx']),
+  dataBase64: z.string().min(1).max(70_000_000),
+  threadId: idSchema,
+  taskId: idSchema,
+}).strict();
+export const artifactIdSchema = z.object({ id: idSchema }).strict();
+export const artifactListSchema = z.object({ threadId: idSchema.optional() }).strict();
+
 export function absolutePathSchemaFor(platform: DesktopPlatform) {
   return z
     .string()
@@ -40,11 +57,17 @@ export const policySchema = z.enum(['untrusted', 'on-request', 'never']);
 export const sandboxModeSchema = z.enum(['read-only', 'workspace-write', 'danger-full-access']);
 export const attachmentSchema = z
   .object({
+    id: idSchema.optional(),
     name: z.string().trim().min(1).max(512),
     path: absolutePathSchema,
     kind: z.enum(['image', 'file']),
+    mimeType: z.string().max(256).optional(),
+    size: z.number().int().nonnegative().optional(),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    originalPath: absolutePathSchema.nullable().optional(),
   })
   .strict();
+export const attachmentReadSchema = z.object({ path: absolutePathSchema }).strict();
 
 const jsonPrimitiveSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
@@ -123,6 +146,7 @@ export const startTurnSchema = z
     cwd: absolutePathSchema.optional(),
     approvalPolicy: policySchema.optional(),
     sandboxMode: sandboxModeSchema.optional(),
+    resumeOperationId: idSchema.optional(),
   })
   .strict()
   .refine(
@@ -505,6 +529,8 @@ export const whaleEventSchema = z.discriminatedUnion('kind', [
               displayName: z.string().min(1),
               email: z.string().nullable(),
               avatar: z.string().nullable(),
+              departments: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+              primaryDepartmentId: z.string().nullable().optional(),
             }),
             message: z.null(),
           }),

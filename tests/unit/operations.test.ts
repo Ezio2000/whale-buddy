@@ -84,4 +84,19 @@ describe('operation boundary', () => {
 
     expect(store.find(['turn-early'])[0].events.at(-1)?.outcome).toBe('succeeded');
   });
+
+  it('marks unfinished work after a restart and links an employee-confirmed continuation', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-operations-'));
+    temporaryRoots.push(root);
+    const first = new OperationStore(root);
+    const previousId = first.start({ identity: null, action: 'turn.execute', threadId: 'thread-1' });
+    first.attachTurn(previousId, 'thread-1', 'turn-1');
+
+    const recovered = new OperationStore(root);
+    expect(recovered.find(['turn-1'])[0].events.at(-1)?.reason).toContain('异常结束');
+    const nextId = recovered.start({ identity: null, action: 'turn.execute', threadId: 'thread-1' });
+    recovered.resume(previousId, nextId);
+    expect(recovered.list().find((record) => record.operationId === previousId)?.events.at(-1)?.type)
+      .toBe('operation.resumed');
+  });
 });

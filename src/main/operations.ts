@@ -15,8 +15,6 @@ interface OperationState {
   operations: Record<string, OperationRecord>;
 }
 
-const MAX_STORED_OPERATIONS = 2_000;
-
 export class OperationStore {
   private readonly filePath: string;
   private state: OperationState;
@@ -34,6 +32,7 @@ export class OperationStore {
     mkdirSync(uiStateRoot, { recursive: true });
     this.filePath = path.join(uiStateRoot, 'operations.json');
     this.state = this.read();
+    this.markUnfinishedInterrupted();
   }
 
   start(input: {
@@ -59,6 +58,61 @@ export class OperationStore {
     record.events.push(event(record, 'operation.started', input.action, 'started', null));
     this.save(record);
     return operationId;
+  }
+
+  record(input: {
+    identity: IdentityContext | null;
+    action: string;
+    resource?: JsonObject;
+    outcome: AuditEvent['outcome'];
+    reason?: string | null;
+    threadId?: string | null;
+  }): string {
+    const operationId = this.start(input);
+    const record = this.state.operations[operationId];
+    record.events.push(event(
+      record,
+      'operation.completed',
+      input.action,
+      input.outcome,
+      input.reason ?? null,
+    ));
+    record.updatedAt = Date.now();
+    this.save(record);
+    return operationId;
+  }
+
+  list(): OperationRecord[] {
+    return Object.values(this.state.operations).map((record) => structuredClone(record));
+  }
+
+  clear(): void {
+    this.state = { version: 1, operations: {} };
+    const temporaryPath = `${this.filePath}.tmp`;
+    writeFileSync(temporaryPath, `${JSON.stringify(this.state, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    renameSync(temporaryPath, this.filePath);
+  }
+
+  pause(turnId: string): void {
+    const record = this.operationForTurn(turnId);
+    if (!record) return;
+    record.events.push(event(record, 'operation.paused', 'turn.pause', 'cancelled', '员工已暂停任务'));
+    record.updatedAt = Date.now();
+    this.save(record);
+  }
+
+  resume(previousOperationId: string, nextOperationId: string): void {
+    const previous = this.state.operations[previousOperationId];
+    if (previous) {
+      previous.events.push(event(previous, 'operation.resumed', 'turn.resume', 'started', `继续为操作 ${nextOperationId}`));
+      previous.updatedAt = Date.now();
+      this.save(previous);
+    }
+    const record = this.state.operations[nextOperationId];
+    if (!record) return;
+    record.events.push(event(record, 'operation.resumed', 'turn.resume', 'started', `继续操作 ${previousOperationId}`));
+    record.updatedAt = Date.now();
+    this.save(record);
   }
 
   attachTurn(operationId: string, threadId: string, turnId: string): void {
@@ -115,6 +169,19 @@ export class OperationStore {
       return;
     }
     record.events.push(event(record, type, record.action, outcome, reason));
+    record.updatedAt = Date.now();
+    this.save(record);
+  }
+
+  addActivityByTurn(
+    turnId: string,
+    action: string,
+    outcome: AuditEvent['outcome'] = 'started',
+    reason: string | null = null,
+  ): void {
+    const record = this.operationForTurn(turnId);
+    if (!record) return;
+    record.events.push(event(record, 'operation.activity', action, outcome, reason));
     record.updatedAt = Date.now();
     this.save(record);
   }
@@ -176,10 +243,6 @@ export class OperationStore {
   private save(record: OperationRecord): void {
     delete this.state.operations[record.operationId];
     this.state.operations[record.operationId] = record;
-    const entries = Object.entries(this.state.operations);
-    if (entries.length > MAX_STORED_OPERATIONS) {
-      this.state.operations = Object.fromEntries(entries.slice(-MAX_STORED_OPERATIONS));
-    }
     const temporaryPath = `${this.filePath}.tmp`;
     writeFileSync(temporaryPath, `${JSON.stringify(this.state, null, 2)}\n`, {
       encoding: 'utf8',
@@ -197,6 +260,18 @@ export class OperationStore {
       return parsed;
     } catch {
       return { version: 1, operations: {} };
+    }
+  }
+
+  private markUnfinishedInterrupted(): void {
+    for (const record of Object.values(this.state.operations)) {
+      if (record.events.some((entry) => entry.type === 'operation.completed')) continue;
+      record.events.push(event(
+        record, 'operation.completed', record.action, 'cancelled',
+        '应用上次异常结束，可由员工确认后继续',
+      ));
+      record.updatedAt = Date.now();
+      this.save(record);
     }
   }
 }

@@ -64,8 +64,9 @@ const LOGIN_TIMEOUT_MS = 5 * 60_000;
 const EXPIRY_SKEW_MS = 30_000;
 
 export class WhaleAuthManager {
-  private readonly config: WhaleAuthConfig;
+  private config: WhaleAuthConfig;
   private readonly sessionPath: string;
+  private readonly settingsPath: string;
   private readonly openExternal: (url: string) => Promise<void>;
   private readonly request: typeof fetch;
   private readonly loginTimeoutMs: number;
@@ -76,7 +77,8 @@ export class WhaleAuthManager {
   private discovery: OidcDiscovery | null = null;
 
   constructor(options: WhaleAuthManagerOptions) {
-    this.config = normalizeConfig(options.config ?? WHALE_AUTH_CONFIG);
+    this.settingsPath = path.join(options.stateRoot, 'auth-settings.json');
+    this.config = this.readConfig(options.config ?? WHALE_AUTH_CONFIG);
     this.sessionPath = path.join(options.stateRoot, 'auth-session.json');
     this.openExternal = options.openExternal;
     this.request = options.fetch ?? fetch;
@@ -90,6 +92,24 @@ export class WhaleAuthManager {
   subscribe(listener: AuthListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  settings(): { issuer: string } {
+    return { issuer: this.config.issuer };
+  }
+
+  async configure(input: { issuer: string }): Promise<{ issuer: string }> {
+    const next = normalizeConfig({ ...this.config, issuer: input.issuer });
+    if (next.issuer === this.config.issuer) return this.settings();
+    await this.cancelActiveLogin();
+    this.config = next;
+    this.discovery = null;
+    this.clearSession();
+    writeFileSync(this.settingsPath, `${JSON.stringify({ issuer: next.issuer }, null, 2)}\n`, {
+      encoding: 'utf8', mode: PRIVATE_FILE_MODE,
+    });
+    hardenPrivateFile(this.settingsPath);
+    return this.settings();
   }
 
   async status(): Promise<WhaleAuthState> {
@@ -115,6 +135,8 @@ export class WhaleAuthManager {
       username: state.user.username,
       displayName: state.user.displayName,
       sessionId: this.session.sessionId,
+      departments: structuredClone(state.user.departments ?? []),
+      primaryDepartmentId: state.user.primaryDepartmentId ?? null,
     };
   }
 
@@ -326,6 +348,18 @@ export class WhaleAuthManager {
     }
   }
 
+  private readConfig(fallback: WhaleAuthConfig): WhaleAuthConfig {
+    try {
+      const stored = JSON.parse(readFileSync(this.settingsPath, 'utf8')) as { issuer?: unknown };
+      return normalizeConfig({
+        ...fallback,
+        issuer: typeof stored.issuer === 'string' ? stored.issuer : fallback.issuer,
+      });
+    } catch {
+      return normalizeConfig(fallback);
+    }
+  }
+
   private clearSession(): void {
     this.session = null;
     if (existsSync(this.sessionPath)) unlinkSync(this.sessionPath);
@@ -421,13 +455,42 @@ function normalizeUser(payload: Record<string, unknown>): WhaleUser {
   if (!id) throw new Error('Casdoor UserInfo 缺少用户 ID。');
   const username = firstString(payload.name, payload.preferred_username, payload.username, payload.email, id) ?? id;
   const displayName = firstString(payload.displayName, payload.name, payload.preferred_username, payload.email, id) ?? id;
+  const departments = normalizeDepartments(payload);
+  const primaryDepartmentId = firstString(
+    recordValue(payload.properties)?.primaryDepartmentId,
+    payload.primaryDepartmentId,
+    departments[0]?.id,
+  );
   return {
     id,
     username,
     displayName,
     email: firstString(payload.email),
     avatar: firstString(payload.avatar, payload.picture),
+    ...(departments.length ? { departments } : {}),
+    ...(primaryDepartmentId ? { primaryDepartmentId } : {}),
   };
+}
+
+function normalizeDepartments(payload: Record<string, unknown>): Array<{ id: string; name: string }> {
+  const candidates = Array.isArray(payload.departments)
+    ? payload.departments
+    : Array.isArray(payload.groups) ? payload.groups : [];
+  const departments = candidates.flatMap((value) => {
+    if (typeof value === 'string' && value.trim()) return [{ id: value.trim(), name: value.trim() }];
+    const record = recordValue(value);
+    if (!record) return [];
+    const departmentId = firstString(record.id, record.name);
+    const name = firstString(record.displayName, record.name, record.id);
+    return departmentId && name ? [{ id: departmentId, name }] : [];
+  });
+  return [...new Map(departments.map((department) => [department.id, department])).values()];
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
 }
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {

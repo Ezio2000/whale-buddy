@@ -10,7 +10,7 @@ import {
   type PluginToolCardContext,
   type PluginUiContribution,
 } from '../../shared/plugin';
-import type { JsonValue } from '../../shared/types';
+import type { ArtifactCreateInput, JsonValue, LocalAttachment } from '../../shared/types';
 import { useAppStore } from '../state/store';
 import { contextKey, usePluginHost } from './PluginHostProvider';
 
@@ -247,7 +247,48 @@ async function handleRequest(
     }
     return null;
   }
+  if (method === 'attachments.pick' && surface.kind === 'ui') {
+    return toJsonValue(await window.whale.files.pickAttachments()) ?? [];
+  }
+  if (method === 'attachments.read') {
+    return window.whale.files.readAttachment(requiredString(payload.path));
+  }
+  if (method === 'tasks.start' && surface.kind === 'ui') {
+    const toolName = requiredString(payload.toolName);
+    if (!descriptor.webMcp?.tools.some((tool) => tool.name === toolName)) throw new Error('办公任务指定了未声明的插件工具');
+    return host.startTask({
+      pluginId: descriptor.pluginId,
+      contributionId: surface.contributionId,
+      toolName,
+      title: requiredString(payload.title),
+      prompt: requiredString(payload.prompt),
+      attachments: Array.isArray(payload.attachments)
+        ? payload.attachments as unknown as LocalAttachment[]
+        : [],
+      context: toJsonValue(payload.context) ?? {},
+    });
+  }
+  if (method === 'artifacts.create') {
+    const input: ArtifactCreateInput = {
+      name: requiredString(payload.name),
+      format: requiredArtifactFormat(payload.format),
+      dataBase64: requiredString(payload.dataBase64, 70_000_000),
+      threadId: requiredString(payload.threadId),
+      taskId: requiredString(payload.taskId),
+    };
+    return toJsonValue(await window.whale.artifacts.create(input)) ?? null;
+  }
+  if (method === 'artifacts.list') {
+    return toJsonValue(await window.whale.artifacts.list(typeof payload.threadId === 'string' ? payload.threadId : undefined)) ?? [];
+  }
+  if (method === 'artifacts.open') { await window.whale.artifacts.open(requiredString(payload.id)); return null; }
+  if (method === 'artifacts.saveAs') return window.whale.artifacts.saveAs(requiredString(payload.id));
   throw new Error(`不支持的插件宿主请求：${method}`);
+}
+
+function requiredArtifactFormat(value: unknown): ArtifactCreateInput['format'] {
+  if (value === 'html' || value === 'docx' || value === 'xlsx') return value;
+  throw new Error('成果格式必须是 html、docx 或 xlsx');
 }
 
 export function composerContextFor(contexts: Record<string, PluginComposerContextValue>, descriptor: PluginDescriptor, contribution: PluginUiContribution, threadId: string) {
@@ -300,7 +341,7 @@ function matchesRuntimeTools(value: unknown, descriptor: PluginDescriptor): bool
   return declared.length === registered.length && declared.every((toolId, index) => toolId === registered[index]);
 }
 function toJsonValue(value: unknown): JsonValue | null { try { return JSON.parse(JSON.stringify(value)) as JsonValue; } catch { return null; } }
-function requiredString(value: unknown): string { const parsed = stringValue(value); if (!parsed || parsed.length > 512) throw new Error('插件请求包含无效名称'); return parsed; }
+function requiredString(value: unknown, maxLength = 512): string { const parsed = stringValue(value); if (!parsed || parsed.length > maxLength) throw new Error('插件请求包含无效名称'); return parsed; }
 function stringValue(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value.trim() : null; }
 function numberValue(value: unknown): number { return typeof value === 'number' && Number.isFinite(value) ? value : 0; }
 function optionalNumber(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }

@@ -81,7 +81,13 @@ jobs:
       - run: pnpm plugins:build
       - run: pnpm typecheck
       - run: pnpm platform:check
+      - run: pnpm test
       - run: pnpm exec electron-forge make --platform=darwin --arch=arm64
+
+      - name: Verify bundled office marketplace
+        run: |
+          test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/office/.agents/plugins/marketplace.json"
+          test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/office/plugins/whale-office-assistant/ui/index.html"
 
       - name: Verify macOS ad-hoc signature
         run: |
@@ -98,7 +104,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AI-Xiaojing-macOS-arm64
+          name: Whale-Buddy-macOS-arm64
           path: |
             out/make/*.dmg
             out/make/zip/darwin/arm64/*.zip
@@ -186,11 +192,19 @@ jobs:
       - run: pnpm plugins:build
       - run: pnpm typecheck
       - run: pnpm platform:check
+      - run: pnpm test
       - run: pnpm exec electron-forge make --platform=win32 --arch=x64
+
+      - name: Verify bundled office marketplace
+        shell: pwsh
+        run: |
+          $root = "out/Whale Buddy-win32-x64/resources/office"
+          if (-not (Test-Path "$root/.agents/plugins/marketplace.json")) { throw "Missing office marketplace" }
+          if (-not (Test-Path "$root/plugins/whale-office-assistant/ui/index.html")) { throw "Missing office plugin UI" }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AI-Xiaojing-Windows-x64
+          name: Whale-Buddy-Windows-x64
           path: out/make/squirrel.windows/x64/*
           if-no-files-found: error
 
@@ -203,7 +217,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: AI-Xiaojing-*
+          pattern: Whale-Buddy-*
           path: release-artifacts
           merge-multiple: true
 

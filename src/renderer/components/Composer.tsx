@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, LoaderCircle, Paperclip, Puzzle, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
+import { ImagePlus, LoaderCircle, Paperclip, Pause, Puzzle, RotateCcw, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
 import type {
   ExplicitDynamicToolReference,
   ExplicitSkillReference,
@@ -33,6 +33,9 @@ export function Composer() {
   const sendComposer = useAppStore((state) => state.sendComposer);
   const { descriptors, composerContexts, openAction } = usePluginHost();
   const interrupt = useAppStore((state) => state.interrupt);
+  const pause = useAppStore((state) => state.pause);
+  const resumeTask = useAppStore((state) => state.resumeTask);
+  const resumableTask = useAppStore((state) => state.resumableTask);
   const setNotice = useAppStore((state) => state.setNotice);
   const project = useAppStore((state) =>
     state.projects.find((candidate) => candidate.id === state.selectedProjectId),
@@ -493,8 +496,29 @@ export function Composer() {
             {savingAttachments && <span className="composer-saving-indicator">正在保存…</span>}
           </div>
           {activeTurn ? (
-            <button className="send-button stop-button" aria-label="中断当前回合" onClick={() => void interrupt()}>
-              <Square size={13} fill="currentColor" />
+            <div className="turn-control-buttons">
+              <button className="send-button pause-button" aria-label="暂停当前任务" title="暂停，可稍后继续" onClick={() => void pause()}>
+                <Pause size={14} fill="currentColor" />
+              </button>
+              <button className="send-button stop-button" aria-label="取消当前回合" title="取消" onClick={() => void interrupt()}>
+                <Square size={13} fill="currentColor" />
+              </button>
+            </div>
+          ) : resumableTask?.threadId === selectedThreadId ? (
+            <button
+              className="send-button resume-button"
+              aria-label="继续任务"
+              title="继续任务"
+              onClick={() => {
+                const needsConfirmation = resumableTask.status !== 'paused';
+                if (!needsConfirmation || window.confirm(
+                  resumableTask.status === 'failed'
+                    ? '确认在新回合中重试失败任务？'
+                    : '确认在新回合中继续异常中断的任务？',
+                )) void resumeTask();
+              }}
+            >
+              <RotateCcw size={14} />
             </button>
           ) : (
             <button

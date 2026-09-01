@@ -26,6 +26,8 @@ export interface IdentityContext {
   username: string;
   displayName: string;
   sessionId: string;
+  departments?: WhaleDepartment[];
+  primaryDepartmentId?: string | null;
 }
 
 export interface PolicyDecision {
@@ -45,6 +47,9 @@ export interface AuditEvent {
     | 'operation.started'
     | 'operation.steered'
     | 'operation.interrupt-requested'
+    | 'operation.paused'
+    | 'operation.resumed'
+    | 'operation.activity'
     | 'approval.requested'
     | 'policy.decided'
     | 'operation.completed';
@@ -157,6 +162,13 @@ export interface WhaleUser {
   displayName: string;
   email: string | null;
   avatar: string | null;
+  departments?: WhaleDepartment[];
+  primaryDepartmentId?: string | null;
+}
+
+export interface WhaleDepartment {
+  id: string;
+  name: string;
 }
 
 export type WhaleAuthState =
@@ -164,6 +176,10 @@ export type WhaleAuthState =
   | { status: 'waiting'; user: null; message: null }
   | { status: 'logged-in'; user: WhaleUser; message: null }
   | { status: 'error'; user: null; message: string };
+
+export interface WhaleAuthSettings {
+  issuer: string;
+}
 
 export interface LocalProject {
   id: string;
@@ -231,9 +247,35 @@ export interface TurnChangesSnapshot {
 }
 
 export interface LocalAttachment {
+  id?: string;
   name: string;
   path: string;
   kind: 'image' | 'file';
+  mimeType?: string;
+  size?: number;
+  sha256?: string;
+  originalPath?: string | null;
+}
+
+export interface ArtifactCreateInput {
+  name: string;
+  format: 'html' | 'docx' | 'xlsx';
+  dataBase64: string;
+  threadId: string;
+  taskId: string;
+}
+
+export interface ArtifactRecord {
+  id: string;
+  name: string;
+  path: string;
+  format: ArtifactCreateInput['format'];
+  mimeType: string;
+  size: number;
+  sha256: string;
+  threadId: string;
+  taskId: string;
+  createdAt: number;
 }
 
 export interface ExplicitSkillReference {
@@ -271,7 +313,18 @@ export interface StartTurnInput {
   cwd?: string;
   approvalPolicy?: 'untrusted' | 'on-request' | 'never';
   sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access';
+  resumeOperationId?: string;
 }
+
+export type TaskStatus =
+  | 'planned'
+  | 'running'
+  | 'waiting-confirmation'
+  | 'paused'
+  | 'cancelled'
+  | 'failed'
+  | 'completed'
+  | 'interrupted';
 
 export type ScheduledTaskPreset = 'hourly' | 'daily' | 'weekdays' | 'weekly' | 'custom';
 export type ScheduledRunStatus =
@@ -406,6 +459,8 @@ export type WhaleEvent =
 export interface WhaleApi {
   auth: {
     status(): Promise<WhaleAuthState>;
+    settings(): Promise<WhaleAuthSettings>;
+    configure(input: WhaleAuthSettings): Promise<WhaleAuthSettings>;
     login(): Promise<WhaleAuthState>;
     logout(): Promise<WhaleAuthState>;
   };
@@ -455,6 +510,7 @@ export interface WhaleApi {
     start(input: StartTurnInput): Promise<unknown>;
     steer(input: StartTurnInput & { turnId: string }): Promise<unknown>;
     interrupt(threadId: string, turnId: string): Promise<unknown>;
+    pause(threadId: string, turnId: string): Promise<unknown>;
     review(threadId: string): Promise<unknown>;
   };
   approvals: {
@@ -508,6 +564,17 @@ export interface WhaleApi {
     pickAttachments(): Promise<LocalAttachment[]>;
     saveClipboardAttachment(input: { dataUrl: string; name: string }): Promise<LocalAttachment>;
     search(projectPath: string, query: string): Promise<FileSearchResult[]>;
+    readAttachment(path: string): Promise<{ dataBase64: string }>;
+  };
+  audit: {
+    list(): Promise<OperationRecord[]>;
+    clear(): Promise<void>;
+  };
+  artifacts: {
+    create(input: ArtifactCreateInput): Promise<ArtifactRecord>;
+    list(threadId?: string): Promise<ArtifactRecord[]>;
+    open(id: string): Promise<void>;
+    saveAs(id: string): Promise<string | null>;
   };
   schedules: {
     list(): Promise<ScheduledTask[]>;

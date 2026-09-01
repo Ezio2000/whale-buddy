@@ -56,6 +56,8 @@ describe('WhaleAuthManager', () => {
           name: 'alice',
           displayName: 'Alice',
           email: 'alice@mock.wecom.local',
+          departments: [{ id: 'engineering', name: '研发部' }, 'guangzhou'],
+          properties: { primaryDepartmentId: 'engineering' },
         });
       }
       throw new Error(`Unexpected request: ${url}`);
@@ -97,6 +99,11 @@ describe('WhaleAuthManager', () => {
         displayName: 'Alice',
         email: 'alice@mock.wecom.local',
         avatar: null,
+        departments: [
+          { id: 'engineering', name: '研发部' },
+          { id: 'guangzhou', name: 'guangzhou' },
+        ],
+        primaryDepartmentId: 'engineering',
       },
       message: null,
     });
@@ -108,6 +115,11 @@ describe('WhaleAuthManager', () => {
       username: 'alice',
       displayName: 'Alice',
       sessionId: expect.any(String),
+      departments: [
+        { id: 'engineering', name: '研发部' },
+        { id: 'guangzhou', name: 'guangzhou' },
+      ],
+      primaryDepartmentId: 'engineering',
     });
 
     const restored = new WhaleAuthManager({
@@ -149,6 +161,20 @@ describe('WhaleAuthManager', () => {
       });
     });
     await manager.dispose();
+  });
+
+  it('persists a configurable Casdoor issuer and clears the old session boundary', async () => {
+    const stateRoot = temporaryStateRoot();
+    const config = testConfig(await availablePort());
+    const manager = new WhaleAuthManager({ stateRoot, config, openExternal: async () => undefined });
+
+    await expect(manager.configure({ issuer: 'https://identity.example.com/' }))
+      .resolves.toEqual({ issuer: 'https://identity.example.com' });
+    const restored = new WhaleAuthManager({ stateRoot, config, openExternal: async () => undefined });
+    expect(restored.settings()).toEqual({ issuer: 'https://identity.example.com' });
+    expect(await restored.status()).toEqual({ status: 'logged-out', user: null, message: null });
+    await manager.dispose();
+    await restored.dispose();
   });
 });
 

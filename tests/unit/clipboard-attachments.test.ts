@@ -1,9 +1,9 @@
-import { readFile, rm, stat } from 'node:fs/promises';
+import { readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { saveClipboardAttachment } from '../../src/main/clipboard-attachments';
+import { importAttachmentFromPath, saveClipboardAttachment } from '../../src/main/clipboard-attachments';
 import { currentPlatformStrategy } from '../../src/platform';
 
 const temporaryRoots: string[] = [];
@@ -51,5 +51,20 @@ describe('clipboard attachments', () => {
       name: 'bad.png',
       dataUrl: `data:image/png;base64,${Buffer.from('not an image').toString('base64')}`,
     })).rejects.toThrow('图片内容与格式不匹配');
+  });
+
+  it('copies a picked office file into Whale storage with provenance and a hash', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-attachment-'));
+    temporaryRoots.push(root);
+    const source = path.join(root, 'source.docx');
+    await writeFile(source, Buffer.from('fixture-docx'));
+    const attachmentRoot = path.join(root, 'saved');
+
+    const saved = await importAttachmentFromPath(attachmentRoot, source);
+
+    expect(saved).toMatchObject({ name: 'source.docx', kind: 'file', originalPath: source, size: 12 });
+    expect(saved.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(path.dirname(saved.path)).toBe(attachmentRoot);
+    expect(await readFile(saved.path)).toEqual(Buffer.from('fixture-docx'));
   });
 });

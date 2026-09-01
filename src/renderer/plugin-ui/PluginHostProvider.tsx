@@ -5,7 +5,7 @@ import type {
   PluginComposerContextValue, PluginDescriptor, PluginHostEvent, PluginStateScope,
   PluginUiContribution,
 } from '../../shared/plugin';
-import type { JsonValue, WhaleEvent } from '../../shared/types';
+import type { JsonValue, LocalAttachment, WhaleEvent } from '../../shared/types';
 import { useAppStore } from '../state/store';
 import { PluginRuntimeFrame } from './PluginUiFrame';
 
@@ -27,6 +27,7 @@ interface PluginHostContextValue {
   setState(pluginId: string, scope: PluginStateScope, scopeId: string, value: JsonValue | null): void;
   callMcp(input: Parameters<typeof window.whale.plugins.callMcp>[0]): Promise<JsonValue>;
   invokeTool(pluginId: string, toolId: string, input: JsonValue, threadId?: string | null): Promise<JsonValue>;
+  startTask(input: { pluginId: string; contributionId: string; toolName: string; title: string; prompt: string; attachments: LocalAttachment[]; context: JsonValue }): Promise<{ threadId: string }>;
   registerRuntime(pluginId: string, invoke: RuntimeInvoker): () => void;
   subscribe(listener: HostEventListener): () => void;
   reload(): Promise<void>;
@@ -40,6 +41,7 @@ const EMPTY_HOST: PluginHostContextValue = {
   setComposerContext: () => undefined, getState: () => null, setState: () => undefined,
   callMcp: () => Promise.reject(new Error('PluginHostProvider 尚未挂载')),
   invokeTool: () => Promise.reject(new Error('PluginHostProvider 尚未挂载')),
+  startTask: () => Promise.reject(new Error('PluginHostProvider 尚未挂载')),
   registerRuntime: () => () => undefined, subscribe: () => () => undefined,
   reload: async () => undefined,
 };
@@ -105,7 +107,7 @@ export function PluginHostProvider({ children }: { children: React.ReactNode }) 
     if (value === null) window.localStorage.removeItem(key);
     else {
       const encoded = JSON.stringify(value);
-      if (encoded.length > 65_536) throw new Error('插件状态超过 64 KB');
+      if (encoded.length > 2_097_152) throw new Error('插件状态超过 2 MB');
       window.localStorage.setItem(key, encoded);
     }
     emit({ type: 'state.changed', pluginId, scope, scopeId, value });
@@ -144,6 +146,32 @@ export function PluginHostProvider({ children }: { children: React.ReactNode }) 
       throw error;
     }
   }, [emit, selectedThreadId]);
+  const startTask = useCallback(async (input: {
+    pluginId: string; contributionId: string; toolName: string; title: string; prompt: string;
+    attachments: LocalAttachment[]; context: JsonValue;
+  }) => {
+    await useAppStore.getState().newThread();
+    const threadId = useAppStore.getState().selectedThreadId;
+    if (!threadId) throw new Error('无法创建办公任务线程，请先打开项目');
+    await useAppStore.getState().renameThread(input.title, threadId);
+    const sent = await useAppStore.getState().sendComposer(
+      input.prompt,
+      input.attachments,
+      undefined,
+      undefined,
+      undefined,
+      [{ pluginId: input.pluginId, name: input.toolName }],
+      [{
+        pluginId: input.pluginId,
+        contributionId: input.contributionId,
+        label: input.title,
+        value: input.context,
+      }],
+    );
+    if (!sent) throw new Error('办公任务未能启动');
+    setWorkspaceView('conversation');
+    return { threadId };
+  }, [setWorkspaceView]);
   useEffect(() => { invokeToolRef.current = invokeTool; }, [invokeTool]);
 
   useEffect(() => () => {
@@ -197,9 +225,9 @@ export function PluginHostProvider({ children }: { children: React.ReactNode }) 
   const value = useMemo<PluginHostContextValue>(() => ({
     descriptors, composerContexts, activeNavigation, activeAction, selectNavigation,
     openAction: setActiveAction, closeAction: () => setActiveAction(null), setComposerContext,
-    getState, setState, callMcp: (input) => window.whale.plugins.callMcp(input), invokeTool,
+    getState, setState, callMcp: (input) => window.whale.plugins.callMcp(input), invokeTool, startTask,
     registerRuntime, subscribe: (listener) => { listeners.current.add(listener); return () => listeners.current.delete(listener); }, reload,
-  }), [activeAction, activeNavigation, composerContexts, descriptors, getState, invokeTool, registerRuntime, reload, setComposerContext, setState]);
+  }), [activeAction, activeNavigation, composerContexts, descriptors, getState, invokeTool, registerRuntime, reload, setComposerContext, setState, startTask]);
 
   return <PluginHostContext.Provider value={value}>{children}<div hidden aria-hidden="true">
     {descriptors.filter((entry) => entry.webMcp).map((descriptor) => <PluginRuntimeFrame key={descriptor.pluginId} descriptor={descriptor} />)}

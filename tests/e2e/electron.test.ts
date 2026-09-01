@@ -36,6 +36,8 @@ test('packaged renderer has a narrow IPC surface and recovers its sidecar', asyn
     expect(boundary.processType).toBe('undefined');
     expect(boundary.apiKeys).toEqual([
       'approvals',
+      'artifacts',
+      'audit',
       'auth',
       'config',
       'events',

@@ -4,6 +4,7 @@ import type {
   LocalAttachment,
   LocalProject,
   ModelSummary,
+  OperationRecord,
   RuntimeBrandingSettings,
   RuntimeBrandingSettingsInput,
   RuntimeConnectionSettings,
@@ -51,6 +52,13 @@ export interface ThreadHistoryLoadState {
   itemsCursor: string | null;
 }
 
+export interface TaskCheckpoint {
+  operationId: string | null;
+  threadId: string;
+  input: StartTurnInput;
+  status: 'paused' | 'failed' | 'interrupted';
+}
+
 interface AppState {
   auth: WhaleAuthState;
   runtime: RuntimeStatus | null;
@@ -71,7 +79,9 @@ interface AppState {
   commandPaletteOpen: boolean;
   busy: boolean;
   notice: string | null;
-  workspaceView: 'conversation' | 'schedules' | 'plugin';
+  resumableTask: TaskCheckpoint | null;
+  lastTaskByThread: Record<string, StartTurnInput>;
+  workspaceView: 'conversation' | 'schedules' | 'artifacts' | 'plugin';
   initialize(): Promise<void>;
   recover(): Promise<void>;
   handleEvent(event: WhaleEvent): void;
@@ -98,6 +108,8 @@ interface AppState {
     pluginContexts?: StartTurnInput['pluginContexts'],
   ): Promise<boolean>;
   interrupt(): Promise<void>;
+  pause(): Promise<void>;
+  resumeTask(): Promise<boolean>;
   respondApproval(approval: PendingApproval, response: unknown): Promise<void>;
   updatePreferences(patch: Partial<Preferences>, syncCodex?: boolean): Promise<void>;
   applyRuntimeSettings(input: RuntimeConnectionSettingsInput): Promise<RuntimeConnectionSettings>;
@@ -107,7 +119,7 @@ interface AppState {
   setPluginMarketplaceOpen(open: boolean): void;
   setCommandPaletteOpen(open: boolean): void;
   setNotice(notice: string | null): void;
-  setWorkspaceView(view: 'conversation' | 'schedules' | 'plugin'): void;
+  setWorkspaceView(view: 'conversation' | 'schedules' | 'artifacts' | 'plugin'): void;
 }
 
 const defaultPreferences: Preferences = {
@@ -148,6 +160,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   commandPaletteOpen: false,
   busy: false,
   notice: null,
+  resumableTask: null,
+  lastTaskByThread: {},
   workspaceView: 'conversation',
 
   async initialize() {
@@ -204,6 +218,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         await restoreThread(selectedThreadId, set, get);
       } catch (error) {
         set({ notice: `恢复线程失败：${errorMessage(error)}` });
+      }
+    }
+
+    if (typeof window.whale.audit?.list === 'function') {
+      try {
+        const records = await window.whale.audit.list();
+        const recovered = latestRecoverableCheckpoint(records, get().preferences);
+        if (recovered) set({ resumableTask: recovered });
+      } catch {
+        // Recovery remains usable even if an older preload does not expose audit APIs.
       }
     }
   },
@@ -294,8 +318,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       case 'turn/completed': {
         void get().refreshThreads();
         const turn = record(params?.turn);
-        if (string(turn?.status) === 'failed') {
-          set({ notice: codexFailureNotice(turn?.error, '本回合执行失败') });
+        const threadId = string(params?.threadId) ?? string(turn?.threadId) ?? get().selectedThreadId;
+        const status = string(turn?.status);
+        if (status === 'failed') {
+          const input = threadId ? get().lastTaskByThread[threadId] : undefined;
+          set({
+            notice: codexFailureNotice(turn?.error, '本回合执行失败'),
+            ...(threadId && input ? { resumableTask: { operationId: null, threadId, input, status: 'failed' } as TaskCheckpoint } : {}),
+          });
+          if (typeof window.whale?.audit?.list === 'function') {
+            const turnId = string(turn?.id);
+            void window.whale.audit.list().then((records) => {
+              const matching = turnId ? records.filter((operation) => operation.turnId === turnId) : records;
+              const checkpoint = latestRecoverableCheckpoint(matching, get().preferences);
+              if (checkpoint) set({ resumableTask: checkpoint });
+            }).catch(() => undefined);
+          }
+        } else if (status === 'completed' && threadId && get().resumableTask?.threadId === threadId) {
+          set({ resumableTask: null });
         }
         break;
       }
@@ -565,6 +605,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       approvalPolicy: preferences.approvalPolicy,
       sandboxMode: preferences.sandboxMode,
     };
+    set((state) => ({ lastTaskByThread: { ...state.lastTaskByThread, [threadId]: input } }));
     try {
       const activeTurn = activeTurnForThread(conversation, threadId);
       if (activeTurn) await window.whale.turns.steer({ ...input, turnId: activeTurn.id });
@@ -582,8 +623,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!threadId || !turn) return;
     try {
       await window.whale.turns.interrupt(threadId, turn.id);
+      if (get().resumableTask?.threadId === threadId) set({ resumableTask: null });
     } catch (error) {
       set({ notice: errorMessage(error) });
+    }
+  },
+
+  async pause() {
+    const threadId = get().selectedThreadId;
+    const turn = activeTurnForThread(get().conversation, threadId);
+    if (!threadId || !turn) return;
+    const input = get().lastTaskByThread[threadId];
+    try {
+      await window.whale.turns.pause(threadId, turn.id);
+      if (input) {
+        set({
+          resumableTask: { operationId: null, threadId, input, status: 'paused' },
+          notice: '任务已暂停，可在当前线程继续。',
+        });
+      }
+    } catch (error) {
+      set({ notice: errorMessage(error) });
+    }
+  },
+
+  async resumeTask() {
+    const checkpoint = get().resumableTask;
+    if (!checkpoint) return false;
+    try {
+      if (get().selectedThreadId !== checkpoint.threadId) await get().selectThread(checkpoint.threadId);
+      await window.whale.turns.start({
+        ...checkpoint.input,
+        text: `继续上一次${checkpoint.status === 'failed' ? '失败' : checkpoint.status === 'interrupted' ? '异常中断' : '暂停'}的任务。\n\n${checkpoint.input.text}`,
+        ...(checkpoint.operationId ? { resumeOperationId: checkpoint.operationId } : {}),
+      });
+      set((state) => ({
+        resumableTask: null,
+        lastTaskByThread: { ...state.lastTaskByThread, [checkpoint.threadId]: checkpoint.input },
+        notice: '已在新回合中继续任务。',
+      }));
+      return true;
+    } catch (error) {
+      set({ notice: errorMessage(error) });
+      return false;
     }
   },
 
@@ -870,6 +952,62 @@ function ownerProjectId(thread: ThreadSummary, projects: LocalProject[]): string
       })
       .sort((left, right) => right.path.length - left.path.length)[0]?.id ?? null
   );
+}
+
+function latestRecoverableCheckpoint(
+  records: OperationRecord[],
+  preferences: Preferences,
+): TaskCheckpoint | null {
+  const candidate = [...records]
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .find((operation) => {
+      const completion = [...operation.events].reverse().find((event) => event.type === 'operation.completed');
+      return operation.action === 'turn.execute'
+        && operation.threadId !== null
+        && (
+          completion?.reason === '应用上次异常结束，可由员工确认后继续'
+          || completion?.outcome === 'failed'
+          || operation.events.some((event) => event.type === 'operation.paused')
+        )
+        && !operation.events.some((event) => event.type === 'operation.resumed');
+    });
+  if (!candidate?.threadId) return null;
+  const prompt = string(candidate.resource.prompt);
+  if (!prompt) return null;
+  const attachments = Array.isArray(candidate.resource.attachments)
+    ? candidate.resource.attachments.flatMap((value): LocalAttachment[] => {
+      const attachment = record(value);
+      const name = string(attachment?.name);
+      const attachmentPath = string(attachment?.path);
+      if (!name || !attachmentPath) return [];
+      return [{
+        name,
+        path: attachmentPath,
+        kind: /\.(?:png|jpe?g|gif|webp)$/i.test(name) ? 'image' : 'file',
+      }];
+    })
+    : [];
+  const completion = [...candidate.events].reverse().find((event) => event.type === 'operation.completed');
+  const status: TaskCheckpoint['status'] = candidate.events.some((event) => event.type === 'operation.paused')
+    ? 'paused'
+    : completion?.reason === '应用上次异常结束，可由员工确认后继续'
+      ? 'interrupted'
+      : 'failed';
+  return {
+    operationId: candidate.operationId,
+    threadId: candidate.threadId,
+    status,
+    input: {
+      threadId: candidate.threadId,
+      text: prompt,
+      attachments,
+      cwd: string(candidate.resource.cwd) ?? undefined,
+      model: string(candidate.resource.model) || undefined,
+      effort: string(candidate.resource.effort) || undefined,
+      approvalPolicy: (string(candidate.resource.approvalPolicy) as Preferences['approvalPolicy']) ?? preferences.approvalPolicy,
+      sandboxMode: (string(candidate.resource.sandboxMode) as Preferences['sandboxMode']) ?? preferences.sandboxMode,
+    },
+  };
 }
 
 function normalizePath(value: string): string {

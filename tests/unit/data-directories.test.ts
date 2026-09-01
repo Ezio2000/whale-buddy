@@ -22,6 +22,7 @@ describe('isolated application data', () => {
     expect(directories.codexHome).toBe(path.join(root, 'codex-home'));
     expect(directories.uiStateRoot).toBe(path.join(root, 'ui-state'));
     expect(directories.attachmentsRoot).toBe(path.join(root, 'ui-state', 'attachments'));
+    expect(directories.artifactsRoot).toBe(path.join(root, 'ui-state', 'artifacts'));
     expect(directories.codexHome).not.toBe(path.join(process.env.HOME ?? '', '.codex'));
     for (const directory of Object.values(directories)) {
       if (currentPlatformStrategy().enforcesPrivateMode) {

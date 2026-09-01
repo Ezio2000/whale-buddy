@@ -23,6 +23,7 @@ interface StoredMarketplaceSource {
   source: string;
   refName: string | null;
   enabled: boolean;
+  preset?: boolean;
 }
 
 interface StoredExtensionPolicy {
@@ -74,6 +75,7 @@ export class ExtensionPolicyStore {
       source: marketplace.source,
       refName: marketplace.refName,
       enabled: marketplace.enabled,
+      preset: marketplace.preset === true,
     }));
   }
 
@@ -102,7 +104,7 @@ export class ExtensionPolicyStore {
       .map((source) => normalizeExtensionName(source.name));
   }
 
-  addMarketplace(name: string, source: string, refName: string | null): void {
+  addMarketplace(name: string, source: string, refName: string | null, preset = false): void {
     const normalized = normalizeExtensionName(name);
     if (isRetiredPresetSourceName(normalized)) {
       throw new Error(`此应用不支持预设扩展源：${name}`);
@@ -112,6 +114,7 @@ export class ExtensionPolicyStore {
       source,
       refName,
       enabled: true,
+      preset,
     };
     const index = this.state.marketplaces.findIndex(
       (entry) => normalizeExtensionName(entry.name) === normalized,
@@ -123,6 +126,8 @@ export class ExtensionPolicyStore {
 
   removeMarketplace(name: string): void {
     const normalized = normalizeExtensionName(name);
+    const current = this.state.marketplaces.find((entry) => normalizeExtensionName(entry.name) === normalized);
+    if (current?.preset) throw new Error('预置商城源不能删除，可以将其停用');
     this.state.marketplaces = this.state.marketplaces.filter(
       (entry) => normalizeExtensionName(entry.name) !== normalized,
     );

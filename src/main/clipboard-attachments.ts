@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { LocalAttachment } from '../shared/types';
 
@@ -33,9 +33,36 @@ export async function saveClipboardAttachment(
   const destination = path.join(root, `${Date.now()}-${randomUUID()}-${safeName}`);
   await writeFile(destination, contents, { mode: 0o600, flag: 'wx' });
   return {
+    id: randomUUID(),
     name: safeName,
     path: destination,
     kind: imageFormat ? 'image' : 'file',
+    mimeType,
+    size: contents.length,
+    sha256: createHash('sha256').update(contents).digest('hex'),
+    originalPath: null,
+  };
+}
+
+export async function importAttachmentFromPath(root: string, filePath: string): Promise<LocalAttachment> {
+  const source = await stat(filePath);
+  if (!source.isFile()) throw new Error('只能添加普通文件');
+  if (source.size === 0 || source.size > MAX_ATTACHMENT_BYTES) throw new Error('文件为空或超过 50 MB');
+  const safeName = sanitizeFileName(path.basename(filePath));
+  const id = randomUUID();
+  const destination = path.join(root, `${Date.now()}-${id}-${safeName}`);
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  await copyFile(filePath, destination);
+  const contents = await readFile(destination);
+  return {
+    id,
+    name: safeName,
+    path: destination,
+    kind: /\.(?:png|jpe?g|gif|webp)$/i.test(filePath) ? 'image' : 'file',
+    mimeType: inferMimeType(safeName),
+    size: source.size,
+    sha256: createHash('sha256').update(contents).digest('hex'),
+    originalPath: filePath,
   };
 }
 
@@ -45,6 +72,18 @@ export function attachmentFromPath(filePath: string): LocalAttachment {
     path: filePath,
     kind: /\.(?:png|jpe?g|gif|webp)$/i.test(filePath) ? 'image' : 'file',
   };
+}
+
+function inferMimeType(name: string): string {
+  const extension = path.extname(name).toLocaleLowerCase();
+  return ({
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+    '.webp': 'image/webp', '.pdf': 'application/pdf',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.csv': 'text/csv', '.txt': 'text/plain', '.md': 'text/markdown', '.html': 'text/html',
+  } as Record<string, string>)[extension] ?? 'application/octet-stream';
 }
 
 function sanitizeFileName(name: string): string {

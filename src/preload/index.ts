@@ -4,6 +4,11 @@ import { IPC } from '../shared/ipc';
 import type { WhaleApi, WhaleEvent } from '../shared/types';
 import {
   approvalResponseSchema,
+  attachmentReadSchema,
+  artifactCreateSchema,
+  artifactIdSchema,
+  artifactListSchema,
+  authSettingsSchema,
   configReadSchema,
   configWriteSchema,
   clipboardAttachmentSchema,
@@ -47,6 +52,8 @@ const invoke = <T>(channel: string, payload?: unknown): Promise<T> =>
 const api: WhaleApi = {
   auth: {
     status: () => invoke(IPC.authStatus),
+    settings: () => invoke(IPC.authSettings),
+    configure: (input) => invoke(IPC.authConfigure, authSettingsSchema.parse(input)),
     login: () => invoke(IPC.authLogin),
     logout: () => invoke(IPC.authLogout),
   },
@@ -89,6 +96,8 @@ const api: WhaleApi = {
     steer: (input) => invoke(IPC.turnsSteer, steerTurnSchema.parse(input)),
     interrupt: (threadId, turnId) =>
       invoke(IPC.turnsInterrupt, interruptSchema.parse({ threadId, turnId })),
+    pause: (threadId, turnId) =>
+      invoke(IPC.turnsPause, interruptSchema.parse({ threadId, turnId })),
     review: (threadId) => invoke(IPC.turnsReview, threadIdSchema.parse({ threadId })),
   },
   approvals: {
@@ -150,6 +159,17 @@ const api: WhaleApi = {
       invoke(IPC.filesSaveClipboardAttachment, clipboardAttachmentSchema.parse(input)),
     search: (projectPath, query) =>
       invoke(IPC.filesSearch, fileSearchSchema.parse({ projectPath, query })),
+    readAttachment: (path) => invoke(IPC.filesReadAttachment, attachmentReadSchema.parse({ path })),
+  },
+  audit: {
+    list: () => invoke(IPC.auditList),
+    clear: () => invoke(IPC.auditClear),
+  },
+  artifacts: {
+    create: (input) => invoke(IPC.artifactsCreate, artifactCreateSchema.parse(input)),
+    list: (threadId) => invoke(IPC.artifactsList, artifactListSchema.parse({ threadId })),
+    open: (id) => invoke(IPC.artifactsOpen, artifactIdSchema.parse({ id })),
+    saveAs: (id) => invoke(IPC.artifactsSaveAs, artifactIdSchema.parse({ id })),
   },
   schedules: {
     list: () => invoke(IPC.schedulesList),

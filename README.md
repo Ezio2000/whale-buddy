@@ -169,7 +169,7 @@ Developer ID 签名或 Apple 公证；Windows 安装器也未做 Authenticode �
 Whale Buddy 不读取或修改系统用户的 `~/.codex` 或 `~/.agents`。sidecar 的 `HOME` 固定为
 Electron `userData/sidecar-home`，`CODEX_HOME` 固定为 `userData/codex-home`。扩展运行时
 采用显式允许名单：不接入 Codex 内置 Skills、`codex_apps` 或 OpenAI 预设远程商城，
-也不会自动发现项目商城。Whale 初始没有任何商城；商城目录和插件必须由用户明确启用；
+也不会自动发现项目商城。Whale 只预置本地办公商城来源；其中插件仍须由用户明确下载并启用；
 启用插件时，其贡献的 Skills 与 MCP 默认全部开启，之后仍可逐项停用；
 未启用内容即使已有缓存也不会进入 app-server 运行快照。UI 状态放在相邻的
 `userData/ui-state`，诊断
@@ -244,7 +244,7 @@ Whale 保存账户会话并更新侧边栏。当前源码中的固定 Issuer 是
 - WebMCP 工具会在浏览器提供 `document.modelContext` 时原生注册，同时桥接为新建 Codex
   线程的 dynamic tools；工具执行结果回到同一 app-server 请求。SDK 拆为
   `@whale-buddy/plugin-sdk/ui` 和 `@whale-buddy/plugin-sdk/runtime` 两个入口。
-- “商城源”只管理用户手动添加的 Git/本地商城，不包含任何预设来源。开关是运行时授权，
+- “商城源”管理预置的本地办公商城和用户手动添加的 Git/本地商城。预置来源不可移除，开关是运行时授权，
   不是界面过滤；关闭来源会让其插件、Skills 与 MCP
   在 sidecar 重启后全部失效，缓存保持惰性。
 

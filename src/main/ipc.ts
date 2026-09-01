@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
+import { copyFile, readFile, realpath } from 'node:fs/promises';
 import type { ZodType } from 'zod';
 import { IPC } from '../shared/ipc';
 import type {
@@ -11,6 +12,11 @@ import type {
 } from '../shared/types';
 import {
   approvalResponseSchema,
+  attachmentReadSchema,
+  artifactCreateSchema,
+  artifactIdSchema,
+  artifactListSchema,
+  authSettingsSchema,
   clipboardAttachmentSchema,
   configReadSchema,
   configWriteSchema,
@@ -47,7 +53,7 @@ import {
 } from '../shared/validation';
 import type { AppServerClient, AppServerWireEvent } from './app-server-client';
 import { searchProjectFiles } from './file-search';
-import { attachmentFromPath, saveClipboardAttachment } from './clipboard-attachments';
+import { importAttachmentFromPath, saveClipboardAttachment } from './clipboard-attachments';
 import type { ExtensionPolicyStore } from './extension-policy';
 import type { ProjectStore } from './projects';
 import type { RuntimeSettingsStore } from './runtime-settings';
@@ -55,6 +61,7 @@ import type { PluginCredentialStore } from './plugin-credential-store';
 import type { TurnPlanStore } from './turn-plans';
 import type { TurnChangesStore } from './turn-changes';
 import type { WhaleAuthManager } from './auth';
+import type { ArtifactStore } from './artifacts';
 import { approvalEffect, type OperationStore } from './operations';
 import {
   ScheduledTaskScheduler,
@@ -93,6 +100,7 @@ interface RegisterIpcOptions {
   turnPlans: TurnPlanStore;
   turnChanges: TurnChangesStore;
   operations: OperationStore;
+  artifacts: ArtifactStore;
   scheduledTasks: ScheduledTaskStore;
   attachmentsRoot: string;
   window: BrowserWindow;
@@ -129,6 +137,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     turnPlans,
     turnChanges,
     operations,
+    artifacts,
     scheduledTasks,
     attachmentsRoot,
     window,
@@ -138,12 +147,23 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   let eventSequence = 0;
   let eventGeneration = appServer.status().generation;
   let scheduler: ScheduledTaskScheduler | null = null;
+  let lastAuthStatus: string | null = null;
 
   const broadcast = (event: unknown) => {
     if (!window.isDestroyed()) window.webContents.send(IPC.event, event);
   };
 
   const unsubscribeAuth = auth.subscribe((state) => {
+    if (state.status !== lastAuthStatus && state.status !== 'waiting') {
+      lastAuthStatus = state.status;
+      void auth.identityContext().then((identity) => operations.record({
+        identity,
+        action: state.status === 'logged-out' ? 'identity.logout' : 'identity.login',
+        resource: state.status === 'logged-in' ? { userId: state.user.id } : {},
+        outcome: state.status === 'error' ? 'failed' : 'succeeded',
+        reason: state.status === 'error' ? state.message : null,
+      }));
+    }
     eventSequence += 1;
     broadcast({
       kind: 'runtime',
@@ -227,6 +247,14 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       const turnId = stringValue(params?.turnId);
       const diff = stringValue(params?.diff);
       if (turnId && diff !== null) turnChanges.saveDiff(turnId, diff);
+    }
+    if (method === 'item/started' || method === 'item/completed') {
+      const item = asRecord(params?.item);
+      const turnId = stringValue(params?.turnId) ?? stringValue(item?.turnId);
+      const action = auditItemAction(stringValue(item?.type));
+      if (turnId && action) {
+        operations.addActivityByTurn(turnId, action, method === 'item/completed' ? 'succeeded' : 'started');
+      }
     }
     if (method === 'serverRequest/resolved') {
       const requestId = params?.requestId;
@@ -538,6 +566,18 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   };
 
   handle(IPC.authStatus, null, () => auth.status());
+  handle(IPC.authSettings, null, () => auth.settings());
+  handle(IPC.authConfigure, authSettingsSchema, async (input) => {
+    const previous = auth.settings().issuer;
+    const result = await auth.configure(input);
+    operations.record({
+      identity: null,
+      action: 'identity.configure',
+      resource: { previousIssuer: previous, issuer: result.issuer },
+      outcome: 'succeeded',
+    });
+    return result;
+  });
   handle(IPC.authLogin, null, () => auth.login());
   handle(IPC.authLogout, null, () => auth.logout());
   handle(IPC.runtimeStatus, null, () => appServer.status());
@@ -682,6 +722,11 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       action: 'turn.execute',
       resource: {
         source: 'composer',
+        prompt: input.text,
+        attachments: (input.attachments ?? []).map((attachment) => ({ name: attachment.name, path: attachment.path })),
+        cwd: input.cwd ?? '',
+        model: input.model ?? '',
+        effort: input.effort ?? '',
         sandboxMode: input.sandboxMode ?? 'workspace-write',
         approvalPolicy: input.approvalPolicy ?? 'untrusted',
       },
@@ -705,6 +750,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     const turnId = stringValue(turn?.id);
     if (turnId) {
       operations.attachTurn(operationId, input.threadId, turnId);
+      if (input.resumeOperationId) operations.resume(input.resumeOperationId, operationId);
       if (before && input.cwd) turnChanges.begin(turnId, input.cwd, before);
     } else {
       operations.fail(operationId, 'app-server 未返回回合 ID');
@@ -724,6 +770,11 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   handle(IPC.turnsInterrupt, interruptSchema, async ({ threadId, turnId }) => {
     const response = await appServer.request('turn/interrupt', { threadId, turnId });
     operations.addEventByTurn(turnId, 'operation.interrupt-requested', 'started');
+    return response;
+  });
+  handle(IPC.turnsPause, interruptSchema, async ({ threadId, turnId }) => {
+    const response = await appServer.request('turn/interrupt', { threadId, turnId });
+    operations.pause(turnId);
     return response;
   });
   handle(IPC.turnsReview, threadIdSchema, async ({ threadId }) => {
@@ -1107,14 +1158,75 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       buttonLabel: '添加',
       properties: ['openFile', 'multiSelections'],
     });
-    return result.canceled ? [] : result.filePaths.map(attachmentFromPath);
+    const attachments = result.canceled
+      ? []
+      : Promise.all(result.filePaths.map((filePath) => importAttachmentFromPath(attachmentsRoot, filePath)));
+    const resolved = await attachments;
+    const identity = await auth.identityContext();
+    for (const attachment of resolved) operations.record({
+      identity, action: 'file.import',
+      resource: { attachmentId: attachment.id, name: attachment.name, sha256: attachment.sha256 },
+      outcome: 'succeeded',
+    });
+    return resolved;
   });
-  handle(IPC.filesSaveClipboardAttachment, clipboardAttachmentSchema, (input) =>
-    saveClipboardAttachment(attachmentsRoot, input),
-  );
+  handle(IPC.filesSaveClipboardAttachment, clipboardAttachmentSchema, async (input) => {
+    const attachment = await saveClipboardAttachment(attachmentsRoot, input);
+    operations.record({
+      identity: await auth.identityContext(), action: 'file.import',
+      resource: { attachmentId: attachment.id, name: attachment.name, sha256: attachment.sha256, source: 'clipboard' },
+      outcome: 'succeeded',
+    });
+    return attachment;
+  });
   handle(IPC.filesSearch, fileSearchSchema, ({ projectPath, query }) =>
     searchProjectFiles(projectPath, query),
   );
+  handle(IPC.filesReadAttachment, attachmentReadSchema, async ({ path: attachmentPath }) => {
+    const [root, candidate] = await Promise.all([realpath(attachmentsRoot), realpath(attachmentPath)]);
+    const relative = path.relative(root, candidate);
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('附件不属于 Whale 附件库');
+    const contents = await readFile(candidate);
+    operations.record({
+      identity: await auth.identityContext(), action: 'file.read',
+      resource: { path: candidate, size: contents.length }, outcome: 'succeeded',
+    });
+    return { dataBase64: contents.toString('base64') };
+  });
+  handle(IPC.auditList, null, () => operations.list());
+  handle(IPC.auditClear, null, () => operations.clear());
+  handle(IPC.artifactsCreate, artifactCreateSchema, async (input) => {
+    const artifact = artifacts.create(input);
+    operations.record({
+      identity: await auth.identityContext(), action: 'artifact.generate',
+      resource: { artifactId: artifact.id, name: artifact.name, format: artifact.format, sha256: artifact.sha256 },
+      threadId: artifact.threadId, outcome: 'succeeded',
+    });
+    return artifact;
+  });
+  handle(IPC.artifactsList, artifactListSchema, ({ threadId }) => artifacts.list(threadId));
+  handle(IPC.artifactsOpen, artifactIdSchema, async ({ id }) => {
+    const artifact = artifacts.require(id);
+    const error = await shell.openPath(artifact.path);
+    operations.record({
+      identity: await auth.identityContext(), action: 'artifact.open',
+      resource: { artifactId: artifact.id, name: artifact.name }, threadId: artifact.threadId,
+      outcome: error ? 'failed' : 'succeeded', reason: error || null,
+    });
+    if (error) throw new Error(error);
+  });
+  handle(IPC.artifactsSaveAs, artifactIdSchema, async ({ id }) => {
+    const artifact = artifacts.require(id);
+    const result = await dialog.showSaveDialog(window, { defaultPath: artifact.name });
+    if (result.canceled || !result.filePath) return null;
+    await copyFile(artifact.path, result.filePath);
+    operations.record({
+      identity: await auth.identityContext(), action: 'artifact.export',
+      resource: { artifactId: artifact.id, name: artifact.name, destination: result.filePath },
+      threadId: artifact.threadId, outcome: 'succeeded',
+    });
+    return result.filePath;
+  });
   handle(IPC.schedulesList, null, () => scheduler?.list() ?? []);
   handle(IPC.schedulesCreate, scheduledTaskCreateSchema, (input) => {
     if (!projects.list().some((project) => project.id === input.projectId && project.path === input.cwd)) {
@@ -1262,6 +1374,15 @@ function auditError(value: unknown): string | null {
   } catch {
     return String(value);
   }
+}
+
+function auditItemAction(type: string | null): string | null {
+  if (!type) return null;
+  if (type === 'commandExecution') return 'command.execute';
+  if (type === 'fileChange') return 'file.write';
+  if (type === 'webSearch') return 'network.web-search';
+  if (type === 'mcpToolCall') return 'network.mcp-tool';
+  return null;
 }
 
 function errorMessage(error: unknown): string {
