@@ -29,4 +29,18 @@ describe('bundled office marketplace', () => {
     expect(properties.sheetName?.type).toBe('string');
     expect(properties.rows.items.anyOf.map((variant) => variant.type)).toEqual(['object', 'array']);
   });
+
+  it('declares structured PowerPoint staging', async () => {
+    const plugin = JSON.parse(
+      await readFile(path.resolve('marketplaces/office/plugins/whale-office-assistant/.codex-plugin/plugin.json'), 'utf8'),
+    ) as { whale: { webMcp: { tools: Array<{ inputSchema: { properties: Record<string, unknown> } }> } } };
+    const properties = plugin.whale.webMcp.tools[0].inputSchema.properties as {
+      format: { enum: string[] };
+      slides: { minItems: number; items: { required: string[]; properties: Record<string, unknown> } };
+    };
+    expect(properties.format.enum).toContain('pptx');
+    expect(properties.slides.minItems).toBe(1);
+    expect(properties.slides.items.required).toEqual(['title']);
+    expect(Object.keys(properties.slides.items.properties)).toEqual(['title', 'body', 'bullets', 'notes']);
+  });
 });

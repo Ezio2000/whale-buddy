@@ -35,7 +35,7 @@ export function readAttachment(path: string): Promise<{ dataBase64: string }> { 
 export function startTask(input: { toolName: string; title: string; prompt: string; attachments: HostAttachment[]; context: JsonValue }): Promise<{ threadId: string }> {
   return request('tasks.start', input);
 }
-export function createArtifact(input: { name: string; format: 'html' | 'docx' | 'xlsx'; dataBase64: string; threadId: string; taskId: string }): Promise<HostArtifact> {
+export function createArtifact(input: { name: string; format: 'html' | 'docx' | 'xlsx' | 'pptx'; dataBase64: string; threadId: string; taskId: string }): Promise<HostArtifact> {
   return request('artifacts.create', input);
 }
 export function listArtifacts(threadId?: string): Promise<HostArtifact[]> { return request('artifacts.list', { threadId }); }

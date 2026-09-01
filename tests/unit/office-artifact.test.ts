@@ -65,3 +65,25 @@ describe('office Excel artifacts', () => {
     expect(normalizeSheetName('a'.repeat(40))).toHaveLength(31);
   });
 });
+
+describe('office PowerPoint drafts', () => {
+  const powerpointBase = {
+    taskId: 'task-pptx', title: '季度复盘.pptx', format: 'pptx', summary: '季度经营复盘。', content: '演示稿摘要。',
+  } as const;
+
+  it('accepts ordered structured slides with notes', () => {
+    const draft = parseOfficeDraft({
+      ...powerpointBase,
+      slides: [
+        { title: '季度复盘', body: '2026 Q3' },
+        { title: '关键进展', bullets: ['收入增长 18%', '交付周期缩短 12%'], notes: '强调增长来自续约。' },
+      ],
+    });
+    expect(draft.slides?.[1]).toEqual({ title: '关键进展', bullets: ['收入增长 18%', '交付周期缩短 12%'], notes: '强调增长来自续约。' });
+  });
+
+  it('rejects empty or overfull presentation pages', () => {
+    expect(() => parseOfficeDraft({ ...powerpointBase, slides: [{ title: '封面' }, { title: '空白页' }] })).toThrow('缺少正文或要点');
+    expect(() => parseOfficeDraft({ ...powerpointBase, slides: [{ title: '封面', bullets: Array.from({ length: 13 }, () => '要点') }] })).toThrow('要点过多或过长');
+  });
+});

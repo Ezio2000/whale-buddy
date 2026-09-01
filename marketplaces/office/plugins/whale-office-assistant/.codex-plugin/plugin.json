@@ -1,7 +1,7 @@
 {
   "name": "whale-office-assistant",
   "version": "0.1.0",
-  "description": "总结办公文件、起草材料、整理数据并生成 HTML、Word 和 Excel 成果。",
+  "description": "总结办公文件、起草材料、整理数据并生成 HTML、Word、Excel 和 PowerPoint 成果。",
   "author": { "name": "Whale Buddy" },
   "skills": "./skills/",
   "interface": {
@@ -34,7 +34,7 @@
             "properties": {
               "taskId": { "type": "string" },
               "title": { "type": "string" },
-              "format": { "type": "string", "enum": ["html", "docx", "xlsx"] },
+              "format": { "type": "string", "enum": ["html", "docx", "xlsx", "pptx"] },
               "summary": { "type": "string" },
               "content": { "type": "string" },
               "sheetName": { "type": "string", "description": "XLSX 工作表名称，最长 31 个字符。" },
@@ -47,6 +47,23 @@
                     { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
                     { "type": "array", "items": { "type": ["string", "number", "boolean", "null"] } }
                   ]
+                }
+              },
+              "slides": {
+                "type": "array",
+                "description": "PPTX 幻灯片，按页面顺序提供；每页必须有标题，正文和要点至少提供一项（封面除外）。",
+                "minItems": 1,
+                "maxItems": 50,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string" },
+                    "body": { "type": "string" },
+                    "bullets": { "type": "array", "items": { "type": "string" } },
+                    "notes": { "type": "string" }
+                  },
+                  "required": ["title"],
+                  "additionalProperties": false
                 }
               }
             },

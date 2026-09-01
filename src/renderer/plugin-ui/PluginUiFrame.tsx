@@ -287,8 +287,8 @@ async function handleRequest(
 }
 
 function requiredArtifactFormat(value: unknown): ArtifactCreateInput['format'] {
-  if (value === 'html' || value === 'docx' || value === 'xlsx') return value;
-  throw new Error('成果格式必须是 html、docx 或 xlsx');
+  if (value === 'html' || value === 'docx' || value === 'xlsx' || value === 'pptx') return value;
+  throw new Error('成果格式必须是 html、docx、xlsx 或 pptx');
 }
 
 export function composerContextFor(contexts: Record<string, PluginComposerContextValue>, descriptor: PluginDescriptor, contribution: PluginUiContribution, threadId: string) {

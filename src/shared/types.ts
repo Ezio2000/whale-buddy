@@ -259,7 +259,7 @@ export interface LocalAttachment {
 
 export interface ArtifactCreateInput {
   name: string;
-  format: 'html' | 'docx' | 'xlsx';
+  format: 'html' | 'docx' | 'xlsx' | 'pptx';
   dataBase64: string;
   threadId: string;
   taskId: string;

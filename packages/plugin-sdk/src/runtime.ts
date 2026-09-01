@@ -12,7 +12,7 @@ export interface RuntimeServices {
   setComposerContext(sourceId: string, input: { label: string; value: JsonValue; explicitTools?: Array<{ server: string; name: string }> }): Promise<void>;
   clearComposerContext(sourceId: string): Promise<void>;
   readAttachment(path: string): Promise<{ dataBase64: string }>;
-  createArtifact(input: { name: string; format: 'html' | 'docx' | 'xlsx'; dataBase64: string; threadId: string; taskId: string }): Promise<HostArtifact>;
+  createArtifact(input: { name: string; format: 'html' | 'docx' | 'xlsx' | 'pptx'; dataBase64: string; threadId: string; taskId: string }): Promise<HostArtifact>;
 }
 export type RuntimeTool = (input: JsonValue, services: RuntimeServices) => JsonValue | Promise<JsonValue>;
 

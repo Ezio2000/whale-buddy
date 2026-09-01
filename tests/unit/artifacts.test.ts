@@ -42,4 +42,15 @@ describe('artifact store', () => {
       name: 'empty.xlsx', format: 'xlsx', dataBase64: '', threadId: 'thread-1', taskId: 'task-1',
     })).toThrow('成果文件为空');
   });
+
+  it('stores PowerPoint artifacts with the correct extension and MIME type', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'whale-artifacts-'));
+    temporaryRoots.push(root);
+    const bytes = Buffer.from('pptx-bytes');
+    const created = new ArtifactStore(root).create({
+      name: '季度复盘', format: 'pptx', dataBase64: bytes.toString('base64'), threadId: 'thread-2', taskId: 'task-2',
+    });
+    expect(created.name).toBe('季度复盘.pptx');
+    expect(created.mimeType).toBe('application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  });
 });

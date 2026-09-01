@@ -6,7 +6,7 @@ export interface HostAttachment {
   size?: number; sha256?: string; originalPath?: string | null;
 }
 export interface HostArtifact {
-  id: string; name: string; path: string; format: 'html' | 'docx' | 'xlsx'; mimeType: string;
+  id: string; name: string; path: string; format: 'html' | 'docx' | 'xlsx' | 'pptx'; mimeType: string;
   size: number; sha256: string; threadId: string; taskId: string; createdAt: number;
 }
 

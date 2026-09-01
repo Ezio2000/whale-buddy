@@ -18,7 +18,7 @@ export const authSettingsSchema = z.object({
 
 export const artifactCreateSchema = z.object({
   name: z.string().trim().min(1).max(256),
-  format: z.enum(['html', 'docx', 'xlsx']),
+  format: z.enum(['html', 'docx', 'xlsx', 'pptx']),
   dataBase64: z.string().min(1).max(70_000_000),
   threadId: idSchema,
   taskId: idSchema,

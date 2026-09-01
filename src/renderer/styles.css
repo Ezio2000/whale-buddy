@@ -1738,6 +1738,7 @@ pre {
 
 .artifact-format.docx { background: #2b579a; }
 .artifact-format.xlsx { background: #217346; }
+.artifact-format.pptx { background: #d24726; }
 
 .artifact-copy {
   display: grid;

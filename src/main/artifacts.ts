@@ -68,5 +68,6 @@ function extensionFor(format: ArtifactCreateInput['format']): string { return fo
 function mimeFor(format: ArtifactCreateInput['format']): string {
   if (format === 'html') return 'text/html';
   if (format === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (format === 'xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 }
