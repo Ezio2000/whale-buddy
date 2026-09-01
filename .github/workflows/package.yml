@@ -83,6 +83,14 @@ jobs:
       - run: pnpm platform:check
       - run: pnpm exec electron-forge make --platform=darwin --arch=arm64
 
+      - name: Verify macOS ad-hoc signature
+        run: |
+          app="out/Whale Buddy-darwin-arm64/Whale Buddy.app"
+          test -d "$app"
+          codesign --verify --deep --strict --verbose=4 "$app"
+          signature="$(codesign -dvvv "$app" 2>&1 | sed -n 's/^Signature=//p')"
+          test "$signature" = "adhoc"
+
       - uses: actions/upload-artifact@v4
         with:
           name: AI-Xiaojing-macOS-arm64

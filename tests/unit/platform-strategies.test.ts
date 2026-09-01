@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron';
 import { describe, expect, it, vi } from 'vitest';
 import { platformStrategyFor } from '../../src/platform';
+import { forgePlatformStrategy } from '../../src/platform/forge';
 import { sandboxPlatformStrategyFor } from '../../src/platform/sandbox';
 
 describe('desktop platform strategies', () => {
@@ -29,6 +30,19 @@ describe('desktop platform strategies', () => {
     });
     expect(sandboxPlatformStrategyFor('win32').isAbsolutePath('C:\\workspace')).toBe(true);
     expect(sandboxPlatformStrategyFor('win32').isAbsolutePath('workspace')).toBe(false);
+  });
+
+  it('fully ad-hoc signs macOS packages without requiring a certificate', () => {
+    const osxSign = forgePlatformStrategy('darwin').packagerConfig.osxSign;
+
+    expect(osxSign).toMatchObject({
+      identity: '-',
+      identityValidation: false,
+    });
+    expect(typeof osxSign === 'object' && osxSign.optionsForFile?.('Whale Buddy.app')).toEqual({
+      timestamp: 'none',
+    });
+    expect(forgePlatformStrategy('win32').packagerConfig.osxSign).toBeUndefined();
   });
 
   it('provides native menu topology from each platform implementation', () => {

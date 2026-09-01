@@ -4,8 +4,9 @@ Whale Buddy 是一个面向 macOS 与 Windows 的 Codex 桌面客户端。它以
 TypeScript 构建，通过 stdio JSONL 连接仓库中固定版本的 `codex app-server`，并把
 Codex 的对话、命令、文件变更、审批和 Diff 汇集到一个中文桌面工作台中。
 
-当前版本不包含签名、公证或自动更新。所有可运行 App 和安装包必须由 GitHub Actions
-构建，本地只用于源码编辑与静态、单元测试验证，禁止生成或部署本地构建产物。
+当前 macOS 版本使用完整 ad-hoc 签名，但不包含 Developer ID 公证或自动更新；Windows
+安装器仍未签名。所有可运行 App 和安装包必须由 GitHub Actions 构建，本地只用于源码
+编辑与静态、单元测试验证，禁止生成或部署本地构建产物。
 
 ## 获取与安装
 
@@ -28,6 +29,8 @@ gh run download <RUN_ID> --repo Ezio2000/whale-buddy \
 
 macOS Artifact 同时包含 DMG 和 ZIP；Windows Artifact 包含 Squirrel 安装文件。不得使用
 其他提交的 Artifact，也不得使用本地 `out/`、本地 sidecar 或 Electron Forge 产物部署。
+macOS 用户无需手动运行 `codesign`；从浏览器下载后如果首次启动被 Gatekeeper 拦截，可在
+**系统设置 → 隐私与安全性** 中选择“仍要打开”。
 
 ## 本地源码验证
 
@@ -124,8 +127,8 @@ repository visibility** 中临时改为 Public，触发并等待工作流完成�
 当前实测耗时约为 macOS 1 分 28 秒、Windows 3 分 41 秒。仓库保持 Private 时，也可以
 等待每月免费额度重置，或为 Actions 配置付款方式和月度预算。
 
-当前安装包仍未签名：DMG 未做 Developer ID 签名或 Apple 公证，Windows 安装器也未做
-Authenticode 签名。
+macOS App 在 GitHub Actions 中进行完整 ad-hoc 签名并通过严格签名验证，但 DMG 未做
+Developer ID 签名或 Apple 公证；Windows 安装器也未做 Authenticode 签名。
 
 ## 架构与安全边界
 
