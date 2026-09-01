@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import type { LocalProject, ThreadSummary } from '../../shared/types';
 import { useAppStore } from '../state/store';
-import { usePluginUi } from '../plugin-ui/PluginUiProvider';
+import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 import { BrandMark } from './BrandMark';
 
 export function Sidebar() {
@@ -37,9 +37,9 @@ export function Sidebar() {
   const brandName = useAppStore((state) => state.branding.name);
   const workspaceView = useAppStore((state) => state.workspaceView);
   const setWorkspaceView = useAppStore((state) => state.setWorkspaceView);
-  const { activeNavigation, descriptors, selectNavigation } = usePluginUi();
-  const navigationPages = descriptors.flatMap((descriptor) => descriptor.contributions
-    .filter((contribution) => contribution.type === 'navigation.page')
+  const { activeNavigation, descriptors, selectNavigation } = usePluginHost();
+  const navigationPages = descriptors.flatMap((descriptor) => descriptor.uiContributions
+    .filter((contribution) => contribution.type === 'page' && contribution.placement === 'navigation')
     .map((contribution) => ({ descriptor, contribution })))
     .sort((left, right) => left.contribution.order - right.contribution.order);
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;

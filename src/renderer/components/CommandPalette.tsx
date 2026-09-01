@@ -3,7 +3,7 @@ import { CornerDownLeft, Puzzle, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { commandDescriptions } from '../state/commands';
 import { useAppStore } from '../state/store';
-import { usePluginUi } from '../plugin-ui/PluginUiProvider';
+import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 
 export function CommandPalette() {
   const open = useAppStore((state) => state.commandPaletteOpen);
@@ -12,7 +12,7 @@ export function CommandPalette() {
   const send = useAppStore((state) => state.sendComposer);
   const selectThread = useAppStore((state) => state.selectThread);
   const [query, setQuery] = useState('');
-  const { descriptors, openAction } = usePluginUi();
+  const { descriptors, openAction } = usePluginHost();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,9 +45,10 @@ export function CommandPalette() {
     [normalized, threads],
   );
   const pluginCommands = useMemo(() => descriptors.flatMap((descriptor) =>
-    descriptor.contributions
-      .filter((contribution) => contribution.type === 'command.action')
-      .map((contribution) => ({ descriptor, contribution })))
+    descriptor.uiContributions
+      .flatMap((contribution) => contribution.type === 'action' && contribution.placement === 'commandPalette'
+        ? [{ descriptor, contribution }]
+        : []))
     .filter(({ descriptor, contribution }) => !normalized || [
       descriptor.displayName,
       contribution.title,

@@ -10,7 +10,7 @@ import { activeTurnForThread } from '../state/conversation';
 import { commandDescriptions } from '../state/commands';
 import { useAppStore } from '../state/store';
 import { PluginUiFrame, composerContextFor } from '../plugin-ui/PluginUiFrame';
-import { usePluginUi } from '../plugin-ui/PluginUiProvider';
+import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 
 export function Composer() {
   const [text, setText] = useState('');
@@ -27,7 +27,7 @@ export function Composer() {
   const [savingClipboardAttachments, setSavingClipboardAttachments] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendComposer = useAppStore((state) => state.sendComposer);
-  const { descriptors, composerContexts, openAction } = usePluginUi();
+  const { descriptors, composerContexts, openAction } = usePluginHost();
   const interrupt = useAppStore((state) => state.interrupt);
   const setNotice = useAppStore((state) => state.setNotice);
   const project = useAppStore((state) =>
@@ -37,14 +37,15 @@ export function Composer() {
   const conversation = useAppStore((state) => state.conversation);
   const activeTurn = activeTurnForThread(conversation, selectedThreadId);
   const composerWidgets = useMemo(() => descriptors
-    .flatMap((descriptor) => descriptor.contributions
-      .filter((contribution) => contribution.type === 'composer.widget')
+    .flatMap((descriptor) => descriptor.uiContributions
+      .filter((contribution) => contribution.type === 'widget' && contribution.placement === 'composer')
       .map((contribution) => ({ descriptor, contribution })))
     .sort((left, right) => left.contribution.order - right.contribution.order), [descriptors]);
   const composerActions = useMemo(() => descriptors
-    .flatMap((descriptor) => descriptor.contributions
-      .filter((contribution) => contribution.type === 'composer.action')
-      .map((contribution) => ({ descriptor, contribution })))
+    .flatMap((descriptor) => descriptor.uiContributions
+      .flatMap((contribution) => contribution.type === 'action' && contribution.placement === 'composerToolbar'
+        ? [{ descriptor, contribution }]
+        : []))
     .sort((left, right) => left.contribution.order - right.contribution.order), [descriptors]);
   const composerContextContributions = useMemo(
     () => [...composerWidgets, ...composerActions],

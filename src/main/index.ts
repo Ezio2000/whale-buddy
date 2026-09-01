@@ -17,7 +17,7 @@ import { TurnPlanStore } from './turn-plans';
 import { TurnChangesStore } from './turn-changes';
 import { ScheduledTaskStore } from './scheduled-tasks';
 import { resolveSidecarPath } from './sidecar-path';
-import { registerPluginUiProtocol, registerPluginUiSchemes } from './plugin-ui';
+import { registerPluginProtocol, registerPluginSchemes } from './plugin-host';
 import { PluginCredentialStore } from './plugin-credential-store';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -31,7 +31,7 @@ let shutdownStarted = false;
 
 if (squirrelStartup) app.quit();
 
-registerPluginUiSchemes();
+registerPluginSchemes();
 
 async function createWindow(): Promise<void> {
   const data = prepareDataDirectories(app.getPath('userData'));
@@ -205,7 +205,7 @@ async function createWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   if (platform.appUserModelId) app.setAppUserModelId(platform.appUserModelId);
-  registerPluginUiProtocol();
+  registerPluginProtocol();
   await createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) void createWindow();

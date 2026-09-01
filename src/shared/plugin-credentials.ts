@@ -11,9 +11,8 @@ export function isPluginCredentialEnvironmentName(value: string): boolean {
   return SECRET_ENVIRONMENT_NAME.test(value);
 }
 
-export interface PluginCredentialContribution {
+export interface PluginCredentialDeclaration {
   id: string;
-  type: 'credential';
   key: string;
   credentialType: PluginCredentialType;
   label: string;
@@ -24,7 +23,7 @@ export interface PluginCredentialContribution {
   mcpServers: string[];
 }
 
-export interface PluginCredentialValue extends PluginCredentialContribution {
+export interface PluginCredentialValue extends PluginCredentialDeclaration {
   value: string | null;
 }
 
@@ -33,7 +32,7 @@ export interface PluginCredentialsSnapshot {
   credentials: PluginCredentialValue[];
 }
 
-export interface ActivePluginCredential extends PluginCredentialContribution {
+export interface ActivePluginCredential extends PluginCredentialDeclaration {
   pluginId: string;
   marketplaceName: string;
 }

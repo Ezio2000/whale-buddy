@@ -23,7 +23,7 @@ import {
   pluginLocationSchema,
   pluginUninstallSchema,
   pluginSetEnabledSchema,
-  pluginUiCallToolSchema,
+  pluginMcpCallSchema,
   projectRemoveSchema,
   runtimeConnectionInputSchema,
   runtimeBrandingInputSchema,
@@ -111,9 +111,9 @@ const api: WhaleApi = {
       invoke(IPC.pluginsUninstall, pluginUninstallSchema.parse({ pluginId })),
     setEnabled: (input) =>
       invoke(IPC.pluginsSetEnabled, pluginSetEnabledSchema.parse(input)),
-    uiList: () => invoke(IPC.pluginsUiList),
-    uiCallTool: (input) =>
-      invoke(IPC.pluginsUiCallTool, pluginUiCallToolSchema.parse(input)),
+    descriptors: () => invoke(IPC.pluginsDescriptors),
+    callMcp: (input) =>
+      invoke(IPC.pluginsCallMcp, pluginMcpCallSchema.parse(input)),
   },
   marketplaces: {
     add: (input) => invoke(IPC.marketplacesAdd, marketplaceAddSchema.parse(input)),

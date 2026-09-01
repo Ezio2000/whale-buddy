@@ -22,13 +22,14 @@ import type { PendingApproval } from '../state/store';
 import { ApprovalCard } from './ApprovalCard';
 import { Markdown } from './Markdown';
 import { PluginUiFrame } from '../plugin-ui/PluginUiFrame';
-import { usePluginUi } from '../plugin-ui/PluginUiProvider';
+import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 import { useAppStore } from '../state/store';
 import type {
   PluginMessageContext,
   PluginToolCardContext,
-  PluginUiDescriptor,
-} from '../../shared/plugin-ui';
+  PluginDescriptor,
+  PluginUiContribution,
+} from '../../shared/plugin';
 
 interface ItemCardProps {
   item: ItemView;
@@ -43,7 +44,7 @@ export function ItemCard({
   approvals,
   onRespondApproval,
 }: ItemCardProps) {
-  const { descriptors } = usePluginUi();
+  const { descriptors } = usePluginHost();
   const threadId = useAppStore((state) => state.selectedThreadId);
   const customMessage = customMessageCard(item, descriptors);
   let content: React.ReactNode;
@@ -125,8 +126,8 @@ function PluginMessageItem({
 }: {
   item: ItemView;
   threadId: string;
-  descriptor: PluginUiDescriptor;
-  contribution: Extract<PluginUiDescriptor['contributions'][number], { type: 'message.card' }>;
+  descriptor: PluginDescriptor;
+  contribution: Extract<PluginUiContribution, { type: 'card' }>;
 }) {
   const status = string(item.status) ?? 'completed';
   return (
@@ -325,9 +326,6 @@ function ToolItem({ item }: { item: ItemView }) {
         : item.type === 'sleep'
           ? '等待'
           : `${string(item.namespace) ?? '工具'} · ${string(item.tool) ?? 'call'}`;
-  const { descriptors } = usePluginUi();
-  const threadId = useAppStore((state) => state.selectedThreadId);
-  const custom = customToolCard(item, descriptors);
   const running = isRunningStatus(status);
   const [open, setOpen] = useState(running);
   const wasRunning = useRef(running);
@@ -336,31 +334,6 @@ function ToolItem({ item }: { item: ItemView }) {
     if (!running && wasRunning.current) setOpen(false);
     wasRunning.current = running;
   }, [running]);
-  if (custom && custom.contribution.type === 'mcp.toolCard' && threadId) {
-    return (
-      <Collapsible.Root
-        className="tool-card plugin-tool-card"
-        open={open}
-        onOpenChange={setOpen}
-      >
-        <Collapsible.Trigger className="plugin-tool-card-heading">
-          <span className="tool-icon amber"><PlugZap size={15} /></span>
-          <span className="tool-title-grow"><strong>{label}</strong></span>
-          <ToolElapsed item={item} status={status} />
-        </Collapsible.Trigger>
-        <Collapsible.Content className="plugin-tool-card-content">
-          <PluginUiFrame
-            descriptor={custom.descriptor}
-            contribution={custom.contribution}
-            threadId={threadId}
-            toolCall={pluginToolContext(item, status)}
-            className="plugin-tool-frame"
-            fallback={<p className="plugin-ui-fallback">插件内容不可用，已保留工具状态。</p>}
-          />
-        </Collapsible.Content>
-      </Collapsible.Root>
-    );
-  }
   return (
     <ToolActivityCard
       item={item}
@@ -438,27 +411,12 @@ function ToolActivityCard({
   );
 }
 
-function customToolCard(item: ItemView, descriptors: PluginUiDescriptor[]) {
-  const pluginId = string(item.pluginId);
-  if (!pluginId) return null;
-  return descriptors.flatMap((descriptor) =>
-    descriptor.pluginId === pluginId
-      ? descriptor.contributions
-        .filter((contribution) => contribution.type === 'mcp.toolCard')
-        .map((contribution) => ({ descriptor, contribution }))
-      : [])
-    .find(({ contribution }) =>
-      contribution.type === 'mcp.toolCard'
-      && contribution.server === string(item.server)
-      && contribution.tools.includes(string(item.tool) ?? '')) ?? null;
-}
-
-function customMessageCard(item: ItemView, descriptors: PluginUiDescriptor[]) {
+function customMessageCard(item: ItemView, descriptors: PluginDescriptor[]) {
   const pluginId = string(item.pluginId);
   if (!pluginId) return null;
   return descriptors.flatMap((descriptor) => descriptor.pluginId === pluginId
-    ? descriptor.contributions
-      .filter((contribution) => contribution.type === 'message.card')
+    ? descriptor.uiContributions
+      .filter((contribution) => contribution.type === 'card')
       .map((contribution) => ({ descriptor, contribution }))
     : [])
     .filter(({ contribution }) => contribution.itemTypes.includes(

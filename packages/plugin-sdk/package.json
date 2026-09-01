@@ -1,9 +1,12 @@
 {
   "name": "@whale-buddy/plugin-sdk",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    "./ui": "./src/ui.ts",
+    "./runtime": "./src/runtime.ts"
+  },
   "peerDependencies": {
     "react": ">=19"
   }

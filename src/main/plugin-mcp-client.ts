@@ -1,6 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { JsonValue } from '../shared/types';
-import type { PluginMcpHttpConnection } from './plugin-ui';
+import type { PluginMcpHttpConnection } from './plugin-host';
 
 export async function callPluginMcpTool(
   connection: PluginMcpHttpConnection,

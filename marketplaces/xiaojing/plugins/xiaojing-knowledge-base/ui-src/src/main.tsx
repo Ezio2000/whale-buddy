@@ -1,15 +1,14 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  callOwnMcp,
-  clearComposerContext,
   getState,
-  setComposerContext,
+  invokeTool,
   setState as persistState,
-  useWhalePlugin,
+  usePluginContext,
   type JsonValue,
   type ToolCallContext,
-} from '@whale-buddy/plugin-sdk';
+} from '@whale-buddy/plugin-sdk/ui';
+import { definePluginRuntime } from '@whale-buddy/plugin-sdk/runtime';
 import './styles.css';
 
 interface Dataset {
@@ -23,27 +22,64 @@ interface SelectorState {
   selectedIds: string[];
 }
 
+definePluginRuntime({
+  'list-knowledge-bases': (_input, services) => services.callMcp(
+    'xiaojing-knowledge-base',
+    'gac_kb_list_datasets',
+    {},
+  ),
+  'set-knowledge-scope': async (input, services) => {
+    const raw = record(input)?.datasets;
+    const datasets = normalizeDatasets(raw);
+    const saved = await services.getState<SelectorState & JsonValue>('thread');
+    await services.setState('thread', {
+      datasets: saved && typeof saved === 'object' && !Array.isArray(saved)
+        ? normalizeDatasets((saved as unknown as SelectorState).datasets)
+        : datasets,
+      selectedIds: datasets.map((dataset) => dataset.id),
+    } as unknown as JsonValue);
+    await services.setComposerContext('knowledge-selector', {
+      label: `知识库 ${datasets.length}`,
+      value: {
+        dataset_ids: datasets.map((dataset) => dataset.id),
+        datasets: datasets.map(({ id, name }) => ({ id, name })),
+      },
+      explicitTools: [{ server: 'xiaojing-knowledge-base', name: 'gac_kb_search' }],
+    });
+    return { selected: datasets.length };
+  },
+  'clear-knowledge-scope': async (_input, services) => {
+    const saved = await services.getState<SelectorState & JsonValue>('thread');
+    const datasets = saved && typeof saved === 'object' && !Array.isArray(saved)
+      ? normalizeDatasets((saved as unknown as SelectorState).datasets)
+      : [];
+    await services.setState('thread', { datasets, selectedIds: [] } as unknown as JsonValue);
+    await services.clearComposerContext('knowledge-selector');
+    return { selected: 0 };
+  },
+});
+
 function App() {
-  const context = useWhalePlugin();
+  const context = usePluginContext();
   if (!context) return <div className="loading-line">正在连接 Whale…</div>;
-  switch (context.contributionType) {
-    case 'composer.widget':
+  if (context.surface.kind === 'runtime') return null;
+  switch (`${context.surface.contributionType}:${context.surface.placement}`) {
+    case 'widget:composer':
       return <KnowledgeSelector threadId={context.threadId} />;
-    case 'composer.action':
+    case 'action:composerToolbar':
       return <KnowledgeSelector threadId={context.threadId} embedded />;
-    case 'navigation.page':
+    case 'page:navigation':
       return <KnowledgeBrowser title="小鲸知识库" description="浏览当前账号获授权的广汽知识库。" />;
-    case 'command.action':
+    case 'action:commandPalette':
       return <KnowledgeBrowser title="浏览小鲸知识库" description="从命令面板快速读取知识库目录。" />;
-    case 'thread.toolbarAction':
+    case 'action:threadToolbar':
       return (
         <KnowledgeBrowser
           title="线程知识库"
           description={context.thread ? `当前线程：${context.thread.name}` : '当前未选择线程'}
         />
       );
-    case 'message.card':
-    case 'mcp.toolCard':
+    case 'card:message':
       return <KnowledgeCard toolCall={context.toolCall} />;
   }
 }
@@ -59,7 +95,7 @@ function KnowledgeSelector({ threadId, embedded = false }: { threadId: string | 
 
   useEffect(() => {
     let cancelled = false;
-    void getState<SelectorState & JsonValue>().then((saved) => {
+    void getState<SelectorState & JsonValue>('thread').then((saved) => {
       if (cancelled || !saved || typeof saved !== 'object' || Array.isArray(saved)) return;
       const normalized = normalizeDatasets((saved as unknown as SelectorState).datasets);
       const ids = Array.isArray((saved as unknown as SelectorState).selectedIds)
@@ -77,30 +113,21 @@ function KnowledgeSelector({ threadId, embedded = false }: { threadId: string | 
     if (!restored) return;
     if (!threadId) return;
     const selected = datasets.filter((dataset) => selectedIds.includes(dataset.id));
-    void persistState({ datasets, selectedIds } as unknown as JsonValue);
+    void persistState('thread', { datasets, selectedIds } as unknown as JsonValue);
     if (selected.length === 0) {
-      void clearComposerContext();
+      void invokeTool('clear-knowledge-scope').catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
       return;
     }
-    void setComposerContext({
-      label: `知识库 ${selected.length}`,
-      value: {
-        dataset_ids: selected.map((dataset) => dataset.id),
-        datasets: selected.map((dataset) => ({ id: dataset.id, name: dataset.name })),
-      },
-      explicitTools: [{ server: 'xiaojing-knowledge-base', name: 'gac_kb_search' }],
-    });
+    void invokeTool('set-knowledge-scope', {
+      datasets: selected.map((dataset) => ({ id: dataset.id, name: dataset.name })),
+    }).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
   }, [datasets, restored, selectedIds]);
 
   const refresh = async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await callOwnMcp<JsonValue>(
-        'xiaojing-knowledge-base',
-        'gac_kb_list_datasets',
-        {},
-      );
+      const response = await invokeTool<JsonValue>('list-knowledge-bases');
       const next = extractDatasets(response);
       setDatasets(next);
       setSelectedIds((current) => current.filter((id) => next.some((dataset) => dataset.id === id)));
@@ -194,11 +221,7 @@ function KnowledgeBrowser({ title, description }: { title: string; description: 
     setLoading(true);
     setError('');
     try {
-      const response = await callOwnMcp<JsonValue>(
-        'xiaojing-knowledge-base',
-        'gac_kb_list_datasets',
-        {},
-      );
+      const response = await invokeTool<JsonValue>('list-knowledge-bases');
       const next = extractDatasets(response);
       setDatasets(next);
       if (next.length === 0) setError('当前账号没有返回可用知识库');

@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type {
   ActivePluginCredential,
-  PluginCredentialContribution,
+  PluginCredentialDeclaration,
   PluginCredentialValue,
 } from '../shared/plugin-credentials';
 import { normalizeExtensionName } from '../shared/extension-policy';
@@ -34,7 +34,7 @@ export class PluginCredentialStore {
 
   values(
     marketplaceName: string,
-    credentials: PluginCredentialContribution[],
+    credentials: PluginCredentialDeclaration[],
   ): PluginCredentialValue[] {
     return credentials.map((credential) => ({
       ...credential,
@@ -63,8 +63,8 @@ export class PluginCredentialStore {
 
   missingRequired(
     marketplaceName: string,
-    credentials: PluginCredentialContribution[],
-  ): PluginCredentialContribution[] {
+    credentials: PluginCredentialDeclaration[],
+  ): PluginCredentialDeclaration[] {
     return credentials.filter(
       (credential) => credential.required && !this.has(marketplaceName, credential.key),
     );

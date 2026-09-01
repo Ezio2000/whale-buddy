@@ -202,14 +202,18 @@ Base URL 应是 API 根地址（通常以 `/v1` 结尾），不要包含末尾�
   “未载入”。未载入时仍可在右侧查看 `.mcp.json`，工具清单要等运行时载入后发现。
 - 插件启用后可逐项停用或重新启用 Skill/MCP。每次停用或卸载插件后再启用，插件下的全部
   Skills 与 MCP 都恢复为默认开启。
-- 插件可在 `whale.contributions` 中声明 `credential`。Whale 会在插件详情中生成明文
+- 插件可在 `whale.credentials` 中声明凭据。Whale 会在插件详情中生成明文
   输入框，并把值直接写入 `userData/ui-state/plugin-credentials.json`；renderer 和插件
   iframe 都能读取完整值。相关插件和 MCP 启用时，Whale 会向 sidecar 注入声明的环境变量；
   缺少必填凭据时插件不能启用。同一商城内使用相同 `key` 的插件共享一份凭据。
-- 插件 UI 可声明 `navigation.page`、`command.action`、`thread.toolbarAction`、
-  `composer.action` 和 `message.card`，分别挂载到左侧导航、命令面板、线程标题栏、输入区
-  工具栏和会话消息流。已有的 `composer.widget` 与 `mcp.toolCard` 保持兼容；所有 iframe
-  都通过 `@whale-buddy/plugin-sdk` 接收当前项目、线程、消息和凭据上下文。
+- Whale 插件协议固定为 `whale.apiVersion: 2`，不读取 v1。`uiContributions` 只描述
+  `page`、`action`、`widget`、`card` 四类界面和它们的 placement；`webMcp` 声明工具、
+  JSON Schema、作用域和注解。每个启用插件只有一个持久 runtime iframe，UI 通过工具调用
+  它，Host Services 统一处理生命周期、凭据、MCP 权限、global/project/thread 状态、
+  输入上下文和事件。
+- WebMCP 工具会在浏览器提供 `document.modelContext` 时原生注册，同时桥接为新建 Codex
+  线程的 dynamic tools；工具执行结果回到同一 app-server 请求。SDK 拆为
+  `@whale-buddy/plugin-sdk/ui` 和 `@whale-buddy/plugin-sdk/runtime` 两个入口。
 - “商城源”只管理用户手动添加的 Git/本地商城，不包含任何预设来源。开关是运行时授权，
   不是界面过滤；关闭来源会让其插件、Skills 与 MCP
   在 sidecar 重启后全部失效，缓存保持惰性。

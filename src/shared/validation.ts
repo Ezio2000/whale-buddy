@@ -179,10 +179,10 @@ export const pluginSetEnabledSchema = z
   })
   .strict();
 
-export const pluginUiCallToolSchema = z
+export const pluginMcpCallSchema = z
   .object({
     pluginId: idSchema,
-    contributionId: idSchema,
+    principal: z.string().trim().min(3).max(256),
     threadId: idSchema.nullable(),
     server: catalogNameSchema,
     tool: catalogNameSchema,

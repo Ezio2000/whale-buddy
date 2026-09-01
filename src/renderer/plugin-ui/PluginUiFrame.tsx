@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type {
-  PluginComposerContextValue,
-  PluginMessageContext,
-  PluginToolCardContext,
-  PluginUiContribution,
-  PluginUiDescriptor,
-  PluginUiFrameContext,
-} from '../../shared/plugin-ui';
-import { WHALE_PLUGIN_MESSAGE_CHANNEL } from '../../shared/plugin-ui';
+import {
+  WHALE_PLUGIN_MESSAGE_CHANNEL,
+  type PluginComposerContextValue,
+  type PluginDescriptor,
+  type PluginFrameContext,
+  type PluginFrameSurface,
+  type PluginMessageContext,
+  type PluginStateScope,
+  type PluginToolCardContext,
+  type PluginUiContribution,
+} from '../../shared/plugin';
+import type { JsonValue } from '../../shared/types';
 import { useAppStore } from '../state/store';
-import { contextKey, pluginStateKey, usePluginUi } from './PluginUiProvider';
+import { contextKey, usePluginHost } from './PluginHostProvider';
 
 interface PluginUiFrameProps {
-  descriptor: PluginUiDescriptor;
+  descriptor: PluginDescriptor;
   contribution: PluginUiContribution;
   threadId: string | null;
   toolCall?: PluginToolCardContext;
@@ -21,282 +24,278 @@ interface PluginUiFrameProps {
   fallback?: ReactNode;
 }
 
-export function PluginUiFrame({
-  descriptor,
-  contribution,
-  threadId,
-  toolCall,
-  message,
-  className,
-  fallback = null,
-}: PluginUiFrameProps) {
-  const selectedProject = useAppStore((state) =>
-    state.projects.find((project) => project.id === state.selectedProjectId) ?? null);
-  const selectedThread = useAppStore((state) =>
-    state.threads.find((thread) => thread.id === threadId) ?? null);
-  const surface = contribution.type === 'navigation.page'
-    || contribution.type === 'command.action'
-    || contribution.type === 'thread.toolbarAction'
-    || contribution.type === 'composer.action';
+export function PluginUiFrame(props: PluginUiFrameProps) {
+  const { descriptor, contribution, threadId, toolCall, message, className, fallback = null } = props;
+  const surface = useMemo<PluginFrameSurface>(() => ({
+    kind: 'ui', contributionId: contribution.id,
+    contributionType: contribution.type, placement: contribution.placement,
+  }), [contribution.id, contribution.placement, contribution.type]);
+  const isFullSurface = contribution.type === 'page' || contribution.type === 'action';
+  const [height, setHeight] = useState(contribution.type === 'widget' ? 26 : 120);
+  const [width, setWidth] = useState(contribution.type === 'widget' ? 26 : 0);
+  const frame = usePluginFrame(descriptor, contribution.entryUrl, surface, threadId, toolCall, message);
+
+  useEffect(() => frame.setResizeHandler((requestedHeight, requestedWidth) => {
+    if (isFullSurface) return;
+    setHeight(Math.max(contribution.type === 'widget' ? 26 : 40, Math.min(640, Math.ceil(requestedHeight))));
+    if (contribution.type === 'widget') setWidth(Math.max(26, Math.min(380, Math.ceil(requestedWidth ?? 26))));
+  }), [contribution.type, frame, isFullSurface]);
+
+  if (frame.failed) return fallback;
+  return <iframe
+    ref={frame.iframeRef}
+    className={`plugin-ui-frame ${className ?? ''} ${frame.ready ? 'ready' : 'loading'}`}
+    src={contribution.entryUrl}
+    title={`${descriptor.displayName} · ${contribution.id}`}
+    sandbox="allow-scripts allow-same-origin"
+    scrolling="no"
+    style={{ height: isFullSurface ? '100%' : height, ...(contribution.type === 'widget' ? { width } : {}) }}
+    onLoad={frame.initialize}
+    onError={() => frame.setFailed(true)}
+  />;
+}
+
+export function PluginRuntimeFrame({ descriptor }: { descriptor: PluginDescriptor }) {
+  const runtime = descriptor.webMcp;
+  const threadId = useAppStore((state) => state.selectedThreadId);
+  const surface = useMemo<PluginFrameSurface>(() => ({ kind: 'runtime' }), []);
+  const frame = usePluginFrame(descriptor, runtime?.entryUrl ?? '', surface, threadId);
+  if (!runtime) return null;
+  return <iframe
+    ref={frame.iframeRef}
+    src={runtime.entryUrl}
+    title={`${descriptor.displayName} WebMCP runtime`}
+    sandbox="allow-scripts allow-same-origin"
+    onLoad={frame.initialize}
+    onError={() => frame.setFailed(true)}
+  />;
+}
+
+function usePluginFrame(
+  descriptor: PluginDescriptor,
+  entryUrl: string,
+  surface: PluginFrameSurface,
+  threadId: string | null,
+  toolCall?: PluginToolCardContext,
+  message?: PluginMessageContext,
+) {
+  const selectedProject = useAppStore((state) => state.projects.find((project) => project.id === state.selectedProjectId) ?? null);
+  const selectedThread = useAppStore((state) => state.threads.find((thread) => thread.id === threadId) ?? null);
+  const host = usePluginHost();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const nonce = useMemo(() => crypto.randomUUID(), []);
-  const [height, setHeight] = useState(contribution.type === 'composer.widget' ? 26 : 120);
-  const [width, setWidth] = useState(contribution.type === 'composer.widget' ? 26 : 0);
+  const pending = useRef(new Map<string, { resolve(value: JsonValue): void; reject(error: Error): void; timer: number }>());
+  const executions = useRef(new Map<string, { threadId: string | null; toolId: string }>());
+  const resizeHandler = useRef<(height: number, width?: number) => void>(() => undefined);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(
-    document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
-  );
-  const { setComposerContext } = usePluginUi();
+  const [theme, setTheme] = useState<'light' | 'dark'>(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
 
-  const frameContext = useCallback((): PluginUiFrameContext => ({
-    apiVersion: 1,
-    pluginId: descriptor.pluginId,
-    pluginName: descriptor.pluginName,
-    contributionId: contribution.id,
-    contributionType: contribution.type,
-    locale: document.documentElement.lang || 'zh-CN',
-    theme,
-    threadId,
-    project: selectedProject ? {
-      id: selectedProject.id,
-      name: selectedProject.name,
-      path: selectedProject.path,
-    } : null,
-    thread: selectedThread ? {
-      id: selectedThread.id,
-      name: selectedThread.name || selectedThread.preview || '未命名线程',
-      cwd: selectedThread.cwd,
-    } : null,
-    credentials: descriptor.credentials,
-    ...(toolCall ? { toolCall } : {}),
-    ...(message ? { message } : {}),
-  }), [contribution.id, contribution.type, descriptor.credentials, descriptor.pluginId, descriptor.pluginName, message, selectedProject, selectedThread, theme, threadId, toolCall]);
+  const context = useCallback((): PluginFrameContext => ({
+    apiVersion: 2, pluginId: descriptor.pluginId, pluginName: descriptor.pluginName, surface,
+    locale: document.documentElement.lang || 'zh-CN', theme, threadId,
+    project: selectedProject ? { id: selectedProject.id, name: selectedProject.name, path: selectedProject.path } : null,
+    thread: selectedThread ? { id: selectedThread.id, name: selectedThread.name || selectedThread.preview || '未命名线程', cwd: selectedThread.cwd } : null,
+    credentials: descriptor.credentials, ...(toolCall ? { toolCall } : {}), ...(message ? { message } : {}),
+  }), [descriptor.credentials, descriptor.pluginId, descriptor.pluginName, message, selectedProject, selectedThread, surface, theme, threadId, toolCall]);
+  const post = useCallback((data: Record<string, unknown>) => iframeRef.current?.contentWindow?.postMessage({ channel: WHALE_PLUGIN_MESSAGE_CHANNEL, nonce, ...data }, '*'), [nonce]);
+  const sendContext = useCallback((type: 'host:init' | 'host:context') => post({ type, context: context() }), [context, post]);
+  const initialize = useCallback(() => sendContext('host:init'), [sendContext]);
 
-  const sendContext = useCallback((type: 'host:init' | 'host:context') => {
-    iframeRef.current?.contentWindow?.postMessage({
-      channel: WHALE_PLUGIN_MESSAGE_CHANNEL,
-      nonce,
-      type,
-      context: frameContext(),
-    }, '*');
-  }, [frameContext, nonce]);
-
+  useEffect(() => { if (ready) { sendContext('host:context'); post({ type: 'host:event', event: { type: 'context.changed', context: context() } }); } }, [context, post, ready, sendContext]);
   useEffect(() => {
-    if (ready) sendContext('host:context');
-  }, [ready, sendContext]);
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => setTheme(
-      document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
-    ));
+    const observer = new MutationObserver(() => setTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'));
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => observer.disconnect();
   }, []);
-
+  useEffect(() => host.subscribe((event) => post({ type: 'host:event', event })), [host, post]);
   useEffect(() => {
-    if (ready) return;
+    if (ready || surface.kind === 'runtime') return;
     const timer = window.setTimeout(() => setFailed(true), 5_000);
     return () => window.clearTimeout(timer);
-  }, [ready]);
+  }, [ready, surface.kind]);
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
-      const message = asRecord(event.data);
-      if (message?.channel !== WHALE_PLUGIN_MESSAGE_CHANNEL || message.nonce !== nonce) return;
-      if (message.type === 'plugin:ready') {
+      const packet = asRecord(event.data);
+      if (packet?.channel !== WHALE_PLUGIN_MESSAGE_CHANNEL || packet.nonce !== nonce) return;
+      if ((surface.kind === 'ui' && packet.type === 'plugin:ready')
+        || (surface.kind === 'runtime' && packet.type === 'plugin:runtimeReady')) {
+        if (surface.kind === 'runtime' && !matchesRuntimeTools(packet.toolIds, descriptor)) {
+          setFailed(true);
+          return;
+        }
         setReady(true);
         return;
       }
-      if (message.type === 'plugin:resize') {
-        if (surface) return;
-        const requested = typeof message.height === 'number' ? message.height : 0;
-        const min = contribution.type === 'composer.widget' ? 26 : 40;
-        const max = contribution.type === 'composer.widget' ? 360 : 640;
-        setHeight(Math.max(min, Math.min(max, Math.ceil(requested))));
-        if (contribution.type === 'composer.widget') {
-          const requestedWidth = typeof message.width === 'number' ? message.width : 26;
-          setWidth(Math.max(26, Math.min(380, Math.ceil(requestedWidth))));
-        }
+      if (packet.type === 'plugin:resize') {
+        resizeHandler.current(numberValue(packet.height), optionalNumber(packet.width));
         return;
       }
-      if (message.type !== 'plugin:request') return;
-      const requestId = typeof message.requestId === 'string' ? message.requestId : null;
-      const method = typeof message.method === 'string' ? message.method : null;
+      if (packet.type === 'plugin:toolResult') {
+        const callId = stringValue(packet.callId);
+        const call = callId ? pending.current.get(callId) : null;
+        if (!callId || !call) return;
+        window.clearTimeout(call.timer);
+        pending.current.delete(callId);
+        executions.current.delete(callId);
+        if (packet.ok === true) call.resolve(toJsonValue(packet.result) ?? null);
+        else call.reject(new Error(stringValue(packet.error) ?? 'WebMCP 工具执行失败'));
+        return;
+      }
+      if (packet.type !== 'plugin:request') return;
+      const requestId = stringValue(packet.requestId);
+      const method = stringValue(packet.method);
       if (!requestId || !method) return;
-      void handleRequest(method, message.payload)
-        .then((result) => respond(requestId, true, result))
-        .catch((error) => respond(
-          requestId,
-          false,
-          undefined,
-          error instanceof Error ? error.message : String(error),
-        ));
+      const requestPayload = asRecord(packet.payload);
+      const executionId = stringValue(requestPayload?.executionId);
+      const execution = surface.kind === 'runtime' && executionId
+        ? executions.current.get(executionId) ?? null
+        : null;
+      const effectiveThreadId = surface.kind === 'runtime' ? execution?.threadId ?? null : threadId;
+      void handleRequest(host, descriptor, surface, effectiveThreadId, method, packet.payload, execution?.toolId ?? null, selectedProject?.id ?? null)
+        .then((result) => post({ type: 'host:response', requestId, ok: true, result }))
+        .catch((error) => post({ type: 'host:response', requestId, ok: false, error: error instanceof Error ? error.message : String(error) }));
     };
-
-    const respond = (
-      requestId: string,
-      ok: boolean,
-      result?: unknown,
-      error?: string,
-    ) => iframeRef.current?.contentWindow?.postMessage({
-      channel: WHALE_PLUGIN_MESSAGE_CHANNEL,
-      nonce,
-      type: 'host:response',
-      requestId,
-      ok,
-      result,
-      error,
-    }, '*');
-
-    const handleRequest = async (method: string, raw: unknown): Promise<unknown> => {
-      const payload = asRecord(raw) ?? {};
-      const stateScope = threadId ?? 'global';
-      if (method === 'state.get') {
-        return readPluginState(descriptor.pluginId, contribution.id, stateScope);
-      }
-      if (method === 'state.set') {
-        writePluginState(descriptor.pluginId, contribution.id, stateScope, payload.value);
-        return null;
-      }
-      if (method === 'mcp.callOwn') {
-        const server = requiredString(payload.server);
-        const tool = requiredString(payload.tool);
-        return window.whale.plugins.uiCallTool({
-          pluginId: descriptor.pluginId,
-          contributionId: contribution.id,
-          threadId,
-          server,
-          tool,
-          arguments: jsonValue(payload.arguments) ?? {},
-        });
-      }
-      if (method === 'composer.setContext') {
-        if (contribution.type !== 'composer.widget' && contribution.type !== 'composer.action') {
-          throw new Error('只有输入区贡献可以设置上下文');
-        }
-        if (!threadId) throw new Error('请先选择线程');
-        const value = parseComposerContext(payload);
-        assertOwnTools(value, descriptor);
-        setComposerContext(descriptor.pluginId, contribution.id, threadId, value);
-        return null;
-      }
-      if (method === 'composer.clearContext') {
-        if (contribution.type !== 'composer.widget' && contribution.type !== 'composer.action') {
-          throw new Error('只有输入区贡献可以清除上下文');
-        }
-        if (!threadId) throw new Error('请先选择线程');
-        setComposerContext(descriptor.pluginId, contribution.id, threadId, null);
-        return null;
-      }
-      throw new Error(`不支持的插件 UI 请求：${method}`);
-    };
-
     window.addEventListener('message', listener);
     return () => window.removeEventListener('message', listener);
-  }, [contribution, descriptor, nonce, setComposerContext, threadId]);
+  }, [descriptor, host, nonce, post, selectedProject?.id, surface, threadId]);
 
-  if (failed) return fallback;
+  useEffect(() => {
+    if (surface.kind !== 'runtime' || !ready) return;
+    return host.registerRuntime(descriptor.pluginId, (toolId, input, requestedThreadId) => new Promise((resolve, reject) => {
+      const callId = crypto.randomUUID();
+      const timer = window.setTimeout(() => {
+        pending.current.delete(callId);
+        executions.current.delete(callId);
+        reject(new Error(`WebMCP 工具 ${toolId} 执行超时`));
+      }, 60_000);
+      pending.current.set(callId, { resolve, reject, timer });
+      executions.current.set(callId, { threadId: requestedThreadId, toolId });
+      const baseContext = context();
+      const callContext = {
+        ...baseContext,
+        threadId: requestedThreadId,
+        thread: baseContext.thread?.id === requestedThreadId ? baseContext.thread : null,
+      };
+      post({ type: 'host:toolCall', callId, toolId, input, context: callContext });
+    }));
+  }, [context, descriptor.pluginId, host, post, ready, surface.kind]);
 
-  return (
-    <iframe
-      ref={iframeRef}
-      className={`plugin-ui-frame ${className ?? ''} ${ready ? 'ready' : 'loading'}`}
-      src={contribution.entryUrl}
-      title={`${descriptor.displayName} · ${contribution.id}`}
-      sandbox="allow-scripts allow-same-origin"
-      scrolling="no"
-      style={{
-        height: surface ? '100%' : height,
-        ...(contribution.type === 'composer.widget' ? { width } : {}),
-      }}
-      onLoad={() => sendContext('host:init')}
-      onError={() => setFailed(true)}
-    />
-  );
+  useEffect(() => () => {
+    for (const call of pending.current.values()) { window.clearTimeout(call.timer); call.reject(new Error('插件 runtime 已卸载')); }
+    pending.current.clear();
+    executions.current.clear();
+  }, []);
+  return { iframeRef, ready, failed, setFailed, initialize, setResizeHandler: (handler: typeof resizeHandler.current) => { resizeHandler.current = handler; return () => { resizeHandler.current = () => undefined; }; } };
 }
 
-export function composerContextFor(
-  contexts: Record<string, PluginComposerContextValue>,
-  descriptor: PluginUiDescriptor,
-  contribution: PluginUiContribution,
-  threadId: string,
-): PluginComposerContextValue | null {
+async function handleRequest(
+  host: ReturnType<typeof usePluginHost>, descriptor: PluginDescriptor, surface: PluginFrameSurface,
+  threadId: string | null, method: string, raw: unknown, executionToolId: string | null,
+  projectId: string | null,
+): Promise<JsonValue> {
+  const payload = asRecord(raw) ?? {};
+  const runtimePrincipal = surface.kind === 'runtime'
+    ? assertRuntimePrincipal(payload.principalId, executionToolId)
+    : null;
+  if (method === 'state.get' || method === 'state.set') {
+    const scope = parseScope(payload.scope);
+    if (surface.kind === 'runtime') {
+      const tool = descriptor.webMcp?.tools.find((entry) => entry.id === runtimePrincipal);
+      if (!tool || tool.scope !== scope) throw new Error('WebMCP 工具不能访问声明范围之外的状态');
+    }
+    const scopeId = resolveScopeId(scope, payload.scopeId, threadId, projectId);
+    if (method === 'state.get') return host.getState(descriptor.pluginId, scope, scopeId);
+    const value = toJsonValue(payload.value);
+    if (value === null && payload.value !== null) throw new Error('插件状态必须是 JSON');
+    host.setState(descriptor.pluginId, scope, scopeId, value);
+    return null;
+  }
+  if (method === 'mcp.call') {
+    const principalId = surface.kind === 'ui' ? surface.contributionId : runtimePrincipal!;
+    return host.callMcp({
+      pluginId: descriptor.pluginId, principal: `${surface.kind === 'ui' ? 'ui' : 'webMcp'}:${principalId}`,
+      threadId, server: requiredString(payload.server), tool: requiredString(payload.tool), arguments: toJsonValue(payload.arguments) ?? {},
+    });
+  }
+  if (method === 'tool.invoke' && surface.kind === 'ui') {
+    return host.invokeTool(descriptor.pluginId, requiredString(payload.toolId), toJsonValue(payload.arguments) ?? {}, threadId);
+  }
+  if ((method === 'composer.setContext' || method === 'composer.clearContext') && surface.kind === 'runtime') {
+    if (!threadId) throw new Error('请先选择线程');
+    const principalId = runtimePrincipal!;
+    if (!descriptor.webMcp?.tools.some((tool) => tool.id === principalId && tool.scope === 'thread')) {
+      throw new Error('只有 thread 范围的 WebMCP 工具可以修改输入上下文');
+    }
+    const sourceId = requiredString(payload.sourceId);
+    if (!descriptor.uiContributions.some((entry) => entry.id === sourceId && entry.type === 'widget')) {
+      throw new Error('WebMCP 只能写入已声明的输入区 UI 上下文');
+    }
+    if (method === 'composer.clearContext') host.setComposerContext(descriptor.pluginId, sourceId, threadId, null);
+    else {
+      const value = parseComposerContext(payload);
+      assertComposerTools(descriptor, principalId, value);
+      host.setComposerContext(descriptor.pluginId, sourceId, threadId, value);
+    }
+    return null;
+  }
+  throw new Error(`不支持的插件宿主请求：${method}`);
+}
+
+export function composerContextFor(contexts: Record<string, PluginComposerContextValue>, descriptor: PluginDescriptor, contribution: PluginUiContribution, threadId: string) {
   return contexts[contextKey(descriptor.pluginId, contribution.id, threadId)] ?? null;
 }
-
-function readPluginState(pluginId: string, contributionId: string, threadId: string): unknown {
-  try {
-    const raw = window.localStorage.getItem(pluginStateKey(pluginId, contributionId, threadId));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writePluginState(
-  pluginId: string,
-  contributionId: string,
-  threadId: string,
-  value: unknown,
-): void {
-  const key = pluginStateKey(pluginId, contributionId, threadId);
-  if (value === null || value === undefined) {
-    window.localStorage.removeItem(key);
-    return;
-  }
-  const normalized = jsonValue(value);
-  if (normalized === null && value !== null) throw new Error('插件状态必须是 JSON');
-  const encoded = JSON.stringify(normalized);
-  if (encoded.length > 65_536) throw new Error('插件状态超过 64 KB');
-  window.localStorage.setItem(key, encoded);
-}
-
 function parseComposerContext(value: Record<string, unknown>): PluginComposerContextValue {
   const label = requiredString(value.label);
-  const parsed = jsonValue(value.value);
+  const parsed = toJsonValue(value.value);
   if (parsed === null && value.value !== null) throw new Error('插件上下文必须是 JSON');
-  const explicitTools = Array.isArray(value.explicitTools)
-    ? value.explicitTools.flatMap((entry) => {
-        const tool = asRecord(entry);
-        return typeof tool?.server === 'string' && typeof tool.name === 'string'
-          ? [{ server: tool.server, name: tool.name }]
-          : [];
-      }).slice(0, 20)
-    : undefined;
+  const explicitTools = Array.isArray(value.explicitTools) ? value.explicitTools.flatMap((entry) => {
+    const tool = asRecord(entry);
+    return typeof tool?.server === 'string' && typeof tool.name === 'string' ? [{ server: tool.server, name: tool.name }] : [];
+  }).slice(0, 20) : undefined;
   return { label, value: parsed, ...(explicitTools ? { explicitTools } : {}) };
 }
-
-function assertOwnTools(value: PluginComposerContextValue, descriptor: PluginUiDescriptor): void {
+function assertComposerTools(
+  descriptor: PluginDescriptor,
+  principalId: string,
+  value: PluginComposerContextValue,
+): void {
   for (const tool of value.explicitTools ?? []) {
-    const declaredByCard = descriptor.contributions.some((entry) =>
-      (entry.type === 'mcp.toolCard' || entry.type === 'message.card')
-      && entry.server === tool.server
-      && entry.tools.includes(tool.name));
-    if (!declaredByCard) {
-      throw new Error(`插件不能附加未授权工具 ${tool.server}.${tool.name}`);
-    }
+    const allowed = descriptor.mcpPermissions.some((permission) =>
+      (permission.principal === `webMcp:${principalId}` || permission.principal === 'webMcp:*')
+      && permission.server === tool.server
+      && permission.tools.includes(tool.name));
+    if (!allowed) throw new Error(`WebMCP 工具不能附加未授权工具 ${tool.server}.${tool.name}`);
   }
 }
-
-function jsonValue(value: unknown): PluginComposerContextValue['value'] | null {
-  try {
-    return JSON.parse(JSON.stringify(value)) as PluginComposerContextValue['value'];
-  } catch {
-    return null;
-  }
+function parseScope(value: unknown): PluginStateScope {
+  if (value === 'global' || value === 'project' || value === 'thread') return value;
+  throw new Error('无效的插件状态范围');
 }
-
-function requiredString(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim() || value.length > 512) {
-    throw new Error('插件请求包含无效名称');
-  }
-  return value.trim();
+function resolveScopeId(scope: PluginStateScope, requested: unknown, threadId: string | null, projectId: string | null): string {
+  if (scope === 'global') return 'global';
+  if (scope === 'thread') { if (!threadId) throw new Error('请先选择线程'); return threadId; }
+  const explicit = stringValue(requested);
+  if (explicit) return explicit;
+  if (!projectId) throw new Error('请先选择项目');
+  return projectId;
 }
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
+function assertRuntimePrincipal(value: unknown, executionToolId: string | null): string {
+  if (!executionToolId) throw new Error('WebMCP runtime 请求不属于有效的工具执行');
+  if (requiredString(value) !== executionToolId) throw new Error('WebMCP runtime 工具身份与当前执行不一致');
+  return executionToolId;
 }
+function matchesRuntimeTools(value: unknown, descriptor: PluginDescriptor): boolean {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string')) return false;
+  const declared = descriptor.webMcp?.tools.map((tool) => tool.id).sort() ?? [];
+  const registered = [...new Set(value)].sort();
+  return declared.length === registered.length && declared.every((toolId, index) => toolId === registered[index]);
+}
+function toJsonValue(value: unknown): JsonValue | null { try { return JSON.parse(JSON.stringify(value)) as JsonValue; } catch { return null; } }
+function requiredString(value: unknown): string { const parsed = stringValue(value); if (!parsed || parsed.length > 512) throw new Error('插件请求包含无效名称'); return parsed; }
+function stringValue(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value.trim() : null; }
+function numberValue(value: unknown): number { return typeof value === 'number' && Number.isFinite(value) ? value : 0; }
+function optionalNumber(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }
+function asRecord(value: unknown): Record<string, unknown> | null { return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null; }

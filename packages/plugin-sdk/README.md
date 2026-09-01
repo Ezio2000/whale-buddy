@@ -1,45 +1,47 @@
-# Whale Buddy Plugin UI SDK
+# Whale Buddy Plugin SDK v2
 
-插件仍以标准 `.codex-plugin/plugin.json` 作为唯一入口。Whale UI 扩展放在可选的
-`whale` 命名空间内，Codex 会忽略该命名空间，Whale Buddy 会校验并按需加载它。
+插件仍以 `.codex-plugin/plugin.json` 为唯一入口。`whale.apiVersion` 必须为 `2`；v2
+把界面声明放在 `uiContributions`，把可执行能力放在 `webMcp`。Whale 不读取旧版清单。
 
-插件 UI 必须预先构建为位于插件根目录内的 HTML/JS/CSS。每个贡献点运行在独立
-iframe 中，没有 Node、文件系统、直接网络或 `window.whale`。插件通过本 SDK 使用：
+## 两个入口
 
-- `useWhalePlugin()`：读取主题、项目、线程、消息/工具调用上下文和完整凭据值。
-- `callOwnMcp()`：调用 manifest 白名单中的本插件 MCP 工具。
-- `getState()` / `setState()`：保存当前线程范围的 JSON 状态。
-- `setComposerContext()` / `clearComposerContext()`：由 `composer.widget` 或
-  `composer.action` 向后续回合附加结构化选择。
+- `@whale-buddy/plugin-sdk/ui` 用于 UI iframe：`usePluginContext()`、按
+  global/project/thread 范围读写的 `getState()` / `setState()`、`invokeTool()`、
+  `callMcp()` 和宿主事件。
+- `@whale-buddy/plugin-sdk/runtime` 用于每个已启用插件唯一、持久的后台 iframe。
+  `definePluginRuntime()` 注册 manifest 中声明的工具；工具处理器通过绑定到当前调用的
+  services 访问状态、MCP 和输入上下文。
 
-当前 API 版本为 `1`。iframe SDK 支持以下 UI 贡献点：
+UI 只负责呈现和收集输入，业务动作应调用 WebMCP 工具。runtime 承担执行；Host Services
+负责生命周期、凭据、权限、作用域状态、输入上下文和事件。UI iframe 与 runtime iframe
+都不能直接访问 `window.whale`。
 
-- `navigation.page`：左侧导航中的完整插件页面。
-- `command.action`：命令面板中的插件操作，点击后打开插件面板。
-- `thread.toolbarAction`：当前线程标题栏中的插件操作。
-- `composer.action`：输入区工具栏中的插件操作，可设置结构化输入上下文。
-- `message.card`：按消息类型以及可选的 MCP 服务/工具匹配会话消息卡片。
-- `composer.widget`、`mcp.toolCard`：为已有插件保留的兼容贡献点。
-
-宿主清单还支持无需 iframe 的 `credential` 贡献点。`credential` 声明凭据元数据和使用它的
-MCP；值以明文保存在本机，并通过 `useWhalePlugin().credentials` 传给插件 iframe。完整清单示例可参考
-`marketplaces/xiaojing/plugins/xiaojing-knowledge-base/.codex-plugin/plugin.json`。
+## v2 清单
 
 ```json
 {
   "whale": {
-    "apiVersion": 1,
-    "contributions": [
+    "apiVersion": 2,
+    "uiContributions": [
+      {
+        "id": "selector",
+        "type": "widget",
+        "placement": "composer",
+        "entry": "./ui/index.html",
+        "order": 100
+      },
       {
         "id": "home",
-        "type": "navigation.page",
+        "type": "page",
+        "placement": "navigation",
         "entry": "./ui/index.html",
         "title": "服务首页",
         "order": 100
       },
       {
         "id": "quick-action",
-        "type": "command.action",
+        "type": "action",
+        "placement": "commandPalette",
         "entry": "./ui/index.html",
         "title": "打开服务",
         "description": "从命令面板打开服务。",
@@ -47,32 +49,44 @@ MCP；值以明文保存在本机，并通过 `useWhalePlugin().credentials` 传
         "order": 100
       },
       {
-        "id": "thread-action",
-        "type": "thread.toolbarAction",
-        "entry": "./ui/index.html",
-        "title": "线程服务",
-        "order": 100
-      },
-      {
-        "id": "composer-action",
-        "type": "composer.action",
-        "entry": "./ui/index.html",
-        "title": "选择数据",
-        "order": 100
-      },
-      {
-        "id": "result-card",
-        "type": "message.card",
+        "id": "result",
+        "type": "card",
+        "placement": "message",
         "entry": "./ui/index.html",
         "title": "服务结果",
-        "itemTypes": ["mcpToolCall"],
-        "server": "vendor-service",
-        "tools": ["search"],
-        "order": 100
-      },
+        "match": {
+          "itemTypes": ["mcpToolCall"],
+          "server": "vendor-service",
+          "tools": ["search"]
+        }
+      }
+    ],
+    "webMcp": {
+      "entry": "./ui/index.html",
+      "tools": [
+        {
+          "id": "search",
+          "name": "vendor_search",
+          "title": "搜索服务",
+          "description": "搜索当前用户可访问的服务数据。",
+          "scope": "project",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"]
+          },
+          "annotations": { "readOnlyHint": true, "untrustedContentHint": true }
+        }
+      ]
+    },
+    "permissions": {
+      "mcp": [
+        { "principal": "webMcp:search", "server": "vendor-service", "tools": ["search"] }
+      ]
+    },
+    "credentials": [
       {
         "id": "service-token",
-        "type": "credential",
         "key": "vendor/service-token",
         "credentialType": "bearerToken",
         "label": "Service Token",
@@ -87,8 +101,10 @@ MCP；值以明文保存在本机，并通过 `useWhalePlugin().credentials` 传
 }
 ```
 
-- `credentialType` 支持 `apiKey` 和 `bearerToken`。
-- 同一商城内相同 `key` 共享明文值；不同商城不会共享。
-- `usedBy.mcpServers` 只能引用当前插件已声明的 MCP，凭据仅在其中至少一个 MCP 启用时注入。
-- `env` 必须是以 `_API_KEY`、`_TOKEN`、`_SECRET` 或 `_PASSWORD` 结尾的大写名称。
-- HTTP MCP 应在 `.mcp.json` 的 `bearer_token_env_var` 中引用同一个 `env` 名称。
+UI 类型只有 `page`、`action`、`widget`、`card`。位置由 `placement` 决定；action
+支持 `commandPalette`、`threadToolbar`、`composerToolbar`。WebMCP 工具名在所有已启用
+插件中必须唯一。
+
+Host 会把 WebMCP 工具注册到可用的 `document.modelContext`，并同时映射成新建 Codex
+线程的 dynamic tools；当前 Electron 不支持原生 API 时仍可由 Codex 调用。MCP 权限按
+`ui:<contributionId>` 或 `webMcp:<toolId>` 主体逐项声明。

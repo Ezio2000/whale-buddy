@@ -3,11 +3,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ExtensionPolicyStore } from '../../src/main/extension-policy';
-import type { PluginCredentialContribution } from '../../src/shared/plugin-credentials';
+import type { PluginCredentialDeclaration } from '../../src/shared/plugin-credentials';
 
-const fixtureCredential: PluginCredentialContribution = {
+const fixtureCredential: PluginCredentialDeclaration = {
   id: 'fixture-token',
-  type: 'credential',
   key: 'fixture/token',
   credentialType: 'bearerToken',
   label: 'Fixture Token',

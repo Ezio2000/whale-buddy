@@ -146,21 +146,27 @@ beforeEach(() => {
             },
           }],
         },
-        ui: [
+        uiContributions: [
           {
             id: 'fixture-composer',
-            type: 'composer.widget',
+            type: 'widget',
+            placement: 'composer',
             entryUrl: 'whale-plugin://plugin/fixture-plugin/ui/composer.html',
             order: 10,
           },
           {
             id: 'fixture-tool-card',
-            type: 'mcp.toolCard',
+            type: 'card',
+            placement: 'message',
             entryUrl: 'whale-plugin://plugin/fixture-plugin/ui/tool-card.html',
+            title: 'Fixture result',
+            itemTypes: ['mcpToolCall'],
             server: 'fixture-mcp',
             tools: ['inspect_fixture'],
+            order: 0,
           },
         ],
+        webMcp: null,
       }),
       credentials: vi.fn().mockResolvedValue({
         pluginId: 'fixture-plugin',
@@ -170,7 +176,8 @@ beforeEach(() => {
         pluginId: 'fixture-plugin',
         credentials: [],
       }),
-      uiList: vi.fn().mockResolvedValue([]),
+      descriptors: vi.fn().mockResolvedValue([]),
+      callMcp: vi.fn(),
       install: vi.fn().mockResolvedValue({ authPolicy: 'ON_USE', appsNeedingAuth: [] }),
       uninstall: vi.fn().mockResolvedValue(undefined),
       setEnabled: vi.fn().mockResolvedValue(extensionPolicy),
@@ -265,7 +272,6 @@ describe('PluginMarketplaceDialog', () => {
     };
     const credential = {
       id: 'aihub-token',
-      type: 'credential' as const,
       key: 'aihub/token',
       credentialType: 'bearerToken' as const,
       label: 'AIHub Token',
@@ -353,8 +359,8 @@ describe('PluginMarketplaceDialog', () => {
     expect(screen.getByText('UI 贡献 · 2')).toBeInTheDocument();
     expect(screen.getByText('提问框组件')).toBeInTheDocument();
     expect(screen.getByText('显示在消息输入区')).toBeInTheDocument();
-    expect(screen.getByText('工具结果卡片')).toBeInTheDocument();
-    expect(screen.getByText('替换匹配工具的结果展示')).toBeInTheDocument();
+    expect(screen.getByText('消息卡片 · Fixture result')).toBeInTheDocument();
+    expect(screen.getByText('替换匹配的会话消息展示')).toBeInTheDocument();
     fireEvent.click(skillName);
     fireEvent.click(mcpName);
     expect(screen.queryByRole('dialog', { name: /fixture/ })).not.toBeInTheDocument();

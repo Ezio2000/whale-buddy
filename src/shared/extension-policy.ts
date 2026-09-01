@@ -1,4 +1,4 @@
-import type { PluginCredentialContribution } from './plugin-credentials';
+import type { PluginCredentialDeclaration } from './plugin-credentials';
 export type { ActivePluginCredential } from './plugin-credentials';
 
 const RETIRED_PRESET_SOURCE_NAMES = [
@@ -27,7 +27,7 @@ export interface ExtensionPluginPolicy {
   enabled: boolean;
   mcpServers: string[];
   enabledMcpServers: string[];
-  credentials: PluginCredentialContribution[];
+  credentials: PluginCredentialDeclaration[];
 }
 
 export interface ExtensionPolicySnapshot {

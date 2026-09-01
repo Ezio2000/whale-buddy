@@ -13,7 +13,8 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "@whale-buddy/plugin-sdk": ["packages/plugin-sdk/src/index.ts"]
+      "@whale-buddy/plugin-sdk/ui": ["packages/plugin-sdk/src/ui.ts"],
+      "@whale-buddy/plugin-sdk/runtime": ["packages/plugin-sdk/src/runtime.ts"]
     },
     "resolveJsonModule": true,
     "isolatedModules": true,

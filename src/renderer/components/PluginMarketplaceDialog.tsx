@@ -36,7 +36,7 @@ import type {
   ExtensionPolicySnapshot,
   ExtensionSource,
 } from '../../shared/extension-policy';
-import type { PluginUiContribution } from '../../shared/plugin-ui';
+import type { PluginUiContribution, PluginWebMcpTool } from '../../shared/plugin';
 import type { PluginCredentialValue } from '../../shared/plugin-credentials';
 import type { PluginLocationInput } from '../../shared/types';
 import { useAppStore } from '../state/store';
@@ -100,6 +100,7 @@ export function PluginMarketplaceDialog() {
   const [skills, setSkills] = useState<SkillsListResponse>(emptySkillResponse);
   const [mcp, setMcp] = useState<ListMcpServerStatusResponse>(emptyMcpResponse);
   const [uiContributions, setUiContributions] = useState<PluginUiContribution[]>([]);
+  const [webMcpTools, setWebMcpTools] = useState<PluginWebMcpTool[]>([]);
   const [extensionPolicy, setExtensionPolicy] =
     useState<ExtensionPolicySnapshot>(emptyExtensionPolicy);
   const [selectedLocation, setSelectedLocation] = useState<PluginLocationInput | null>(null);
@@ -199,6 +200,7 @@ export function PluginMarketplaceDialog() {
       setDetail(null);
       setCredentials([]);
       setUiContributions([]);
+      setWebMcpTools([]);
       return;
     }
     let cancelled = false;
@@ -206,6 +208,7 @@ export function PluginMarketplaceDialog() {
     setDetail(null);
     setCredentials([]);
     setUiContributions([]);
+    setWebMcpTools([]);
     void Promise.allSettled([
       window.whale.plugins.read(selectedLocation),
       window.whale.plugins.credentials(selectedLocation),
@@ -221,7 +224,8 @@ export function PluginMarketplaceDialog() {
           setError(`读取插件凭据失败：${errorMessage(credentialResult.reason)}`);
         }
         if (contributionResult.status === 'fulfilled') {
-          setUiContributions(contributionResult.value.ui ?? []);
+          setUiContributions(contributionResult.value.uiContributions ?? []);
+          setWebMcpTools(contributionResult.value.webMcp?.tools ?? []);
         } else {
           setError(`读取插件贡献失败：${errorMessage(contributionResult.reason)}`);
         }
@@ -354,7 +358,6 @@ export function PluginMarketplaceDialog() {
   };
   const refreshAfterMutation = async (notice: string) => {
     await loadAll(false);
-    window.dispatchEvent(new Event('whale-plugin-ui-refresh'));
     setMessage(notice);
   };
 
@@ -411,9 +414,6 @@ export function PluginMarketplaceDialog() {
     setError(null);
     try {
       await window.whale.plugins.uninstall(located.plugin.id);
-      window.dispatchEvent(new CustomEvent('whale-plugin-ui-uninstall', {
-        detail: { pluginId: located.plugin.id },
-      }));
       await refreshAfterMutation('插件已卸载，缓存贡献不会再参与运行。');
     } catch (reason) {
       setError(`卸载失败：${errorMessage(reason)}`);
@@ -437,7 +437,6 @@ export function PluginMarketplaceDialog() {
         value,
       });
       setCredentials(snapshot.credentials);
-      window.dispatchEvent(new Event('whale-plugin-ui-refresh'));
       setMessage(value === null ? '插件凭据已清除。' : '插件凭据已安全保存并生效。');
     } catch (reason) {
       setError(`更新插件凭据失败：${errorMessage(reason)}`);
@@ -696,6 +695,7 @@ export function PluginMarketplaceDialog() {
                 pluginPolicies={extensionPolicy.plugins}
                 effectiveSkills={effectiveSkills}
                 uiContributions={uiContributions}
+                webMcpTools={webMcpTools}
                 credentials={credentials}
                 onSelect={setSelectedLocation}
                 onMutate={(located) => void mutatePlugin(located)}
@@ -782,6 +782,7 @@ function PluginBrowser({
   pluginPolicies,
   effectiveSkills,
   uiContributions,
+  webMcpTools,
   credentials,
   onSelect,
   onMutate,
@@ -799,6 +800,7 @@ function PluginBrowser({
   pluginPolicies: ExtensionPluginPolicy[];
   effectiveSkills: SkillMetadata[];
   uiContributions: PluginUiContribution[];
+  webMcpTools: PluginWebMcpTool[];
   credentials: PluginCredentialValue[];
   onSelect: (location: PluginLocationInput) => void;
   onMutate: (plugin: LocatedPlugin) => void;
@@ -859,6 +861,7 @@ function PluginBrowser({
             : null}
           effectiveSkills={effectiveSkills}
           uiContributions={selectedPlugin ? uiContributions : []}
+          webMcpTools={selectedPlugin ? webMcpTools : []}
           credentials={credentials}
           mutationKey={mutationKey}
           onMutate={() => selectedPlugin && onMutate(selectedPlugin)}
@@ -883,6 +886,7 @@ function PluginDetailView({
   pluginPolicy,
   effectiveSkills,
   uiContributions,
+  webMcpTools,
   credentials,
   mutationKey,
   onMutate,
@@ -899,6 +903,7 @@ function PluginDetailView({
   pluginPolicy: ExtensionPluginPolicy | null;
   effectiveSkills: SkillMetadata[];
   uiContributions: PluginUiContribution[];
+  webMcpTools: PluginWebMcpTool[];
   credentials: PluginCredentialValue[];
   mutationKey: string | null;
   onMutate: () => void;
@@ -1045,6 +1050,16 @@ function PluginDetailView({
                 <div className="plugin-ui-contribution" key={contribution.id}>
                   <strong>{pluginUiContributionLabel(contribution)}</strong>
                   <small>{pluginUiContributionLocation(contribution)}</small>
+                </div>
+              ))}
+            </DetailSection>
+          )}
+          {webMcpTools.length > 0 && (
+            <DetailSection icon={<Wrench size={13} />} title={`WebMCP 工具 · ${webMcpTools.length}`}>
+              {webMcpTools.map((tool) => (
+                <div className="plugin-ui-contribution" key={tool.id}>
+                  <strong>{tool.title}</strong>
+                  <small><code>{tool.name}</code> · {tool.scope} · {tool.description}</small>
                 </div>
               ))}
             </DetailSection>
@@ -1208,25 +1223,19 @@ function DetailSection({ icon, title, children }: { icon: React.ReactNode; title
 
 function pluginUiContributionLabel(contribution: PluginUiContribution): string {
   switch (contribution.type) {
-    case 'composer.widget': return '提问框组件';
-    case 'mcp.toolCard': return '工具结果卡片';
-    case 'navigation.page': return `导航页面 · ${contribution.title}`;
-    case 'command.action': return `命令操作 · ${contribution.title}`;
-    case 'thread.toolbarAction': return `线程操作 · ${contribution.title}`;
-    case 'composer.action': return `输入区操作 · ${contribution.title}`;
-    case 'message.card': return `消息卡片 · ${contribution.title}`;
+    case 'widget': return '提问框组件';
+    case 'page': return `导航页面 · ${contribution.title}`;
+    case 'action': return `${contribution.placement === 'commandPalette' ? '命令' : contribution.placement === 'threadToolbar' ? '线程' : '输入区'}操作 · ${contribution.title}`;
+    case 'card': return `消息卡片 · ${contribution.title}`;
   }
 }
 
 function pluginUiContributionLocation(contribution: PluginUiContribution): string {
   switch (contribution.type) {
-    case 'composer.widget': return '显示在消息输入区';
-    case 'mcp.toolCard': return '替换匹配工具的结果展示';
-    case 'navigation.page': return '显示在左侧插件导航';
-    case 'command.action': return '显示在命令面板';
-    case 'thread.toolbarAction': return '显示在线程工具栏';
-    case 'composer.action': return '显示在消息输入区工具栏';
-    case 'message.card': return '替换匹配的会话消息展示';
+    case 'widget': return '显示在消息输入区';
+    case 'page': return '显示在左侧插件导航';
+    case 'action': return contribution.placement === 'commandPalette' ? '显示在命令面板' : contribution.placement === 'threadToolbar' ? '显示在线程工具栏' : '显示在消息输入区工具栏';
+    case 'card': return '替换匹配的会话消息展示';
   }
 }
 

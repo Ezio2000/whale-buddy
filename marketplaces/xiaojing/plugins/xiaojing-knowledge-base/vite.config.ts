@@ -11,9 +11,13 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@whale-buddy/plugin-sdk': path.resolve(
+      '@whale-buddy/plugin-sdk/ui': path.resolve(
         pluginRoot,
-        '../../../../packages/plugin-sdk/src/index.ts',
+        '../../../../packages/plugin-sdk/src/ui.ts',
+      ),
+      '@whale-buddy/plugin-sdk/runtime': path.resolve(
+        pluginRoot,
+        '../../../../packages/plugin-sdk/src/runtime.ts',
       ),
     },
   },

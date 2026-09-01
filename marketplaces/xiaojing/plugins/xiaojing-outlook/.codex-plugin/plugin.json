@@ -24,11 +24,10 @@
   },
   "mcpServers": "./.mcp.json",
   "whale": {
-    "apiVersion": 1,
-    "contributions": [
+    "apiVersion": 2,
+    "credentials": [
       {
         "id": "aihub-token",
-        "type": "credential",
         "key": "aihub/token",
         "credentialType": "bearerToken",
         "label": "AIHub Token",

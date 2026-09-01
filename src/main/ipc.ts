@@ -29,7 +29,7 @@ import {
   pluginLocationSchema,
   pluginUninstallSchema,
   pluginSetEnabledSchema,
-  pluginUiCallToolSchema,
+  pluginMcpCallSchema,
   projectRemoveSchema,
   runtimeConnectionInputSchema,
   runtimeBrandingInputSchema,
@@ -70,14 +70,15 @@ import {
   pluginMcpConfigKey,
 } from '../shared/extension-policy';
 import {
-  assertPluginUiToolPermission,
+  assertPluginMcpPermission,
+  pluginDynamicTools,
   pluginMcpHttpConnection,
-  pluginUiRoot,
-  readPluginUiDescriptor,
-  replacePluginUiRegistry,
-} from './plugin-ui';
+  pluginRoot,
+  readPluginDescriptor,
+  replacePluginRegistry,
+} from './plugin-host';
 import { callPluginMcpTool } from './plugin-mcp-client';
-import { readPluginCredentialContributions } from './plugin-credential-manifest';
+import { readPluginCredentials } from './plugin-credential-manifest';
 import { readTextInside, resolvePluginRoot } from './plugin-manifest';
 
 interface RegisterIpcOptions {
@@ -107,6 +108,7 @@ const EXPOSED_SERVER_REQUESTS = new Set([
   'item/fileChange/requestApproval',
   'item/permissions/requestApproval',
   'item/tool/requestUserInput',
+  'item/tool/call',
   'mcpServer/elicitation/request',
   'applyPatchApproval',
   'execCommandApproval',
@@ -158,7 +160,9 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
         turnId: stringValue(params?.turnId),
       });
       const scheduledTurnId = stringValue(params?.turnId);
-      if (scheduledTurnId) scheduler?.handleApprovalStarted(scheduledTurnId);
+      if (scheduledTurnId && method !== 'item/tool/call') {
+        scheduler?.handleApprovalStarted(scheduledTurnId);
+      }
       broadcast({
         kind: 'serverRequest',
         generation: eventGeneration,
@@ -197,7 +201,9 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       const requestId = params?.requestId;
       if (typeof requestId === 'string' || typeof requestId === 'number') {
         const request = outstanding.get(requestKey(requestId));
-        if (request?.turnId) scheduler?.handleApprovalResolved(request.turnId);
+        if (request?.turnId && request.method !== 'item/tool/call') {
+          scheduler?.handleApprovalResolved(request.turnId);
+        }
         outstanding.delete(requestKey(requestId));
       }
     }
@@ -335,12 +341,14 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       }
     }
     if (!threadId) {
+      await loadPluginDescriptors();
       const response = asRecord(await appServer.request('thread/start', {
         cwd: task.cwd,
         model: task.model ?? null,
         approvalPolicy: task.approvalPolicy,
         sandbox: task.sandboxMode,
         ephemeral: false,
+        dynamicTools: pluginDynamicTools(),
       }));
       threadId = stringValue(asRecord(response?.thread)?.id);
       if (!threadId) throw new Error('创建定时任务线程失败');
@@ -426,6 +434,48 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     return response;
   };
 
+  const loadPluginDescriptors = async () => {
+    const catalog = await loadVisiblePluginCatalog(false);
+    const entries = [];
+    const registeredToolNames = new Set<string>();
+    for (const marketplace of catalog.marketplaces) {
+      for (const summary of marketplace.plugins) {
+        if (!summary.installed || !extensionPolicy.isPluginEnabled(summary.id)) continue;
+        try {
+          const response = await appServer.request('plugin/read', {
+            marketplacePath: marketplace.path,
+            remoteMarketplaceName: marketplace.path ? null : marketplace.name,
+            pluginName: summary.name,
+          }) as PluginReadResponse;
+          if (response.plugin.summary.id !== summary.id) continue;
+          const descriptor = readPluginDescriptor(response);
+          const root = pluginRoot(response);
+          if (descriptor && root) {
+            const toolNames = descriptor.webMcp?.tools.map((tool) => tool.name) ?? [];
+            if (toolNames.some((name) => registeredToolNames.has(name))) continue;
+            for (const name of toolNames) registeredToolNames.add(name);
+            descriptor.credentials = pluginCredentials.values(
+              marketplace.name,
+              readPluginCredentials(response),
+            );
+            entries.push({ descriptor, root });
+          }
+        } catch {
+          // Invalid host declarations do not hide or disable the base plugin.
+        }
+      }
+    }
+    return replacePluginRegistry(entries);
+  };
+
+  const broadcastPluginsChanged = (clearPluginId?: string) => {
+    eventSequence += 1;
+    broadcast({
+      kind: 'runtime', generation: eventGeneration, sequence: eventSequence,
+      event: { type: 'pluginsChanged', ...(clearPluginId ? { clearPluginId } : {}) },
+    });
+  };
+
   handle(IPC.runtimeStatus, null, () => appServer.status());
   handle(IPC.runtimeRestart, null, async () => {
     await appServer.restart();
@@ -484,15 +534,17 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       ...(input.cwd ? { cwd: input.cwd } : {}),
     }),
   );
-  handle(IPC.threadsStart, threadStartSchema, (input) =>
-    appServer.request('thread/start', {
+  handle(IPC.threadsStart, threadStartSchema, async (input) => {
+    await loadPluginDescriptors();
+    return appServer.request('thread/start', {
       cwd: input.cwd,
       model: input.model ?? null,
       approvalPolicy: input.approvalPolicy ?? 'untrusted',
       sandbox: input.sandboxMode ?? 'workspace-write',
       ephemeral: false,
-    }),
-  );
+      dynamicTools: pluginDynamicTools(),
+    });
+  });
   handle(IPC.threadsResume, threadIdSchema, ({ threadId }) =>
     appServer.request('thread/resume', { threadId, excludeTurns: true }),
   );
@@ -630,7 +682,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       pluginId: input.pluginId,
       credentials: pluginCredentials.values(
         input.marketplaceName,
-        readPluginCredentialContributions(response),
+        readPluginCredentials(response),
       ),
     };
   });
@@ -643,9 +695,9 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       throw new Error('插件与商城来源不匹配');
     }
     const response = await readPluginDetail(input);
-    const credentials = readPluginCredentialContributions(response);
+    const credentials = readPluginCredentials(response);
     const credential = credentials.find((entry) => entry.id === input.credentialId);
-    if (!credential) throw new Error('插件未声明此凭据贡献点');
+    if (!credential) throw new Error('插件未声明此凭据');
     if (
       input.value === null
       && (
@@ -664,47 +716,18 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     if (extensionPolicy.isCredentialActive(input.marketplaceName, credential.key)) {
       await appServer.restart();
     }
+    replacePluginRegistry([]);
+    broadcastPluginsChanged();
     return {
       pluginId: input.pluginId,
       credentials: pluginCredentials.values(input.marketplaceName, credentials),
     };
   });
-  handle(IPC.pluginsUiList, null, async () => {
-    const catalog = await loadVisiblePluginCatalog(false);
-    const entries: Array<{
-      descriptor: NonNullable<ReturnType<typeof readPluginUiDescriptor>>;
-      root: string;
-    }> = [];
-    for (const marketplace of catalog.marketplaces) {
-      for (const summary of marketplace.plugins) {
-        if (!summary.installed || !extensionPolicy.isPluginEnabled(summary.id)) continue;
-        try {
-          const response = await appServer.request('plugin/read', {
-            marketplacePath: marketplace.path,
-            remoteMarketplaceName: marketplace.path ? null : marketplace.name,
-            pluginName: summary.name,
-          }) as PluginReadResponse;
-          if (response.plugin.summary.id !== summary.id) continue;
-          const descriptor = readPluginUiDescriptor(response);
-          const root = pluginUiRoot(response);
-          if (descriptor && root) {
-            descriptor.credentials = pluginCredentials.values(
-              marketplace.name,
-              readPluginCredentialContributions(response),
-            );
-            entries.push({ descriptor, root });
-          }
-        } catch {
-          // An invalid UI contribution must not hide or disable the base plugin.
-        }
-      }
-    }
-    return replacePluginUiRegistry(entries);
-  });
-  handle(IPC.pluginsUiCallTool, pluginUiCallToolSchema, async (input) => {
-    assertPluginUiToolPermission(
+  handle(IPC.pluginsDescriptors, null, loadPluginDescriptors);
+  handle(IPC.pluginsCallMcp, pluginMcpCallSchema, async (input) => {
+    assertPluginMcpPermission(
       input.pluginId,
-      input.contributionId,
+      input.principal,
       input.server,
       input.tool,
     );
@@ -750,8 +773,9 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       input.pluginId,
       input.marketplaceName,
       detailResponse.plugin.mcpServers,
-      readPluginCredentialContributions(detailResponse),
+      readPluginCredentials(detailResponse),
     );
+    broadcastPluginsChanged();
     await appServer.restart();
     return response;
   });
@@ -759,7 +783,8 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     await appServer.request('plugin/uninstall', { pluginId });
     extensionPolicy.removePlugin(pluginId);
     pluginCredentials.prune(extensionPolicy.allCredentialReferences());
-    replacePluginUiRegistry([]);
+    replacePluginRegistry([]);
+    broadcastPluginsChanged(pluginId);
     await appServer.restart();
   });
   handle(IPC.pluginsSetEnabled, pluginSetEnabledSchema, async (input) => {
@@ -782,7 +807,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
         throw new Error('插件详情与启用请求不匹配');
       }
       declaredMcpServers = detailResponse.plugin.mcpServers;
-      credentials = readPluginCredentialContributions(detailResponse);
+      credentials = readPluginCredentials(detailResponse);
       const missingCredentials = pluginCredentials.missingRequired(
         input.marketplaceName,
         credentials,
@@ -814,7 +839,8 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       declaredMcpServers,
       credentials,
     );
-    replacePluginUiRegistry([]);
+    replacePluginRegistry([]);
+    broadcastPluginsChanged();
     await appServer.restart();
     return snapshot;
   });
@@ -1133,10 +1159,12 @@ function readPluginContributionDetails(
       return contents === null ? [] : [{ name: skill.name, path: skill.path, contents }];
     })
     : [];
+  const descriptor = readPluginDescriptor(response);
   return {
     skills,
     mcp: root ? readPluginMcpConfig(root) : null,
-    ui: readPluginUiDescriptor(response)?.contributions ?? [],
+    uiContributions: descriptor?.uiContributions ?? [],
+    webMcp: descriptor?.webMcp ? { tools: descriptor.webMcp.tools } : null,
   };
 }
 

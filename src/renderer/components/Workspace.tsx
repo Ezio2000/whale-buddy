@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { activeTurnForThread } from '../state/conversation';
 import { useAppStore } from '../state/store';
-import { usePluginUi } from '../plugin-ui/PluginUiProvider';
+import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 import { PluginNavigationPage } from '../plugin-ui/PluginUiSurfaces';
 import { Composer } from './Composer';
 import { ConversationList } from './ConversationList';
@@ -35,10 +35,11 @@ export function Workspace() {
   const deleteThread = useAppStore((state) => state.deleteThread);
   const brandName = useAppStore((state) => state.branding.name);
   const workspaceView = useAppStore((state) => state.workspaceView);
-  const { descriptors, openAction } = usePluginUi();
-  const threadActions = descriptors.flatMap((descriptor) => descriptor.contributions
-    .filter((contribution) => contribution.type === 'thread.toolbarAction')
-    .map((contribution) => ({ descriptor, contribution })))
+  const { descriptors, openAction } = usePluginHost();
+  const threadActions = descriptors.flatMap((descriptor) => descriptor.uiContributions
+    .flatMap((contribution) => contribution.type === 'action' && contribution.placement === 'threadToolbar'
+      ? [{ descriptor, contribution }]
+      : []))
     .sort((left, right) => left.contribution.order - right.contribution.order);
   const activeTurn = activeTurnForThread(conversation, selectedThreadId);
   const threadView = selectedThreadId ? conversation.threads[selectedThreadId] : null;

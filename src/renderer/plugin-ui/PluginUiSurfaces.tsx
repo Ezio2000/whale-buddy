@@ -1,16 +1,16 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { PanelTopOpen, X } from 'lucide-react';
 import { useAppStore } from '../state/store';
-import type { PluginUiContribution } from '../../shared/plugin-ui';
+import type { PluginUiContribution } from '../../shared/plugin';
 import { PluginUiFrame } from './PluginUiFrame';
-import { findPluginUiContribution, usePluginUi } from './PluginUiProvider';
+import { findPluginUiContribution, usePluginHost } from './PluginHostProvider';
 
 export function PluginNavigationPage() {
-  const { activeNavigation, descriptors } = usePluginUi();
+  const { activeNavigation, descriptors } = usePluginHost();
   const selectedThreadId = useAppStore((state) => state.selectedThreadId);
   if (!activeNavigation) return <UnavailableNavigationPage />;
-  const resolved = findPluginUiContribution(descriptors, activeNavigation, 'navigation.page');
-  if (!resolved || resolved.contribution.type !== 'navigation.page') {
+  const resolved = findPluginUiContribution(descriptors, activeNavigation, 'page');
+  if (!resolved || resolved.contribution.type !== 'page') {
     return <UnavailableNavigationPage />;
   }
   const { descriptor, contribution } = resolved;
@@ -38,7 +38,7 @@ export function PluginNavigationPage() {
 }
 
 export function PluginActionDialog() {
-  const { activeAction, closeAction, descriptors } = usePluginUi();
+  const { activeAction, closeAction, descriptors } = usePluginHost();
   const selectedThreadId = useAppStore((state) => state.selectedThreadId);
   const resolved = activeAction ? findPluginUiContribution(descriptors, activeAction) : null;
   const actionable = resolved && isPluginAction(resolved.contribution) ? {
@@ -81,12 +81,8 @@ export function PluginActionDialog() {
 
 function isPluginAction(
   contribution: PluginUiContribution,
-): contribution is Extract<PluginUiContribution, {
-  type: 'command.action' | 'thread.toolbarAction' | 'composer.action';
-}> {
-  return contribution.type === 'command.action'
-    || contribution.type === 'thread.toolbarAction'
-    || contribution.type === 'composer.action';
+): contribution is Extract<PluginUiContribution, { type: 'action' }> {
+  return contribution.type === 'action';
 }
 
 function UnavailableNavigationPage() {

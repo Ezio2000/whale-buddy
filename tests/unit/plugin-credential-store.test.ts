@@ -5,14 +5,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { PluginCredentialStore } from '../../src/main/plugin-credential-store';
 import type {
   ActivePluginCredential,
-  PluginCredentialContribution,
+  PluginCredentialDeclaration,
 } from '../../src/shared/plugin-credentials';
 
 const roots: string[] = [];
 
-const credential: PluginCredentialContribution = {
+const credential: PluginCredentialDeclaration = {
   id: 'aihub-token',
-  type: 'credential',
   key: 'aihub/token',
   credentialType: 'bearerToken',
   label: 'AIHub Token',

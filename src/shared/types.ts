@@ -10,10 +10,11 @@ import type { ExtensionPolicySnapshot } from './extension-policy';
 import type { SkillsListResponse } from '../generated/protocol/typescript/v2/SkillsListResponse';
 import type { ModelProviderCapabilitiesReadResponse } from '../generated/protocol/typescript/v2/ModelProviderCapabilitiesReadResponse';
 import type {
-  PluginUiCallToolInput,
+  PluginDescriptor,
+  PluginMcpCallInput,
   PluginUiContribution,
-  PluginUiDescriptor,
-} from './plugin-ui';
+  PluginWebMcpTool,
+} from './plugin';
 import type { PluginCredentialsSnapshot } from './plugin-credentials';
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -289,7 +290,8 @@ export interface PluginContributionDetails {
     contents: string;
     servers: Array<{ name: string; config: Record<string, unknown> }>;
   } | null;
-  ui: PluginUiContribution[];
+  uiContributions: PluginUiContribution[];
+  webMcp: { tools: PluginWebMcpTool[] } | null;
 }
 
 export interface MarketplaceAddInput {
@@ -322,7 +324,8 @@ export type WhaleEvent =
         | { type: 'menu'; command: MenuCommand }
         | { type: 'turnChanges'; threadId: string; snapshot: TurnChangesSnapshot }
         | { type: 'scheduledTasksChanged'; tasks: ScheduledTask[] }
-        | { type: 'scheduledRunUpdated'; run: ScheduledRun };
+        | { type: 'scheduledRunUpdated'; run: ScheduledRun }
+        | { type: 'pluginsChanged'; clearPluginId?: string };
     };
 
 export interface WhaleApi {
@@ -396,8 +399,8 @@ export interface WhaleApi {
     setEnabled(
       input: PluginLocationInput & { enabled: boolean },
     ): Promise<ExtensionPolicySnapshot>;
-    uiList(): Promise<PluginUiDescriptor[]>;
-    uiCallTool(input: PluginUiCallToolInput): Promise<JsonValue>;
+    descriptors(): Promise<PluginDescriptor[]>;
+    callMcp(input: PluginMcpCallInput): Promise<JsonValue>;
   };
   marketplaces: {
     add(input: MarketplaceAddInput): Promise<MarketplaceAddResponse>;

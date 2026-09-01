@@ -11,7 +11,7 @@ import {
 } from '../shared/extension-policy';
 import type {
   ActivePluginCredential,
-  PluginCredentialContribution,
+  PluginCredentialDeclaration,
 } from '../shared/plugin-credentials';
 import {
   isPluginCredentialEnvironmentName,
@@ -26,14 +26,14 @@ interface StoredMarketplaceSource {
 }
 
 interface StoredExtensionPolicy {
-  version: 1;
+  version: 2;
   marketplaces: StoredMarketplaceSource[];
   plugins: ExtensionPluginPolicy[];
   enabledSkillPaths: string[];
 }
 
 const EMPTY_POLICY: StoredExtensionPolicy = {
-  version: 1,
+  version: 2,
   marketplaces: [],
   plugins: [],
   enabledSkillPaths: [],
@@ -147,7 +147,7 @@ export class ExtensionPolicyStore {
     pluginId: string,
     marketplaceName: string,
     mcpServers: string[],
-    credentials: PluginCredentialContribution[] = [],
+    credentials: PluginCredentialDeclaration[] = [],
   ): ExtensionPolicySnapshot {
     const normalizedId = pluginId.trim();
     const current = this.state.plugins.find((plugin) => plugin.pluginId === normalizedId);
@@ -175,7 +175,7 @@ export class ExtensionPolicyStore {
     pluginId: string,
     enabled: boolean,
     declaredMcpServers?: string[],
-    credentials?: PluginCredentialContribution[],
+    credentials?: PluginCredentialDeclaration[],
   ): ExtensionPolicySnapshot {
     const plugin = this.requirePlugin(pluginId);
     if (declaredMcpServers) {
@@ -193,7 +193,7 @@ export class ExtensionPolicyStore {
 
   updatePluginCredentials(
     pluginId: string,
-    credentials: PluginCredentialContribution[],
+    credentials: PluginCredentialDeclaration[],
   ): ExtensionPolicySnapshot {
     const plugin = this.requirePlugin(pluginId);
     plugin.credentials = credentials.map(cloneCredential);
@@ -324,7 +324,7 @@ export class ExtensionPolicyStore {
       const parsed = JSON.parse(readFileSync(this.filePath, 'utf8')) as StoredExtensionPolicy & {
         enabledBuiltinSources?: unknown;
       };
-      if (parsed.version !== 1) throw new Error('unsupported extension policy');
+      if (parsed.version !== 2) throw new Error('unsupported extension policy');
       if (
         !Array.isArray(parsed.marketplaces)
         || !Array.isArray(parsed.plugins)
@@ -333,7 +333,7 @@ export class ExtensionPolicyStore {
         throw new Error('invalid extension policy');
       }
       return {
-        version: 1,
+        version: 2,
         marketplaces: parsed.marketplaces.filter(
           (marketplace) => !isRetiredPresetSourceName(marketplace.name),
         ),
@@ -365,16 +365,16 @@ export class ExtensionPolicyStore {
   }
 }
 
-function cloneCredential(credential: PluginCredentialContribution): PluginCredentialContribution {
+function cloneCredential(credential: PluginCredentialDeclaration): PluginCredentialDeclaration {
   return { ...credential, mcpServers: [...credential.mcpServers] };
 }
 
 function storedCredential(
   value: unknown,
   declaredMcpServers: string[],
-): PluginCredentialContribution | null {
+): PluginCredentialDeclaration | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const credential = value as Partial<PluginCredentialContribution>;
+  const credential = value as Partial<PluginCredentialDeclaration>;
   const declared = new Set(declaredMcpServers);
   const mcpServers = Array.isArray(credential.mcpServers)
     ? credential.mcpServers.filter(
@@ -383,7 +383,6 @@ function storedCredential(
     : [];
   if (
     typeof credential.id !== 'string'
-    || credential.type !== 'credential'
     || typeof credential.key !== 'string'
     || !isPluginCredentialKey(credential.key)
     || (credential.credentialType !== 'apiKey' && credential.credentialType !== 'bearerToken')
@@ -399,7 +398,6 @@ function storedCredential(
   }
   return {
     id: credential.id,
-    type: 'credential',
     key: credential.key,
     credentialType: credential.credentialType,
     label: credential.label,

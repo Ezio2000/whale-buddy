@@ -23,7 +23,7 @@ import type {
   WhaleEvent,
 } from '../../shared/types';
 import { composerContextFor, PluginUiFrame } from '../plugin-ui/PluginUiFrame';
-import { usePluginUi } from '../plugin-ui/PluginUiProvider';
+import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 import { useAppStore, type Preferences } from '../state/store';
 import {
   executionPresetFor,
@@ -343,10 +343,10 @@ function TaskEditor({
   const [draft, setDraft] = useState(initialDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { descriptors, composerContexts, setComposerContext } = usePluginUi();
+  const { descriptors, composerContexts, setComposerContext } = usePluginHost();
   const contextId = `schedule:${draft.id}`;
-  const widgets = useMemo(() => descriptors.flatMap((descriptor) => descriptor.contributions
-    .filter((contribution) => contribution.type === 'composer.widget')
+  const widgets = useMemo(() => descriptors.flatMap((descriptor) => descriptor.uiContributions
+    .filter((contribution) => contribution.type === 'widget' && contribution.placement === 'composer')
     .map((contribution) => ({ descriptor, contribution }))), [descriptors]);
 
   useEffect(() => {

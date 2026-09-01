@@ -1,6 +1,6 @@
 import type { PluginReadResponse } from '../generated/protocol/typescript/v2/PluginReadResponse';
 import type {
-  PluginCredentialContribution,
+  PluginCredentialDeclaration,
   PluginCredentialType,
 } from '../shared/plugin-credentials';
 import {
@@ -8,30 +8,29 @@ import {
   isPluginCredentialKey,
 } from '../shared/plugin-credentials';
 import { readWhalePluginManifest, record } from './plugin-manifest';
-import { WHALE_PLUGIN_API_VERSION } from '../shared/plugin-ui';
+import { WHALE_PLUGIN_API_VERSION } from '../shared/plugin';
 
-export function readPluginCredentialContributions(
+export function readPluginCredentials(
   response: PluginReadResponse,
-): PluginCredentialContribution[] {
+): PluginCredentialDeclaration[] {
   const resolved = readWhalePluginManifest(response);
   if (!resolved || resolved.whale.apiVersion !== WHALE_PLUGIN_API_VERSION) return [];
   const declaredServers = new Set(response.plugin.mcpServers);
-  const rawContributions = resolved.whale.contributions;
-  if (!Array.isArray(rawContributions)) return [];
+  const rawCredentials = resolved.whale.credentials;
+  if (!Array.isArray(rawCredentials)) return [];
 
   const seen = new Set<string>();
-  const credentials: PluginCredentialContribution[] = [];
-  for (const raw of rawContributions.slice(0, 64)) {
-    const contribution = record(raw);
-    if (contribution?.type !== 'credential') continue;
-    const id = boundedString(contribution.id, 128);
-    const key = boundedString(contribution.key, 128);
-    const label = boundedString(contribution.label, 160);
-    const description = boundedString(contribution.description, 1_024) ?? '';
-    const env = boundedString(contribution.env, 256);
-    const credentialType = parseCredentialType(contribution.credentialType);
-    const scope = contribution.scope === undefined ? 'marketplace' : contribution.scope;
-    const usedBy = record(contribution.usedBy);
+  const credentials: PluginCredentialDeclaration[] = [];
+  for (const raw of rawCredentials.slice(0, 64)) {
+    const credential = record(raw);
+    const id = boundedString(credential?.id, 128);
+    const key = boundedString(credential?.key, 128);
+    const label = boundedString(credential?.label, 160);
+    const description = boundedString(credential?.description, 1_024) ?? '';
+    const env = boundedString(credential?.env, 256);
+    const credentialType = parseCredentialType(credential?.credentialType);
+    const scope = credential?.scope;
+    const usedBy = record(credential?.usedBy);
     const mcpServers = stringArray(usedBy?.mcpServers, 512)
       .filter((server) => declaredServers.has(server));
     if (
@@ -50,13 +49,12 @@ export function readPluginCredentialContributions(
     }
     credentials.push({
       id,
-      type: 'credential',
       key,
       credentialType,
       label,
       description,
       env,
-      required: contribution.required === true,
+      required: credential?.required === true,
       scope,
       mcpServers,
     });
