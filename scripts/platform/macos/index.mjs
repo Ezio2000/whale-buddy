@@ -5,6 +5,7 @@ import path from 'node:path';
 export const macosScriptPlatform = {
   id: 'darwin',
   pnpmCommand: 'pnpm',
+  pnpmShell: false,
   codexFilename: 'codex',
   codeModeHostFilename: 'codex-code-mode-host',
   assertExecutable: (targetPath) => accessSync(targetPath, constants.X_OK),
