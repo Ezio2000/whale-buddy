@@ -17,6 +17,7 @@ import type { LocalProject, ThreadSummary } from '../../shared/types';
 import { useAppStore } from '../state/store';
 import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 import { BrandMark } from './BrandMark';
+import { AccountButton } from './AccountButton';
 
 export function Sidebar() {
   const projects = useAppStore((state) => state.projects);
@@ -158,6 +159,7 @@ export function Sidebar() {
       )}
 
       <div className="sidebar-footer">
+        <AccountButton />
         <button
           className={workspaceView === 'schedules' ? 'active' : ''}
           onClick={() => setWorkspaceView('schedules')}

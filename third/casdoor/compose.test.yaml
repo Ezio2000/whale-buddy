@@ -1,0 +1,42 @@
+services:
+  db:
+    image: ${MYSQL_IMAGE:-mysql:8.0}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ADMIN_PASSWORD}"
+    volumes:
+      - test_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$${MYSQL_ROOT_PASSWORD} mysqladmin ping -h 127.0.0.1 -u root --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  casdoor:
+    image: casbin/casdoor:${CASDOOR_VERSION:-3.164.0}
+    restart: unless-stopped
+    command: ["--createDatabase=true"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      appname: casdoor
+      httpport: "8000"
+      runmode: prod
+      driverName: mysql
+      dataSourceName: "${MYSQL_APP_USER}:${MYSQL_APP_PASSWORD}@tcp(db:3306)/"
+      dbName: "${MYSQL_DATABASE}"
+      showSql: "false"
+      origin: "http://127.0.0.1:${CASDOOR_TEST_PORT:-18000}"
+      originFrontend: "http://127.0.0.1:${CASDOOR_TEST_PORT:-18000}"
+    ports:
+      - "${CASDOOR_TEST_PORT:-18000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+volumes:
+  test_mysql:

@@ -1,0 +1,8 @@
+services:
+  casdoor-demo:
+    image: ${CASDOOR_DEMO_IMAGE:-casbin/casdoor-all-in-one:${CASDOOR_VERSION:-3.164.0}}
+    restart: unless-stopped
+    ports:
+      - "${CASDOOR_DEMO_PORT:-8001}:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

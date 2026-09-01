@@ -168,6 +168,14 @@ Whale Buddy 不提供 ChatGPT/OpenAI 账号登录，只支持通过 Provider API
 Responses API 的服务。首次启动必须填写 Provider ID、Base URL、原始模型 ID 和 API Key；
 Base URL 应是 API 根地址（通常以 `/v1` 结尾），不要包含末尾的 `/responses`。
 
+Whale 自身的用户身份与模型 Provider 相互独立。用户点击“登录 Whale”后，主进程使用
+OIDC Authorization Code + PKCE 打开 Casdoor Web 登录页；登录方式由 Casdoor
+Application 统一提供，Whale 不包含 Mock、企业微信等 Provider 专用分支。Casdoor 完成
+授权后回调 Whale 临时监听的 `http://127.0.0.1:17891/oauth/callback`，浏览器显示登录完成，
+Whale 保存账户会话并更新侧边栏。当前源码中的固定 Issuer 是本地联调地址
+`http://127.0.0.1:8001`；正式打包前只需将主进程的固定认证配置替换为统一 Casdoor
+服务地址，终端用户无需填写认证参数。
+
 设置页的“模型”区域可查看并配置上下文窗口、视觉输入、推理能力、支持的推理档位、
 默认推理档位和推理摘要。保存后 Whale Buddy 会在
 `userData/ui-state/model-catalogs/runtime-model.json` 生成当前 Provider 专用的 Codex 模型

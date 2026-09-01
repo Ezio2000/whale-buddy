@@ -1,6 +1,7 @@
 import { ArrowRight, KeyRound, RotateCcw, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../state/store';
 import { BrandMark } from './BrandMark';
+import { AccountButton } from './AccountButton';
 
 export function Welcome() {
   const runtime = useAppStore((state) => state.runtime);
@@ -53,6 +54,7 @@ export function Welcome() {
           <button className="button primary large full" onClick={() => setSettingsOpen(true)}>
             <KeyRound size={16} /> 配置 Provider 与 API Key <ArrowRight size={16} />
           </button>
+          <AccountButton welcome />
         </div>
         <div className="privacy-note">
           <ShieldCheck size={15} />

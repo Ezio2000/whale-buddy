@@ -1,0 +1,6 @@
+.env
+.env.*
+!.env.example
+!.env.test
+backups/
+test-failure.log

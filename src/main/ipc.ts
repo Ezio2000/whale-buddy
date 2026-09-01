@@ -54,6 +54,7 @@ import type { RuntimeSettingsStore } from './runtime-settings';
 import type { PluginCredentialStore } from './plugin-credential-store';
 import type { TurnPlanStore } from './turn-plans';
 import type { TurnChangesStore } from './turn-changes';
+import type { WhaleAuthManager } from './auth';
 import {
   ScheduledTaskScheduler,
   type ScheduledTaskStore,
@@ -82,6 +83,7 @@ import { readPluginCredentials } from './plugin-credential-manifest';
 import { readTextInside, resolvePluginRoot } from './plugin-manifest';
 
 interface RegisterIpcOptions {
+  auth: WhaleAuthManager;
   appServer: AppServerClient;
   extensionPolicy: ExtensionPolicyStore;
   projects: ProjectStore;
@@ -116,6 +118,7 @@ const EXPOSED_SERVER_REQUESTS = new Set([
 
 export function registerIpc(options: RegisterIpcOptions): () => void {
   const {
+    auth,
     appServer,
     extensionPolicy,
     projects,
@@ -136,6 +139,16 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   const broadcast = (event: unknown) => {
     if (!window.isDestroyed()) window.webContents.send(IPC.event, event);
   };
+
+  const unsubscribeAuth = auth.subscribe((state) => {
+    eventSequence += 1;
+    broadcast({
+      kind: 'runtime',
+      generation: eventGeneration,
+      sequence: eventSequence,
+      event: { type: 'authChanged', state },
+    });
+  });
 
   const onWire = (wire: AppServerWireEvent) => {
     if (wire.generation !== eventGeneration) {
@@ -476,6 +489,9 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     });
   };
 
+  handle(IPC.authStatus, null, () => auth.status());
+  handle(IPC.authLogin, null, () => auth.login());
+  handle(IPC.authLogout, null, () => auth.logout());
   handle(IPC.runtimeStatus, null, () => appServer.status());
   handle(IPC.runtimeRestart, null, async () => {
     await appServer.restart();
@@ -1021,6 +1037,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   handle(IPC.schedulesRunNow, scheduledTaskIdSchema, ({ taskId }) => scheduler?.runNow(taskId));
   handle(IPC.schedulesHistory, scheduledTaskIdSchema, ({ taskId }) => scheduler?.history(taskId) ?? []);
   return () => {
+    unsubscribeAuth();
     scheduler?.stop();
     scheduler = null;
     for (const channel of channels) ipcMain.removeHandler(channel);

@@ -1,4 +1,7 @@
 export const IPC = {
+  authStatus: 'whale:auth:status',
+  authLogin: 'whale:auth:login',
+  authLogout: 'whale:auth:logout',
   runtimeStatus: 'whale:runtime:status',
   runtimeRestart: 'whale:runtime:restart',
   runtimeSettings: 'whale:runtime:settings',

@@ -485,6 +485,25 @@ export const whaleEventSchema = z.discriminatedUnion('kind', [
           skippedReason: z.enum(['missed', 'conflict', 'runtimeUnavailable']).nullable(),
         }),
       }),
+      z.object({
+        type: z.literal('authChanged'),
+        state: z.discriminatedUnion('status', [
+          z.object({ status: z.literal('logged-out'), user: z.null(), message: z.null() }),
+          z.object({ status: z.literal('waiting'), user: z.null(), message: z.null() }),
+          z.object({
+            status: z.literal('logged-in'),
+            user: z.object({
+              id: z.string().min(1),
+              username: z.string().min(1),
+              displayName: z.string().min(1),
+              email: z.string().nullable(),
+              avatar: z.string().nullable(),
+            }),
+            message: z.null(),
+          }),
+          z.object({ status: z.literal('error'), user: z.null(), message: z.string().min(1) }),
+        ]),
+      }),
     ]),
   }),
 ]);

@@ -45,6 +45,11 @@ const invoke = <T>(channel: string, payload?: unknown): Promise<T> =>
   ipcRenderer.invoke(channel, payload) as Promise<T>;
 
 const api: WhaleApi = {
+  auth: {
+    status: () => invoke(IPC.authStatus),
+    login: () => invoke(IPC.authLogin),
+    logout: () => invoke(IPC.authLogout),
+  },
   runtime: {
     windowCapabilities: {
       rendererDragRegions: currentSandboxPlatformStrategy().rendererDragRegions,

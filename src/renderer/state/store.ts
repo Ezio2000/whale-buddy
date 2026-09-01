@@ -11,6 +11,7 @@ import type {
   RuntimeStatus,
   StartTurnInput,
   ThreadSummary,
+  WhaleAuthState,
   WhaleEvent,
 } from '../../shared/types';
 import { parseComposerInput, type SlashCommandName } from './commands';
@@ -51,6 +52,7 @@ export interface ThreadHistoryLoadState {
 }
 
 interface AppState {
+  auth: WhaleAuthState;
   runtime: RuntimeStatus | null;
   projects: LocalProject[];
   threads: ThreadSummary[];
@@ -73,6 +75,8 @@ interface AppState {
   initialize(): Promise<void>;
   recover(): Promise<void>;
   handleEvent(event: WhaleEvent): void;
+  login(): Promise<void>;
+  logout(): Promise<void>;
   openProject(): Promise<void>;
   removeProject(projectId: string): Promise<void>;
   selectProject(projectId: string): void;
@@ -124,6 +128,7 @@ const HISTORY_TURNS_PAGE_SIZE = 20;
 const HISTORY_ITEMS_PAGE_SIZE = 50;
 
 export const useAppStore = create<AppState>((set, get) => ({
+  auth: { status: 'logged-out', user: null, message: null },
   runtime: null,
   projects: [],
   threads: [],
@@ -147,7 +152,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   async initialize() {
     set({ busy: true, notice: null });
     try {
-      const [runtime, projects, connectionSettings, branding] = await Promise.all([
+      const [auth, runtime, projects, connectionSettings, branding] = await Promise.all([
+        window.whale.auth.status(),
         window.whale.runtime.status(),
         window.whale.projects.list(),
         window.whale.runtime.settings(),
@@ -156,7 +162,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const selectedProjectId =
         readSessionValue('selectedProjectId') ?? projects[0]?.id ?? null;
       document.title = branding.name;
-      set({ runtime, projects, connectionSettings, branding, selectedProjectId });
+      set({ auth, runtime, projects, connectionSettings, branding, selectedProjectId });
       if (runtime.phase === 'ready') await get().recover();
     } catch (error) {
       set({ notice: errorMessage(error) });
@@ -203,7 +209,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   handleEvent(event) {
     if (event.kind === 'runtime') {
-      if (event.event.type === 'status') {
+      if (event.event.type === 'authChanged') {
+        set({
+          auth: event.event.state,
+          ...(event.event.state.status === 'error' ? { notice: event.event.state.message } : {}),
+        });
+      } else if (event.event.type === 'status') {
         const previousRuntime = get().runtime;
         const previousPhase = previousRuntime?.phase;
         const connectionChanged =
@@ -296,6 +307,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       case 'warning':
         set({ notice: codexFailureNotice(params?.error ?? params, 'Codex 返回了错误') });
         break;
+    }
+  },
+
+  async login() {
+    set({ notice: null });
+    try {
+      const auth = await window.whale.auth.login();
+      set({ auth });
+    } catch (error) {
+      set({ notice: errorMessage(error) });
+    }
+  },
+
+  async logout() {
+    set({ notice: null });
+    try {
+      const auth = await window.whale.auth.logout();
+      set({ auth });
+    } catch (error) {
+      set({ notice: errorMessage(error) });
     }
   },
 

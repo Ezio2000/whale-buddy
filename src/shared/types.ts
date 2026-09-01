@@ -98,6 +98,20 @@ export interface RuntimeBrandingSettingsInput {
   iconPath: string;
 }
 
+export interface WhaleUser {
+  id: string;
+  username: string;
+  displayName: string;
+  email: string | null;
+  avatar: string | null;
+}
+
+export type WhaleAuthState =
+  | { status: 'logged-out'; user: null; message: null }
+  | { status: 'waiting'; user: null; message: null }
+  | { status: 'logged-in'; user: WhaleUser; message: null }
+  | { status: 'error'; user: null; message: string };
+
 export interface LocalProject {
   id: string;
   path: string;
@@ -325,10 +339,16 @@ export type WhaleEvent =
         | { type: 'turnChanges'; threadId: string; snapshot: TurnChangesSnapshot }
         | { type: 'scheduledTasksChanged'; tasks: ScheduledTask[] }
         | { type: 'scheduledRunUpdated'; run: ScheduledRun }
-        | { type: 'pluginsChanged'; clearPluginId?: string };
+        | { type: 'pluginsChanged'; clearPluginId?: string }
+        | { type: 'authChanged'; state: WhaleAuthState };
     };
 
 export interface WhaleApi {
+  auth: {
+    status(): Promise<WhaleAuthState>;
+    login(): Promise<WhaleAuthState>;
+    logout(): Promise<WhaleAuthState>;
+  };
   runtime: {
     windowCapabilities: {
       rendererDragRegions: boolean;

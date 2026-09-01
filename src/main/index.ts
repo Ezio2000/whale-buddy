@@ -19,6 +19,7 @@ import { ScheduledTaskStore } from './scheduled-tasks';
 import { resolveSidecarPath } from './sidecar-path';
 import { registerPluginProtocol, registerPluginSchemes } from './plugin-host';
 import { PluginCredentialStore } from './plugin-credential-store';
+import { WhaleAuthManager } from './auth';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -26,6 +27,7 @@ const platform = currentPlatformStrategy();
 
 let mainWindow: BrowserWindow | null = null;
 let appServer: AppServerClient | null = null;
+let authManager: WhaleAuthManager | null = null;
 let unregisterIpc: (() => void) | null = null;
 let shutdownStarted = false;
 
@@ -35,6 +37,10 @@ registerPluginSchemes();
 
 async function createWindow(): Promise<void> {
   const data = prepareDataDirectories(app.getPath('userData'));
+  authManager ??= new WhaleAuthManager({
+    stateRoot: data.uiStateRoot,
+    openExternal: (url) => shell.openExternal(url),
+  });
   const diagnosticLog = new DiagnosticLog(path.join(data.logsRoot, 'app-server.log'));
   const projects = new ProjectStore(data.uiStateRoot);
   const extensionPolicy = new ExtensionPolicyStore(data.uiStateRoot);
@@ -129,6 +135,7 @@ async function createWindow(): Promise<void> {
       },
     });
     unregisterIpc = registerIpc({
+      auth: authManager,
       appServer,
       projects,
       extensionPolicy,
@@ -176,6 +183,7 @@ async function createWindow(): Promise<void> {
       },
     });
     unregisterIpc = registerIpc({
+      auth: authManager,
       appServer,
       projects,
       extensionPolicy,
@@ -222,8 +230,12 @@ app.on('before-quit', (event) => {
   shutdownStarted = true;
   unregisterIpc?.();
   unregisterIpc = null;
-  void (appServer?.stop() ?? Promise.resolve()).finally(() => {
+  void Promise.all([
+    appServer?.stop() ?? Promise.resolve(),
+    authManager?.dispose() ?? Promise.resolve(),
+  ]).finally(() => {
     appServer = null;
+    authManager = null;
     app.quit();
   });
 });
