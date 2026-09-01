@@ -1652,9 +1652,15 @@ pre {
   background: var(--violet-soft);
 }
 
-.composer-attachments > .capability-chip.tool {
+.composer-attachments > .capability-chip.tool,
+.composer-attachments > .capability-chip.mcp {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.composer-attachments > .capability-chip.webMcp {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
 }
 
 .composer-attachments button {
@@ -1739,9 +1745,15 @@ pre {
   background: var(--violet-soft);
 }
 
-.composer-suggestion-icon.tool {
+.composer-suggestion-icon.tool,
+.composer-suggestion-icon.mcp {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.composer-suggestion-icon.webMcp {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
 }
 
 .composer-suggestion-copy {

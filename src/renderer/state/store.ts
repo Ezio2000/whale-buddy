@@ -94,6 +94,7 @@ interface AppState {
     mentions?: Array<{ name: string; path: string }>,
     explicitSkills?: StartTurnInput['explicitSkills'],
     explicitTools?: StartTurnInput['explicitTools'],
+    explicitDynamicTools?: StartTurnInput['explicitDynamicTools'],
     pluginContexts?: StartTurnInput['pluginContexts'],
   ): Promise<boolean>;
   interrupt(): Promise<void>;
@@ -528,6 +529,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     mentions = [],
     explicitSkills = [],
     explicitTools = [],
+    explicitDynamicTools = [],
     pluginContexts = [],
   ) {
     const parsed = parseComposerInput(text);
@@ -553,6 +555,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       mentions,
       explicitSkills,
       explicitTools,
+      explicitDynamicTools,
       pluginContexts,
       cwd: project.path,
       ...(preferences.model ? { model: preferences.model } : {}),

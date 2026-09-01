@@ -103,6 +103,7 @@ describe('Composer', () => {
       [],
       [],
       [],
+      [],
     ));
   });
 
@@ -131,6 +132,7 @@ describe('Composer', () => {
         path: '/whale/plugins/test/skills/test-skill/SKILL.md',
       }],
       [{ server: 'test-mcp', name: 'echo_message' }],
+      [],
     ));
   });
 });

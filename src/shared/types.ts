@@ -192,6 +192,11 @@ export interface ExplicitToolReference {
   name: string;
 }
 
+export interface ExplicitDynamicToolReference {
+  pluginId: string;
+  name: string;
+}
+
 export interface StartTurnInput {
   threadId: string;
   text: string;
@@ -199,6 +204,7 @@ export interface StartTurnInput {
   mentions?: Array<{ name: string; path: string }>;
   explicitSkills?: ExplicitSkillReference[];
   explicitTools?: ExplicitToolReference[];
+  explicitDynamicTools?: ExplicitDynamicToolReference[];
   pluginContexts?: Array<{
     pluginId: string;
     contributionId: string;

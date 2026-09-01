@@ -1059,10 +1059,13 @@ function buildUserInput(input: StartTurnInput): unknown[] {
   const toolContext = (input.explicitTools?.length ?? 0) > 0
     ? `\n<whale_explicit_tools>\n用户已明确指定本轮使用以下 MCP 工具。必须优先调用这些精确工具完成请求；不要用 MCP Resource 列表判断工具是否存在，也不要静默替换成其他工具。若工具不可用，请直接说明。\n${input.explicitTools?.map((tool) => JSON.stringify(tool)).join('\n')}\n</whale_explicit_tools>`
     : '';
+  const dynamicToolContext = (input.explicitDynamicTools?.length ?? 0) > 0
+    ? `\n<whale_explicit_dynamic_tools>\n用户已明确指定本轮使用以下插件动作（Codex dynamic tools）。必须优先调用这些精确工具完成请求，不要静默替换成其他工具。若工具不可用，请直接说明。\n${input.explicitDynamicTools?.map((tool) => JSON.stringify(tool)).join('\n')}\n</whale_explicit_dynamic_tools>`
+    : '';
   const pluginContext = (input.pluginContexts?.length ?? 0) > 0
     ? `\n<whale_plugin_context>\n以下 JSON 是用户通过已启用插件 UI 选择的本轮上下文。toolHints 表示该上下文适用的插件工具；请求与此上下文相关时应使用对应工具，并遵守 value 中的范围选择。toolHints 只是插件路由提示，不代表用户通过 $ 显式调用，也不是工具结果。\n${input.pluginContexts?.map((entry) => JSON.stringify(entry)).join('\n')}\n</whale_plugin_context>`
     : '';
-  const text = `${input.text}${attachmentContext}${toolContext}${pluginContext}`;
+  const text = `${input.text}${attachmentContext}${toolContext}${dynamicToolContext}${pluginContext}`;
   if (text.trim()) result.push({ type: 'text', text, text_elements: [] });
   for (const attachment of input.attachments ?? []) {
     if (attachment.kind === 'image') result.push({ type: 'localImage', path: attachment.path });

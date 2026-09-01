@@ -27,7 +27,14 @@ const descriptor: PluginDescriptor = {
     { id: 'fixture-composer-action', type: 'action', placement: 'composerToolbar', entryUrl, title: 'Fixture Composer', description: '', keywords: [], order: 10 },
     { id: 'fixture-card', type: 'card', placement: 'message', entryUrl, title: 'Fixture Result', itemTypes: ['mcpToolCall'], server: 'fixture-mcp', tools: ['render_fixture'], order: 10 },
   ],
-  webMcp: null,
+  webMcp: {
+    entryUrl,
+    tools: [{
+      id: 'fixture-action', name: 'fixture_action', title: 'Fixture Action',
+      description: 'Run the fixture plugin action', scope: 'thread', inputSchema: {},
+      annotations: { readOnlyHint: true, untrustedContentHint: false },
+    }],
+  },
   mcpPermissions: [],
   credentials: [{
     id: 'fixture-token', key: 'fixture/token', credentialType: 'bearerToken', label: 'Fixture Token',
@@ -41,9 +48,11 @@ beforeEach(() => {
   Object.defineProperty(window, 'whale', { configurable: true, value: {
     ...(originalWhale ?? {}),
     plugins: { ...(originalWhale?.plugins ?? {}), descriptors: vi.fn().mockResolvedValue([descriptor]), callMcp: vi.fn() },
+    skills: { ...(originalWhale?.skills ?? {}), list: vi.fn().mockResolvedValue({ data: [] }) },
+    mcp: { ...(originalWhale?.mcp ?? {}), list: vi.fn().mockResolvedValue({ data: [], nextCursor: null }) },
     approvals: { respond: vi.fn().mockResolvedValue(undefined) },
     events: { subscribe: vi.fn((listener: (event: WhaleEvent) => void) => { eventListeners.push(listener); return () => undefined; }) },
-  } as WhaleApi });
+  } as unknown as WhaleApi });
   useAppStore.setState({
     ...originalState, selectedThreadId: 'thread-1', selectedProjectId: 'project-1',
     projects: [{ id: 'project-1', path: '/fixture', name: 'Fixture Project', lastOpenedAt: 0 }],
@@ -80,7 +89,22 @@ describe('plugin host UI surfaces', () => {
     await screen.findByTitle('Fixture Plugin · fixture-widget');
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '检查 fixture' } });
     fireEvent.click(screen.getByRole('button', { name: '发送' }));
-    await waitFor(() => expect(sendComposer).toHaveBeenCalledWith('检查 fixture', [], [], [], [], [expect.objectContaining({ pluginId: 'fixture-plugin', contributionId: 'fixture-widget' })]));
+    await waitFor(() => expect(sendComposer).toHaveBeenCalledWith('检查 fixture', [], [], [], [], [], [expect.objectContaining({ pluginId: 'fixture-plugin', contributionId: 'fixture-widget' })]));
+  });
+
+  it('adds an enabled WebMCP action from the dollar picker to the turn', async () => {
+    const sendComposer = vi.fn().mockResolvedValue(true);
+    useAppStore.setState({ sendComposer });
+    render(<PluginHostProvider><Composer /></PluginHostProvider>);
+    const textarea = screen.getByRole('textbox');
+    fireEvent.change(textarea, { target: { value: '$fixture_action' } });
+    fireEvent.click(await screen.findByRole('button', { name: /fixture_action/ }));
+    fireEvent.change(textarea, { target: { value: '$fixture_action 请执行' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+    await waitFor(() => expect(sendComposer).toHaveBeenCalledWith(
+      '$fixture_action 请执行', [], [], [], [],
+      [{ pluginId: 'fixture-plugin', name: 'fixture_action' }],
+    ));
   });
 
   it('mounts navigation and all action placements', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, LoaderCircle, Paperclip, Puzzle, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
 import type {
+  ExplicitDynamicToolReference,
   ExplicitSkillReference,
   ExplicitToolReference,
   FileSearchResult,
@@ -18,6 +19,7 @@ export function Composer() {
   const [mentions, setMentions] = useState<Array<{ name: string; path: string }>>([]);
   const [explicitSkills, setExplicitSkills] = useState<ExplicitSkillReference[]>([]);
   const [explicitTools, setExplicitTools] = useState<ExplicitToolReference[]>([]);
+  const [explicitDynamicTools, setExplicitDynamicTools] = useState<ExplicitDynamicToolReference[]>([]);
   const [fileResults, setFileResults] = useState<FileSearchResult[]>([]);
   const [capabilities, setCapabilities] = useState<CapabilityChoice[]>([]);
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
@@ -66,7 +68,9 @@ export function Composer() {
     return capabilities.filter((capability) => {
       const haystack = capability.kind === 'skill'
         ? `${capability.name} ${capability.description}`
-        : `${capability.server} ${capability.name} ${capability.title ?? ''} ${capability.description}`;
+        : capability.kind === 'mcp'
+          ? `${capability.server} ${capability.name} ${capability.title ?? ''} ${capability.description}`
+          : `webmcp 插件动作 dynamic tool ${capability.pluginName} ${capability.name} ${capability.title} ${capability.description}`;
       return haystack.toLocaleLowerCase().includes(capabilityQuery);
     }).slice(0, 12);
   }, [capabilities, capabilityQuery]);
@@ -75,7 +79,7 @@ export function Composer() {
     setCapabilities([]);
     setCapabilitiesLoaded(false);
     setCapabilityError(null);
-  }, [project?.path]);
+  }, [descriptors, project?.path]);
 
   useEffect(() => {
     if (capabilityQuery === null || capabilitiesLoaded) return;
@@ -104,11 +108,23 @@ export function Composer() {
         for (const tool of Object.values(server.tools)) {
           if (!tool) continue;
           choices.set(`tool:${server.name}:${tool.name}`, {
-            kind: 'tool',
+            kind: 'mcp',
             server: server.name,
             name: tool.name,
             title: tool.title,
             description: tool.description ?? '',
+          });
+        }
+      }
+      for (const descriptor of descriptors) {
+        for (const tool of descriptor.webMcp?.tools ?? []) {
+          choices.set(`dynamic:${descriptor.pluginId}:${tool.name}`, {
+            kind: 'webMcp',
+            pluginId: descriptor.pluginId,
+            pluginName: descriptor.displayName,
+            name: tool.name,
+            title: tool.title,
+            description: tool.description,
           });
         }
       }
@@ -123,7 +139,7 @@ export function Composer() {
     return () => {
       cancelled = true;
     };
-  }, [capabilitiesLoaded, capabilityQuery, project?.path]);
+  }, [capabilitiesLoaded, capabilityQuery, descriptors, project?.path]);
 
   useEffect(() => setActiveCapabilityIndex(0), [capabilityQuery]);
 
@@ -158,14 +174,15 @@ export function Composer() {
         ...(value.explicitTools?.length ? { toolHints: value.explicitTools } : {}),
       }));
     const sent = pluginContexts.length > 0
-      ? await sendComposer(text, attachments, mentions, explicitSkills, explicitTools, pluginContexts)
-      : await sendComposer(text, attachments, mentions, explicitSkills, explicitTools);
+      ? await sendComposer(text, attachments, mentions, explicitSkills, explicitTools, explicitDynamicTools, pluginContexts)
+      : await sendComposer(text, attachments, mentions, explicitSkills, explicitTools, explicitDynamicTools);
     if (sent) {
       setText('');
       setAttachments([]);
       setMentions([]);
       setExplicitSkills([]);
       setExplicitTools([]);
+      setExplicitDynamicTools([]);
       setFileResults([]);
     }
   };
@@ -191,10 +208,15 @@ export function Composer() {
         ...current.filter((skill) => skill.path !== capability.path),
         { name: capability.name, path: capability.path },
       ]);
-    } else {
+    } else if (capability.kind === 'mcp') {
       setExplicitTools((current) => [
         ...current.filter((tool) => tool.server !== capability.server || tool.name !== capability.name),
         { server: capability.server, name: capability.name },
+      ]);
+    } else {
+      setExplicitDynamicTools((current) => [
+        ...current.filter((tool) => tool.pluginId !== capability.pluginId || tool.name !== capability.name),
+        { pluginId: capability.pluginId, name: capability.name },
       ]);
     }
     setActiveCapabilityIndex(0);
@@ -211,6 +233,13 @@ export function Composer() {
       (value) => value.server !== tool.server || value.name !== tool.name,
     ));
     setText((current) => removeCapabilityToken(current, `$${tool.server}.${tool.name}`));
+  };
+
+  const removeDynamicTool = (tool: ExplicitDynamicToolReference) => {
+    setExplicitDynamicTools((current) => current.filter(
+      (value) => value.pluginId !== tool.pluginId || value.name !== tool.name,
+    ));
+    setText((current) => removeCapabilityToken(current, `$${tool.name}`));
   };
 
   const pasteAttachments = async (files: File[]) => {
@@ -255,7 +284,7 @@ export function Composer() {
             ))}
             {capabilityQuery !== null && capabilitiesLoading && (
               <div className="composer-suggestion-status">
-                <LoaderCircle className="spin" size={14} /> 正在读取已启用的 Skills 与 MCP 工具…
+                <LoaderCircle className="spin" size={14} /> 正在读取已启用的 Skills、MCP 工具与 WebMCP…
               </div>
             )}
             {capabilityQuery !== null && capabilityError && (
@@ -265,7 +294,7 @@ export function Composer() {
             )}
             {capabilityQuery !== null && !capabilitiesLoading && !capabilityError
               && capabilitiesLoaded && capabilityMatches.length === 0 && (
-              <div className="composer-suggestion-status">没有匹配的已启用 Skill 或 MCP 工具</div>
+              <div className="composer-suggestion-status">没有匹配的已启用 Skill、MCP 工具或 WebMCP</div>
             )}
             {capabilityQuery !== null && capabilityMatches.map((capability, index) => (
               <button
@@ -275,18 +304,20 @@ export function Composer() {
                 onClick={() => selectCapability(capability)}
               >
                 <span className={`composer-suggestion-icon ${capability.kind}`}>
-                  {capability.kind === 'skill' ? <Sparkles size={14} /> : <Wrench size={14} />}
+                  {capability.kind === 'skill'
+                    ? <Sparkles size={14} />
+                    : capability.kind === 'webMcp' ? <Puzzle size={14} /> : <Wrench size={14} />}
                 </span>
                 <span className="composer-suggestion-copy">
                   <strong>{capabilityLabel(capability)}</strong>
-                  <small>{capability.description || (capability.kind === 'skill' ? 'Skill' : 'MCP Tool')}</small>
+                  <small>{capability.description || capabilityKindLabel(capability)}</small>
                 </span>
-                <em>{capability.kind === 'skill' ? 'Skill' : '工具'}</em>
+                <em>{capabilityKindLabel(capability)}</em>
               </button>
             ))}
           </div>
         )}
-        {(attachments.length > 0 || mentions.length > 0 || explicitSkills.length > 0 || explicitTools.length > 0) && (
+        {(attachments.length > 0 || mentions.length > 0 || explicitSkills.length > 0 || explicitTools.length > 0 || explicitDynamicTools.length > 0) && (
           <div className="composer-attachments">
             {attachments.map((attachment) => (
               <span key={attachment.path}>
@@ -323,6 +354,14 @@ export function Composer() {
               <span className="capability-chip tool" key={`${tool.server}:${tool.name}`}>
                 <Wrench size={12} /> {tool.server}.{tool.name}
                 <button aria-label={`移除工具 ${tool.name}`} onClick={() => removeTool(tool)}>
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+            {explicitDynamicTools.map((tool) => (
+              <span className="capability-chip webMcp" key={`${tool.pluginId}:${tool.name}`}>
+                <Puzzle size={12} /> {tool.name}
+                <button aria-label={`移除插件动作 ${tool.name}`} onClick={() => removeDynamicTool(tool)}>
                   <X size={11} />
                 </button>
               </span>
@@ -452,21 +491,36 @@ type CapabilityChoice =
       description: string;
     }
   | {
-      kind: 'tool';
+      kind: 'mcp';
       server: string;
       name: string;
       title?: string;
       description: string;
+    }
+  | {
+      kind: 'webMcp';
+      pluginId: string;
+      pluginName: string;
+      name: string;
+      title: string;
+      description: string;
     };
 
 function capabilityKey(capability: CapabilityChoice): string {
-  return capability.kind === 'skill'
-    ? `skill:${capability.path}`
-    : `tool:${capability.server}:${capability.name}`;
+  if (capability.kind === 'skill') return `skill:${capability.path}`;
+  return capability.kind === 'mcp'
+    ? `tool:${capability.server}:${capability.name}`
+    : `dynamic:${capability.pluginId}:${capability.name}`;
 }
 
 function capabilityLabel(capability: CapabilityChoice): string {
-  return capability.kind === 'skill' ? capability.name : `${capability.server}.${capability.name}`;
+  if (capability.kind === 'skill' || capability.kind === 'webMcp') return capability.name;
+  return `${capability.server}.${capability.name}`;
+}
+
+function capabilityKindLabel(capability: CapabilityChoice): string {
+  if (capability.kind === 'skill') return 'Skill';
+  return capability.kind === 'webMcp' ? 'WebMCP' : 'MCP 工具';
 }
 
 function capabilityToken(capability: CapabilityChoice): string {

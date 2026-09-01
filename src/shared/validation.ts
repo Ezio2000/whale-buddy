@@ -95,6 +95,13 @@ export const startTurnSchema = z
       }).strict())
       .max(20)
       .optional(),
+    explicitDynamicTools: z
+      .array(z.object({
+        pluginId: idSchema,
+        name: z.string().trim().min(1).max(128),
+      }).strict())
+      .max(20)
+      .optional(),
     pluginContexts: z
       .array(z.object({
         pluginId: idSchema,
