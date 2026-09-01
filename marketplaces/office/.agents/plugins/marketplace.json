@@ -5,7 +5,7 @@
     {
       "name": "whale-office-assistant",
       "source": { "source": "local", "path": "./plugins/whale-office-assistant" },
-      "policy": { "installation": "AVAILABLE", "authentication": "NONE" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
       "category": "Productivity"
     }
   ]
