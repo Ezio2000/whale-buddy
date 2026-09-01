@@ -132,6 +132,20 @@ describe('plugin host UI surfaces', () => {
     expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ context: expect.objectContaining({ message: expect.objectContaining({ itemId: 'message-1' }) }) }), '*');
   });
 
+  it('infers a WebMCP plugin for dynamic tool results without a plugin id', async () => {
+    vi.mocked(window.whale.plugins.descriptors).mockResolvedValue([{
+      ...descriptor,
+      uiContributions: [...descriptor.uiContributions, {
+        id: 'fixture-dynamic-card', type: 'card', placement: 'message', entryUrl,
+        title: 'Fixture Dynamic Result', itemTypes: ['dynamicToolCall'], server: null, tools: [], order: 5,
+      }],
+    }]);
+    render(<PluginHostProvider><ItemCard item={{
+      id: 'message-2', type: 'dynamicToolCall', tool: 'fixture_action', status: 'completed', result: { answer: 42 },
+    }} approvals={[]} onRespondApproval={() => undefined} /></PluginHostProvider>);
+    expect(await screen.findByTitle<HTMLIFrameElement>('Fixture Plugin · fixture-dynamic-card')).toBeInTheDocument();
+  });
+
   it('keeps one runtime frame and dispatches WebMCP tools through it', async () => {
     const runtimeDescriptor: PluginDescriptor = {
       ...descriptor,

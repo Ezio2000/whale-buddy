@@ -413,12 +413,16 @@ function ToolActivityCard({
 
 function customMessageCard(item: ItemView, descriptors: PluginDescriptor[]) {
   const pluginId = string(item.pluginId);
-  if (!pluginId) return null;
-  return descriptors.flatMap((descriptor) => descriptor.pluginId === pluginId
-    ? descriptor.uiContributions
+  const toolName = string(item.tool);
+  const matchingDescriptors = pluginId
+    ? descriptors.filter((descriptor) => descriptor.pluginId === pluginId)
+    : item.type === 'dynamicToolCall' && toolName
+      ? descriptors.filter((descriptor) => descriptor.webMcp?.tools.some((tool) => tool.name === toolName))
+      : [];
+  return matchingDescriptors.flatMap((descriptor) =>
+    descriptor.uiContributions
       .filter((contribution) => contribution.type === 'card')
-      .map((contribution) => ({ descriptor, contribution }))
-    : [])
+      .map((contribution) => ({ descriptor, contribution })))
     .filter(({ contribution }) => contribution.itemTypes.includes(
       item.type as typeof contribution.itemTypes[number],
     ))
