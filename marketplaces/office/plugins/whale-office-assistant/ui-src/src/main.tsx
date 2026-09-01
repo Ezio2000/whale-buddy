@@ -13,6 +13,7 @@ import {
 } from '@whale-buddy/plugin-sdk/ui';
 import { definePluginRuntime } from '@whale-buddy/plugin-sdk/runtime';
 import type { HostArtifact, HostAttachment } from '@whale-buddy/plugin-sdk/ui';
+import { renderHtmlDocument } from './html-document';
 import './styles.css';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -154,7 +155,7 @@ async function extractPptx(bytes: Uint8Array): Promise<string> {
 }
 
 async function renderArtifact(draft: Draft): Promise<string> {
-  if (draft.format === 'html') return toBase64(new TextEncoder().encode(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHtml(draft.title)}</title><style>body{font-family:-apple-system,"Segoe UI",sans-serif;max-width:900px;margin:40px auto;line-height:1.7;padding:0 24px}pre{white-space:pre-wrap}</style></head><body><h1>${escapeHtml(draft.title)}</h1><pre>${escapeHtml(draft.content)}</pre></body></html>`));
+  if (draft.format === 'html') return toBase64(new TextEncoder().encode(renderHtmlDocument(draft.title, draft.content)));
   if (draft.format === 'docx') {
     const document = new Document({ sections: [{ children: [new Paragraph({ children: [new TextRun({ text: draft.title, bold: true, size: 32 })] }), ...draft.content.split(/\n+/).map((line) => new Paragraph(line))] }] });
     return blobToBase64(await Packer.toBlob(document));
@@ -177,6 +178,5 @@ function previewText(draft: Draft) { return draft.format === 'xlsx' && draft.row
 function fromBase64(value: string) { const binary = atob(value); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
 function toBase64(value: ArrayBuffer | Uint8Array) { const bytes = value instanceof Uint8Array ? value : new Uint8Array(value); let binary = ''; for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)); return btoa(binary); }
 async function blobToBase64(blob: Blob) { return toBase64(await blob.arrayBuffer()); }
-function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!); }
 
 createRoot(document.getElementById('root')!).render(<App />);
