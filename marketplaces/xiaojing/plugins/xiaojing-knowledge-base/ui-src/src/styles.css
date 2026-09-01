@@ -41,67 +41,16 @@ button { color: inherit; }
 
 .selector-root {
   display: flex;
-  width: 26px;
-  align-items: flex-start;
-  flex-direction: column;
-}
-.selector-root.open { width: 360px; }
-.selector-root.embedded {
   width: 100%;
   height: 100%;
+  min-height: 0;
+  flex-direction: column;
   padding: 18px;
-  overflow: auto;
-}
-.selector-root.embedded .selector-panel {
-  width: min(620px, 100%);
-  margin: 0 auto;
-}
-.selector-root.embedded .dataset-list { max-height: none; }
-.selector-trigger {
-  position: relative;
-  display: grid;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-  place-items: center;
-  padding: 0;
-  color: var(--muted);
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.selector-trigger:hover, .selector-trigger.selected { color: var(--accent); background: var(--accent-soft); }
-.selector-trigger svg { display: block; width: 16px; height: 16px; }
-.selection-count {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  color: white;
-  background: var(--accent);
-  border-radius: 999px;
-  font-size: 8px;
-  line-height: 14px;
-  text-align: center;
+  overflow: hidden;
 }
 
-.selector-panel {
-  width: 360px;
-  margin-bottom: 7px;
-  padding: 10px;
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.panel-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-.panel-title strong { font-size: 12px; }
-.panel-title small { color: var(--muted); font-size: 9px; }
-.selector-panel header { display: flex; gap: 7px; }
-.selector-panel input[type="text"], .selector-panel header input {
+.selector-search { display: flex; gap: 7px; }
+.selector-search input {
   min-width: 0;
   flex: 1;
   padding: 7px 9px;
@@ -111,7 +60,7 @@ button { color: inherit; }
   border-radius: 7px;
   outline: none;
 }
-.selector-panel header button, .selector-actions button {
+.selector-search button, .selector-actions button {
   padding: 6px 10px;
   background: transparent;
   border: 1px solid var(--line);
@@ -133,7 +82,8 @@ button { color: inherit; }
 .error, .card-error { color: #bd5148; }
 .dataset-list {
   display: grid;
-  max-height: 190px;
+  min-height: 0;
+  flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
 }

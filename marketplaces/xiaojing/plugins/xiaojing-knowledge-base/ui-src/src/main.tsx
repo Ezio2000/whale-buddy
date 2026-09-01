@@ -65,7 +65,7 @@ function App() {
   if (context.surface.kind === 'runtime') return null;
   switch (`${context.surface.contributionType}:${context.surface.placement}`) {
     case 'action:composerToolbar':
-      return <KnowledgeSelector threadId={context.threadId} embedded />;
+      return <KnowledgeSelector threadId={context.threadId} />;
     case 'page:navigation':
       return <KnowledgeBrowser title="小鲸知识库" description="浏览当前账号获授权的广汽知识库。" />;
     case 'action:commandPalette':
@@ -82,8 +82,7 @@ function App() {
   }
 }
 
-function KnowledgeSelector({ threadId, embedded = false }: { threadId: string | null; embedded?: boolean }) {
-  const [open, setOpen] = useState(embedded);
+function KnowledgeSelector({ threadId }: { threadId: string | null }) {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [query, setQuery] = useState('');
@@ -138,74 +137,59 @@ function KnowledgeSelector({ threadId, embedded = false }: { threadId: string | 
   };
 
   useEffect(() => {
-    if (open && datasets.length === 0 && !loading && !error) void refresh();
-  }, [datasets.length, error, loading, open]);
+    if (datasets.length === 0 && !loading && !error) void refresh();
+  }, [datasets.length, error, loading]);
 
   const visible = datasets.filter((dataset) =>
     `${dataset.name} ${dataset.description}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
 
   return (
-    <div className={`selector-root ${open ? 'open' : ''} ${embedded ? 'embedded' : ''}`}>
-      {open && (
-        <section className="selector-panel">
-          <div className="panel-title">
-            <strong>选择知识库</strong>
-            <small>{selectedIds.length ? `已选择 ${selectedIds.length} 个` : '未选择'}</small>
-          </div>
-          <header>
+    <main className="selector-root">
+      <header className="selector-search">
+        <input
+          value={query}
+          placeholder="搜索知识库"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <button disabled={loading} onClick={() => void refresh()}>{loading ? '读取中' : '刷新'}</button>
+      </header>
+      <p className="selector-help">默认不选择；勾选后只搜索已选知识库。</p>
+      <div className="selector-actions">
+        <span>
+          {datasets.length ? `共 ${datasets.length} 个知识库` : '尚未读取知识库'}
+          {' · '}
+          {selectedIds.length ? `已选择 ${selectedIds.length} 个` : '未选择'}
+        </span>
+        <div>
+          <button
+            disabled={loading || datasets.length === 0 || selectedIds.length === datasets.length}
+            onClick={() => setSelectedIds(datasets.map((dataset) => dataset.id))}
+          >
+            全选
+          </button>
+          <button disabled={selectedIds.length === 0} onClick={() => setSelectedIds([])}>清空</button>
+        </div>
+      </div>
+      {error && <p className="error">{error}</p>}
+      <div className="dataset-list">
+        {visible.map((dataset) => (
+          <label key={dataset.id}>
             <input
-              value={query}
-              placeholder="搜索知识库"
-              onChange={(event) => setQuery(event.target.value)}
+              type="checkbox"
+              checked={selectedIds.includes(dataset.id)}
+              onChange={(event) => setSelectedIds((current) => event.target.checked
+                ? [...new Set([...current, dataset.id])]
+                : current.filter((id) => id !== dataset.id))}
             />
-            <button disabled={loading} onClick={() => void refresh()}>{loading ? '读取中' : '刷新'}</button>
-          </header>
-          <p className="selector-help">默认不选择；勾选后只搜索已选知识库。</p>
-          <div className="selector-actions">
-            <span>{datasets.length ? `共 ${datasets.length} 个知识库` : '尚未读取知识库'}</span>
-            <div>
-              <button
-                disabled={loading || datasets.length === 0 || selectedIds.length === datasets.length}
-                onClick={() => setSelectedIds(datasets.map((dataset) => dataset.id))}
-              >
-                全选
-              </button>
-              <button disabled={selectedIds.length === 0} onClick={() => setSelectedIds([])}>清空</button>
-            </div>
-          </div>
-          {error && <p className="error">{error}</p>}
-          <div className="dataset-list">
-            {visible.map((dataset) => (
-              <label key={dataset.id}>
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(dataset.id)}
-                  onChange={(event) => setSelectedIds((current) => event.target.checked
-                    ? [...new Set([...current, dataset.id])]
-                    : current.filter((id) => id !== dataset.id))}
-                />
-                <span>
-                  <strong>{dataset.name}</strong>
-                  {dataset.description && <small>{dataset.description}</small>}
-                </span>
-              </label>
-            ))}
-            {!loading && !error && visible.length === 0 && <p className="empty">没有匹配的知识库</p>}
-          </div>
-        </section>
-      )}
-      {!embedded && (
-        <button
-          className={`selector-trigger ${selectedIds.length ? 'selected' : ''}`}
-          aria-label="选择知识库"
-          title={selectedIds.length ? `已选择 ${selectedIds.length} 个知识库` : '选择知识库'}
-          onClick={() => setOpen((value) => !value)}
-        >
-          <KnowledgeIcon />
-          {selectedIds.length > 0 && <span className="selection-count">{selectedIds.length}</span>}
-        </button>
-      )}
-    </div>
+            <span>
+              <strong>{dataset.name}</strong>
+              {dataset.description && <small>{dataset.description}</small>}
+            </span>
+          </label>
+        ))}
+        {!loading && !error && visible.length === 0 && <p className="empty">没有匹配的知识库</p>}
+      </div>
+    </main>
   );
 }
 
