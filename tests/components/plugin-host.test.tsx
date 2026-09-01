@@ -111,7 +111,8 @@ describe('plugin host UI surfaces', () => {
   it('keeps one runtime frame and dispatches WebMCP tools through it', async () => {
     const runtimeDescriptor: PluginDescriptor = {
       ...descriptor,
-      uiContributions: [],
+      uiContributions: descriptor.uiContributions.filter((contribution) =>
+        contribution.type === 'action' && contribution.placement === 'composerToolbar'),
       webMcp: { entryUrl, tools: [{
         id: 'inspect', name: 'fixture_inspect', title: 'Inspect', description: 'Inspect fixture.',
         scope: 'thread', inputSchema: { type: 'object' },
@@ -132,6 +133,26 @@ describe('plugin host UI surfaces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'invoke runtime' }));
     await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'host:toolCall', toolId: 'inspect' }), '*'));
     const call = postMessage.mock.calls.find(([message]) => (message as { type?: string }).type === 'host:toolCall')?.[0] as { callId: string };
+    fireEvent(window, new MessageEvent('message', {
+      source: frame.contentWindow,
+      data: {
+        channel: 'whale-plugin-v2', nonce: init.nonce, type: 'plugin:request', requestId: 'context-request',
+        method: 'composer.setContext', payload: {
+          executionId: call.callId, principalId: 'inspect', sourceId: 'fixture-composer-action',
+          label: 'Fixture scope', value: { fixtureIds: ['one'] },
+        },
+      },
+    }));
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'host:response', requestId: 'context-request', ok: true,
+    }), '*'));
+    await waitFor(() => expect(JSON.parse(
+      window.localStorage.getItem('whale.plugin.v2.composer') ?? '{}',
+    )).toEqual(expect.objectContaining({
+      [contextKey('fixture-plugin', 'fixture-composer-action', 'thread-1')]: {
+        label: 'Fixture scope', value: { fixtureIds: ['one'] },
+      },
+    })));
     fireEvent(window, new MessageEvent('message', {
       source: frame.contentWindow,
       data: {

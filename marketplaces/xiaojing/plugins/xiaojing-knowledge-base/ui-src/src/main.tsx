@@ -38,7 +38,7 @@ definePluginRuntime({
         : datasets,
       selectedIds: datasets.map((dataset) => dataset.id),
     } as unknown as JsonValue);
-    await services.setComposerContext('knowledge-selector', {
+    await services.setComposerContext('knowledge-composer-action', {
       label: `知识库 ${datasets.length}`,
       value: {
         dataset_ids: datasets.map((dataset) => dataset.id),
@@ -54,7 +54,7 @@ definePluginRuntime({
       ? normalizeDatasets((saved as unknown as SelectorState).datasets)
       : [];
     await services.setState('thread', { datasets, selectedIds: [] } as unknown as JsonValue);
-    await services.clearComposerContext('knowledge-selector');
+    await services.clearComposerContext('knowledge-composer-action');
     return { selected: 0 };
   },
 });
@@ -64,8 +64,6 @@ function App() {
   if (!context) return <div className="loading-line">正在连接 Whale…</div>;
   if (context.surface.kind === 'runtime') return null;
   switch (`${context.surface.contributionType}:${context.surface.placement}`) {
-    case 'widget:composer':
-      return <KnowledgeSelector threadId={context.threadId} />;
     case 'action:composerToolbar':
       return <KnowledgeSelector threadId={context.threadId} embedded />;
     case 'page:navigation':

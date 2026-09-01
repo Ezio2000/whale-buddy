@@ -28,13 +28,6 @@
     "apiVersion": 2,
     "uiContributions": [
       {
-        "id": "knowledge-selector",
-        "type": "widget",
-        "placement": "composer",
-        "entry": "./ui/index.html",
-        "order": 100
-      },
-      {
         "id": "knowledge-navigation",
         "type": "page",
         "placement": "navigation",

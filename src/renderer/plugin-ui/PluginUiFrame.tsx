@@ -230,8 +230,14 @@ async function handleRequest(
       throw new Error('只有 thread 范围的 WebMCP 工具可以修改输入上下文');
     }
     const sourceId = requiredString(payload.sourceId);
-    if (!descriptor.uiContributions.some((entry) => entry.id === sourceId && entry.type === 'widget')) {
-      throw new Error('WebMCP 只能写入已声明的输入区 UI 上下文');
+    const composerSource = descriptor.uiContributions.some((entry) =>
+      entry.id === sourceId
+      && (
+        (entry.type === 'widget' && entry.placement === 'composer')
+        || (entry.type === 'action' && entry.placement === 'composerToolbar')
+      ));
+    if (!composerSource) {
+      throw new Error('WebMCP 只能写入已声明的输入区贡献上下文');
     }
     if (method === 'composer.clearContext') host.setComposerContext(descriptor.pluginId, sourceId, threadId, null);
     else {
