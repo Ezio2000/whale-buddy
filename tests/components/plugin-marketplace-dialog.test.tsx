@@ -302,7 +302,7 @@ describe('PluginMarketplaceDialog', () => {
     fireEvent.change(input, { target: { value: 'fixture-secret' } });
     // React 状态提交与点击之间存在竞态（慢环境必现），先确认按钮已随输入解除禁用。
     const saveButton = screen.getByRole('button', { name: '保存' });
-    await waitFor(() => expect(saveButton).toBeEnabled());
+    await waitFor(() => expect(saveButton).toBeEnabled(), { timeout: 5_000 });
     fireEvent.click(saveButton);
 
     await waitFor(() => expect(window.whale.plugins.configureCredential).toHaveBeenCalledWith({
