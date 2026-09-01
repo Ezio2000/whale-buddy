@@ -12,4 +12,11 @@ describe('office HTML artifact rendering', () => {
     expect(document).toContain('<title>A &amp; B</title>');
     expect(document).toContain('<pre>&lt;not markup&gt;</pre>');
   });
+
+  it('renders semantic HTML fragments instead of displaying their source', () => {
+    const document = renderHtmlDocument('预览', '<main><h1>HTML 预览</h1><p>这是<strong>网页</strong>。</p></main>');
+    expect(document).toContain('<body><main><h1>HTML 预览</h1>');
+    expect(document).not.toContain('&lt;main&gt;');
+    expect(document).not.toContain('<pre>');
+  });
 });

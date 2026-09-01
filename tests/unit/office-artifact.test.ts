@@ -23,10 +23,11 @@ describe('office Excel artifacts', () => {
       { 序号: 1, 服务方向: 'AI 自动化顾问', 总分: 92 },
       { 序号: 2, 服务方向: '知识库实施', 总分: 86 },
     ]);
-    const workbook = XLSX.read(renderXlsxArtifact(draft), { type: 'array' });
+    const workbook = XLSX.read(renderXlsxArtifact(draft), { type: 'array', cellStyles: true });
     expect(workbook.SheetNames).toEqual(['服务方向综合对比表']);
     const sheet = workbook.Sheets['服务方向综合对比表'];
     expect(sheet['!ref']).toBe('A1:C3');
+    expect(sheet['!cols']).toEqual(expect.arrayContaining([expect.objectContaining({ wch: expect.any(Number) })]));
     expect(XLSX.utils.sheet_to_json(sheet, { header: 1 })).toEqual([
       ['序号', '服务方向', '总分'],
       [1, 'AI 自动化顾问', 92],

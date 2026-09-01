@@ -58,6 +58,9 @@ export function renderXlsxArtifact(draft: OfficeDraft): Uint8Array {
     throw new Error('Excel 成果缺少有效的 columns 或 rows，无法生成文件');
   }
   const sheet = XLSX.utils.json_to_sheet(draft.rows, { header: draft.columns });
+  sheet['!cols'] = draft.columns.map((column) => ({
+    wch: Math.min(48, Math.max(10, column.length + 2, ...draft.rows!.map((row) => String(row[column] ?? '').length + 2))),
+  }));
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, normalizeSheetName(draft.sheetName ?? draft.title));
   return new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }));
