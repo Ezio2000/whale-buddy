@@ -1,7 +1,7 @@
 {
   "name": "whale-buddy",
   "productName": "Whale Buddy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A macOS and Windows desktop client for Codex app-server",
   "author": "AI小鲸",
   "private": true,

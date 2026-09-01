@@ -20,8 +20,8 @@ permissions:
   contents: read
 
 env:
-  CODEX_RELEASE_TAG: rust-v0.150.0-alpha.12
-  CODEX_EXPECTED_VERSION: codex-cli 0.150.0-alpha.12
+  CODEX_RELEASE_TAG: rust-v0.152.0
+  CODEX_EXPECTED_VERSION: codex-cli 0.152.0
 
 jobs:
   macos-arm64:

@@ -79,6 +79,23 @@ Codex、不依赖私有 sidecar 缓存，也不需要本地虚拟机、Wine、Ru
 
 禁止使用本地 sidecar、`out/` 目录或本地 Electron Forge 产物部署。工作流有两种触发方式。
 
+### 升级 Codex sidecar
+
+正式安装包内嵌的 Codex 版本只由 `.github/workflows/package.yml` 中的
+`CODEX_RELEASE_TAG` 和 `CODEX_EXPECTED_VERSION` 决定。`codex-source` 是源码侧参考及
+CI 验证使用的只读上游子模块，不参与正式安装包选择 sidecar；升级发布版 sidecar 时无需
+同步更新该子模块，也无需修改 `.github/workflows/ci.yml`。工作流会下载指定的 OpenAI
+官方 Release，并在 runner 内用该二进制重新生成协议、执行类型与平台检查后再打包，因此
+不需要在本地生成或提交协议文件。
+
+发布新版 sidecar 时：
+
+1. 更新 `package.yml` 中的 `CODEX_RELEASE_TAG` 和 `CODEX_EXPECTED_VERSION`；
+2. 提升 `package.json` 中的 Whale Buddy 版本并提交、推送；
+3. 推送与 `package.json` 版本完全一致的 `v*` Tag；
+4. 确认 Tag 触发的 package workflow 在 macOS 和 Windows 上均成功，并核对 run 的
+   `headSha` 后再下载或部署产物。
+
 ### 手动构建
 
 进入 GitHub 仓库的 **Actions → Package desktop installers → Run workflow**，选择：
