@@ -218,6 +218,8 @@ Whale 保存账户会话并更新侧边栏。当前源码中的固定 Issuer 是
 左侧底部的“插件商城”使用固定 sidecar 的稳定 app-server 接口，不启用实验性的
 `plugin/search`。商城搜索在已加载目录中本地完成：
 
+插件作者请先阅读 [Plugin v2 开发规范与指引](docs/plugin-development.md)。
+
 - “插件”把下载和启用分成两步。下载只写入 Whale 私有缓存；启用时默认打开该插件的全部
   Skills 与 MCP。插件详情提供紧凑的 Skill/MCP 清单和开关，不提供独立工具页。
 - “Skills”列出当前项目扫描到的 Skill，包括已下载但整插件尚未启用的静态声明；列表状态
