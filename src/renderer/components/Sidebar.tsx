@@ -1,4 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+// Optional WeCom identity package: remove this import and the marked component to detach it.
+import { WecomIdentityButton } from '@whale-buddy/wecom-auth/renderer';
 import {
   Archive,
   CalendarClock,
@@ -158,6 +160,8 @@ export function Sidebar() {
       )}
 
       <div className="sidebar-footer">
+        {/* Optional WeCom identity package. */}
+        <WecomIdentityButton />
         <button
           className={workspaceView === 'schedules' ? 'active' : ''}
           onClick={() => setWorkspaceView('schedules')}

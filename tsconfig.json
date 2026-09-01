@@ -13,7 +13,8 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "@whale-buddy/plugin-sdk": ["packages/plugin-sdk/src/index.ts"]
+      "@whale-buddy/plugin-sdk": ["packages/plugin-sdk/src/index.ts"],
+      "@whale-buddy/wecom-auth/*": ["packages/wecom-auth/src/*"]
     },
     "resolveJsonModule": true,
     "isolatedModules": true,

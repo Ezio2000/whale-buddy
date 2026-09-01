@@ -26,6 +26,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.13.12
         version: 3.14.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@whale-buddy/wecom-auth':
+        specifier: workspace:*
+        version: link:packages/wecom-auth
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -125,6 +128,21 @@ importers:
     dependencies:
       react:
         specifier: '>=19'
+        version: 19.2.8
+
+  packages/wecom-auth:
+    dependencies:
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.14
+        version: 1.1.23(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      electron:
+        specifier: ^37.2.0
+        version: 37.10.3(supports-color@8.1.1)
+      lucide-react:
+        specifier: ^0.525.0
+        version: 0.525.0(react@19.2.8)
+      react:
+        specifier: ^19.1.0
         version: 19.2.8
 
 packages:

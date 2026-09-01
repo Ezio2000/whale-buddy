@@ -2,6 +2,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, shell } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
+// Optional WeCom identity package: remove this import and the marked registration to detach it.
+import { registerWecomAuth } from '@whale-buddy/wecom-auth/main';
 import packageJson from '../../package.json';
 import protocolManifest from '../generated/protocol/manifest.json';
 import { currentPlatformStrategy } from '../platform';
@@ -27,6 +29,7 @@ const platform = currentPlatformStrategy();
 let mainWindow: BrowserWindow | null = null;
 let appServer: AppServerClient | null = null;
 let unregisterIpc: (() => void) | null = null;
+let unregisterWecomAuth: (() => void) | null = null;
 let shutdownStarted = false;
 
 if (squirrelStartup) app.quit();
@@ -97,6 +100,21 @@ async function createWindow(): Promise<void> {
   });
 
   installApplicationMenu(mainWindow, branding.name);
+
+  // Optional WeCom identity package: failures stay isolated from the Whale runtime.
+  unregisterWecomAuth?.();
+  unregisterWecomAuth = null;
+  try {
+    unregisterWecomAuth = registerWecomAuth({
+      parentWindow: mainWindow,
+      dataDirectory: data.uiStateRoot,
+    });
+  } catch (error) {
+    diagnosticLog.write(
+      'runtime',
+      `企业微信身份模块未启用：${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 
   try {
     const sidecar = resolveSidecarPath(projectRoot);
@@ -220,6 +238,8 @@ app.on('before-quit', (event) => {
   if (shutdownStarted) return;
   event.preventDefault();
   shutdownStarted = true;
+  unregisterWecomAuth?.();
+  unregisterWecomAuth = null;
   unregisterIpc?.();
   unregisterIpc = null;
   void (appServer?.stop() ?? Promise.resolve()).finally(() => {

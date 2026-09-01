@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
+// Optional WeCom identity package: remove this import and the marked call to detach it.
+import { exposeWecomAuthApi } from '@whale-buddy/wecom-auth/preload';
 import { currentSandboxPlatformStrategy } from '../platform/sandbox';
 import { IPC } from '../shared/ipc';
 import type { WhaleApi, WhaleEvent } from '../shared/types';
@@ -168,3 +170,6 @@ const api: WhaleApi = {
 
 // The exposed surface contains no generic IPC or process primitive.
 contextBridge.exposeInMainWorld('whale', Object.freeze(api));
+
+// Optional WeCom identity package.
+exposeWecomAuthApi();
