@@ -24,11 +24,7 @@ try {
     const previous = previousFiles[index];
     const generated = generatedFiles[index];
     if (previous !== generated) throw new Error(`协议文件集合发生变化：${previous} / ${generated}`);
-    if (
-      !readFileSync(path.join(backupRoot, previous)).equals(
-        readFileSync(path.join(generatedRoot, generated)),
-      )
-    ) {
+    if (!sameGeneratedFile(previous, backupRoot, generatedRoot)) {
       throw new Error(`协议文件发生漂移：${previous}`);
     }
   }
@@ -55,9 +51,37 @@ try {
 function directoryFiles(root, relative = '') {
   const files = [];
   for (const entry of readdirSync(path.join(root, relative), { withFileTypes: true })) {
-    const child = path.join(relative, entry.name);
+    // 统一使用 posix 分隔符，避免 Windows 上 `json\X.json` 与 `json/X.json` 视为不同路径。
+    const child = relative ? `${relative}/${entry.name}` : entry.name;
     if (entry.isDirectory()) files.push(...directoryFiles(root, child));
     else if (child !== 'manifest.json') files.push(child);
   }
   return files.sort();
+}
+
+// 协议产物对比需要跨平台归一化：JSON 按语义（键序无关）深度对比，
+// 其余文件（TypeScript 等）在换行符归一为 LF 后按字节对比。
+function sameGeneratedFile(relative, backupRoot, generatedRoot) {
+  const previous = readFileSync(path.join(backupRoot, relative));
+  const generated = readFileSync(path.join(generatedRoot, relative));
+  if (relative.endsWith('.json')) {
+    return jsonEquals(JSON.parse(previous.toString('utf8')), JSON.parse(generated.toString('utf8')));
+  }
+  return previous.toString('utf8').replace(/\r\n/g, '\n') ===
+    generated.toString('utf8').replace(/\r\n/g, '\n');
+}
+
+function jsonEquals(a, b) {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, index) => jsonEquals(item, b[index]));
+  }
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every(
+    (key) => Object.hasOwn(b, key) && jsonEquals(a[key], b[key]),
+  );
 }

@@ -36,6 +36,7 @@ test('packaged renderer has a narrow IPC surface and recovers its sidecar', asyn
     expect(boundary.processType).toBe('undefined');
     expect(boundary.apiKeys).toEqual([
       'approvals',
+      'auth',
       'config',
       'events',
       'files',
@@ -270,7 +271,7 @@ test('packaged renderer has a narrow IPC surface and recovers its sidecar', asyn
     expect(finalBackgroundLayout.sidebarTop).toBe(initialDialogLayout.sidebarTop);
     expect(finalBackgroundLayout.sidebarScrollTop).toBe(initialDialogLayout.sidebarScrollTop);
     expect(finalBackgroundLayout.documentScrollTop).toBe(0);
-    await page.getByRole('button', { name: '关闭' }).click();
+    await page.getByLabel('关闭', { exact: true }).click();
 
     const runtimeSettingsFile = await readFile(
       path.join(userData, 'ui-state', 'runtime-settings.json'),
@@ -329,8 +330,8 @@ test('fresh startup offers only Provider API Key onboarding', async () => {
     await expect(keyInput).toHaveAttribute('type', 'password');
     await keyInput.fill('fixture-provider-key-not-a-secret');
     await page.getByRole('button', { name: '保存并重连' }).click();
-    await expect(page.getByText('设置已生效，sidecar 已重启。')).toBeVisible();
-    await page.getByRole('button', { name: '关闭' }).click();
+    await expect(page.getByText('设置已生效，sidecar 已重启。').first()).toBeVisible();
+    await page.getByLabel('关闭', { exact: true }).click();
     await expect(page.getByText('打开第一个项目')).toBeVisible();
     const savedValues = await page.evaluate(() => Object.values(localStorage));
     expect(JSON.stringify(savedValues)).not.toContain('fixture-provider-key-not-a-secret');
@@ -417,7 +418,7 @@ test('long conversations stay inside the workspace while settings scroll indepen
     expect(afterScroll.dialogTop).toBe(beforeScroll.dialogTop);
     expect(afterScroll.headingTop).toBe(beforeScroll.headingTop);
 
-    await page.getByRole('button', { name: '关闭' }).click();
+    await page.getByLabel('关闭', { exact: true }).click();
     await page.locator('.thread-row', { hasText: '旧 Provider 会话' }).locator('.thread-main').click();
     await expect(page.getByText('查看旧 Provider 会话记录')).toBeVisible();
     await expect(page.getByText('来自旧 Provider 的持久化消息')).toBeVisible();

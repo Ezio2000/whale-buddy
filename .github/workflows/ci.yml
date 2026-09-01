@@ -2,6 +2,10 @@ name: CI
 
 on:
   push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "v*"
     paths-ignore:
       - README.md
       - docs/**
@@ -10,8 +14,20 @@ on:
       - README.md
       - docs/**
 
+# 同一分支连续 push 时取消尚未完成的旧 run，避免堆积。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
+
+env:
+  # 与 package.yml 保持同步：官方 sidecar release tag 与对应 commit。
+  # protocol:check / sidecar:check 依赖 src/generated/protocol/manifest.json
+  # 与此 commit 一致；升级时同步更新两处并重新生成协议文件。
+  CODEX_RELEASE_TAG: rust-v0.152.0
+  CODEX_RELEASE_COMMIT: 316795b3cf2a45e90d121d9f46499d4658b2645c
 
 jobs:
   verify:
@@ -20,11 +36,9 @@ jobs:
       matrix:
         os: [macos-14, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - uses: pnpm/action-setup@v4
         with:
@@ -35,18 +49,58 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.8.14"
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: codex-source/codex-rs
-
       - run: pnpm install --frozen-lockfile
-      - run: pnpm codex:build
+
+      - name: Download official Codex sidecar (macOS)
+        if: runner.os == 'macOS'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .sidecar/archive .sidecar/package
+          gh release download "$CODEX_RELEASE_TAG" \
+            --repo openai/codex \
+            --pattern codex-package-aarch64-apple-darwin.tar.gz \
+            --pattern codex-package_SHA256SUMS \
+            --dir .sidecar/archive
+          grep '  codex-package-aarch64-apple-darwin.tar.gz$' .sidecar/archive/codex-package_SHA256SUMS \
+            > .sidecar/archive/expected.sha256
+          (cd .sidecar/archive && shasum -a 256 -c expected.sha256)
+          tar -xzf .sidecar/archive/codex-package-aarch64-apple-darwin.tar.gz -C .sidecar/package
+          chmod +x .sidecar/package/bin/codex .sidecar/package/bin/codex-code-mode-host
+          echo "WHALE_CODEX_BIN=$GITHUB_WORKSPACE/.sidecar/package/bin/codex" >> "$GITHUB_ENV"
+          echo "WHALE_CODEX_REVISION=$CODEX_RELEASE_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Download official Codex sidecar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force .sidecar/archive, .sidecar/package | Out-Null
+          gh release download $env:CODEX_RELEASE_TAG `
+            --repo openai/codex `
+            --pattern codex-package-x86_64-pc-windows-msvc.tar.gz `
+            --pattern codex-package_SHA256SUMS `
+            --dir .sidecar/archive
+          $checksumLine = Get-Content .sidecar/archive/codex-package_SHA256SUMS |
+            Where-Object { $_.EndsWith("  codex-package-x86_64-pc-windows-msvc.tar.gz") } |
+            Select-Object -First 1
+          $checksumMatch = [regex]::Match($checksumLine, '^([0-9a-f]{64})  ')
+          if (-not $checksumMatch.Success) {
+            throw "Missing official checksum for codex-package-x86_64-pc-windows-msvc.tar.gz"
+          }
+          $expected = $checksumMatch.Groups[1].Value
+          $archive = Join-Path $env:GITHUB_WORKSPACE ".sidecar/archive/codex-package-x86_64-pc-windows-msvc.tar.gz"
+          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Codex package checksum mismatch: expected=$expected actual=$actual"
+          }
+          tar -xzf $archive -C .sidecar/package
+          "WHALE_CODEX_BIN=$env:GITHUB_WORKSPACE/.sidecar/package/bin/codex.exe" |
+            Out-File -FilePath $env:GITHUB_ENV -Append
+          "WHALE_CODEX_REVISION=$env:CODEX_RELEASE_COMMIT" |
+            Out-File -FilePath $env:GITHUB_ENV -Append
+
       - run: pnpm protocol:check
       - run: pnpm typecheck
       - run: pnpm platform:check
@@ -54,5 +108,4 @@ jobs:
       - run: pnpm test:e2e
       - run: pnpm test:package:windows-layout
       - run: pnpm test:smoke
-      - run: pnpm build
       - run: pnpm make
