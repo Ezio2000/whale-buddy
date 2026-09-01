@@ -300,7 +300,10 @@ describe('PluginMarketplaceDialog', () => {
     const input = await screen.findByLabelText('AIHub Token 凭据');
     expect(screen.getByText('缺少凭据')).toBeInTheDocument();
     fireEvent.change(input, { target: { value: 'fixture-secret' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    // React 状态提交与点击之间存在竞态（慢环境必现），先确认按钮已随输入解除禁用。
+    const saveButton = screen.getByRole('button', { name: '保存' });
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
 
     await waitFor(() => expect(window.whale.plugins.configureCredential).toHaveBeenCalledWith({
       pluginId: 'fixture-plugin',

@@ -1,6 +1,7 @@
 import { stat, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RuntimeSettingsStore } from '../../src/main/runtime-settings';
 import { currentPlatformStrategy } from '../../src/platform';
@@ -292,7 +293,7 @@ describe('RuntimeSettingsStore', () => {
 
     const branding = store.configureBranding({ name: '研发助手', iconPath });
     expect(branding).toMatchObject({ name: '研发助手', iconPath });
-    expect(branding.iconUrl).toBe(new URL(`file://${iconPath}`).href);
+    expect(branding.iconUrl).toBe(pathToFileURL(iconPath).href);
     expect(JSON.parse(await readFile(store.filePath, 'utf8'))).toMatchObject({
       version: 5,
       brand: { name: '研发助手', iconPath },
