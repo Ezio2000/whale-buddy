@@ -22,6 +22,8 @@ export const artifactCreateSchema = z.object({
   dataBase64: z.string().min(1).max(70_000_000),
   threadId: idSchema,
   taskId: idSchema,
+  pluginId: idSchema.nullable().optional(),
+  turnId: idSchema.nullable().optional(),
 }).strict();
 export const artifactIdSchema = z.object({ id: idSchema }).strict();
 export const artifactListSchema = z.object({ threadId: idSchema.optional() }).strict();

@@ -33,6 +33,7 @@ import type {
 
 interface ItemCardProps {
   item: ItemView;
+  turnId?: string | null;
   showAssistantAvatar?: boolean;
   approvals: PendingApproval[];
   onRespondApproval: (approval: PendingApproval, response: unknown) => void;
@@ -40,6 +41,7 @@ interface ItemCardProps {
 
 export function ItemCard({
   item,
+  turnId = null,
   showAssistantAvatar = true,
   approvals,
   onRespondApproval,
@@ -53,6 +55,7 @@ export function ItemCard({
       <PluginMessageItem
         item={item}
         threadId={threadId}
+        turnId={turnId}
         descriptor={customMessage.descriptor}
         contribution={customMessage.contribution}
       />
@@ -121,11 +124,13 @@ export function ItemCard({
 function PluginMessageItem({
   item,
   threadId,
+  turnId,
   descriptor,
   contribution,
 }: {
   item: ItemView;
   threadId: string;
+  turnId: string | null;
   descriptor: PluginDescriptor;
   contribution: Extract<PluginUiContribution, { type: 'card' }>;
 }) {
@@ -145,6 +150,7 @@ function PluginMessageItem({
           descriptor={descriptor}
           contribution={contribution}
           threadId={threadId}
+          turnId={turnId}
           message={pluginMessageContext(item, status)}
           {...(item.type === 'mcpToolCall' ? { toolCall: pluginToolContext(item, status) } : {})}
           className="plugin-message-frame"

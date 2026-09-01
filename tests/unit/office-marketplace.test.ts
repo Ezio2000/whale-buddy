@@ -43,4 +43,13 @@ describe('bundled office marketplace', () => {
     expect(properties.slides.items.required).toEqual(['title']);
     expect(Object.keys(properties.slides.items.properties)).toEqual(['title', 'body', 'bullets', 'notes']);
   });
+
+  it('contributes an office artifact panel to turn details', async () => {
+    const plugin = JSON.parse(
+      await readFile(path.resolve('marketplaces/office/plugins/whale-office-assistant/.codex-plugin/plugin.json'), 'utf8'),
+    ) as { whale: { uiContributions: Array<Record<string, unknown>> } };
+    expect(plugin.whale.uiContributions).toContainEqual(expect.objectContaining({
+      id: 'office-changes', type: 'panel', placement: 'turnDetails', title: '办公成果',
+    }));
+  });
 });

@@ -205,6 +205,10 @@ function parseUiContributions(
     const order = boundedOrder(item?.order);
     if (type === 'widget' && placement === 'composer') {
       result.push({ id, type, placement, entryUrl, order });
+    } else if (type === 'panel' && placement === 'turnDetails') {
+      const title = boundedString(item?.title, 128);
+      if (!title) continue;
+      result.push({ id, type, placement, entryUrl, title, order });
     } else if (type === 'page' && placement === 'navigation') {
       const title = boundedString(item?.title, 128);
       if (!title) continue;

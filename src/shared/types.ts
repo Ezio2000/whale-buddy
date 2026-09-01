@@ -263,6 +263,8 @@ export interface ArtifactCreateInput {
   dataBase64: string;
   threadId: string;
   taskId: string;
+  pluginId?: string | null;
+  turnId?: string | null;
 }
 
 export interface ArtifactRecord {
@@ -275,6 +277,8 @@ export interface ArtifactRecord {
   sha256: string;
   threadId: string;
   taskId: string;
+  pluginId: string | null;
+  turnId: string | null;
   createdAt: number;
 }
 

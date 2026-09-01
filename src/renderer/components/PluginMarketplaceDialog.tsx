@@ -1225,6 +1225,7 @@ function pluginUiContributionLabel(contribution: PluginUiContribution): string {
   switch (contribution.type) {
     case 'widget': return '提问框组件';
     case 'page': return `导航页面 · ${contribution.title}`;
+    case 'panel': return `详情面板 · ${contribution.title}`;
     case 'action': return `${contribution.placement === 'commandPalette' ? '命令' : contribution.placement === 'threadToolbar' ? '线程' : '输入区'}操作 · ${contribution.title}`;
     case 'card': return `消息卡片 · ${contribution.title}`;
   }
@@ -1234,6 +1235,7 @@ function pluginUiContributionLocation(contribution: PluginUiContribution): strin
   switch (contribution.type) {
     case 'widget': return '显示在消息输入区';
     case 'page': return '显示在左侧插件导航';
+    case 'panel': return '显示在对话详情面板';
     case 'action': return contribution.placement === 'commandPalette' ? '显示在命令面板' : contribution.placement === 'threadToolbar' ? '显示在线程工具栏' : '显示在消息输入区工具栏';
     case 'card': return '替换匹配的会话消息展示';
   }

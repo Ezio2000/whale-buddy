@@ -52,6 +52,11 @@ export type PluginUiContribution =
       placement: 'composer';
     }
   | PluginUiBase & {
+      type: 'panel';
+      placement: 'turnDetails';
+      title: string;
+    }
+  | PluginUiBase & {
       type: 'card';
       placement: 'message';
       title: string;
@@ -146,6 +151,7 @@ export interface PluginFrameContext {
   locale: string;
   theme: 'light' | 'dark';
   threadId: string | null;
+  turnId: string | null;
   project: PluginProjectContext | null;
   thread: PluginThreadContext | null;
   credentials: PluginCredentialValue[];
@@ -170,6 +176,7 @@ export type PluginHostEvent =
       threadId: string;
       value: PluginComposerContextValue | null;
     }
+  | { type: 'artifacts.changed'; pluginId: string; threadId: string; turnId: string | null }
   | {
       type: 'tool.completed';
       pluginId: string;

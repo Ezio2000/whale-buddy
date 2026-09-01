@@ -1997,6 +1997,16 @@ pre {
   overflow: auto;
 }
 
+.plugin-turn-details-body {
+  display: flex;
+  overflow: hidden;
+}
+
+.plugin-turn-details-frame {
+  height: 100%;
+  flex: 1;
+}
+
 .diff-toolbar {
   position: sticky;
   top: 0;

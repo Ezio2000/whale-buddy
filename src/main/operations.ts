@@ -40,6 +40,7 @@ export class OperationStore {
     action: string;
     resource?: JsonObject;
     threadId?: string | null;
+    turnId?: string | null;
   }): string {
     const operationId = randomUUID();
     const now = Date.now();
@@ -49,7 +50,7 @@ export class OperationStore {
       action: input.action,
       resource: structuredClone(input.resource ?? {}),
       threadId: input.threadId ?? null,
-      turnId: null,
+      turnId: input.turnId ?? null,
       createdAt: now,
       updatedAt: now,
       decisions: [],
@@ -67,6 +68,7 @@ export class OperationStore {
     outcome: AuditEvent['outcome'];
     reason?: string | null;
     threadId?: string | null;
+    turnId?: string | null;
   }): string {
     const operationId = this.start(input);
     const record = this.state.operations[operationId];

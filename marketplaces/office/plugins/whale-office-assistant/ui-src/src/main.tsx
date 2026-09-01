@@ -5,7 +5,7 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as XLSX from 'xlsx';
 import {
-  createArtifact, getState, openArtifact, pickAttachments, readAttachment, setState as persistState,
+  createArtifact, getState, listArtifacts, openArtifact, pickAttachments, readAttachment, setState as persistState,
   saveArtifactAs, startTask, usePluginContext, usePluginEvents,
   type JsonValue,
 } from '@whale-buddy/plugin-sdk/ui';
@@ -44,7 +44,36 @@ function App() {
   const context = usePluginContext();
   if (!context) return null;
   if (context.surface.kind === 'ui' && context.surface.contributionType === 'card') return <ResultCard threadId={context.threadId} />;
+  if (context.surface.kind === 'ui' && context.surface.contributionType === 'panel') return <OfficeChangesPanel />;
   return <TaskPage />;
+}
+
+function OfficeChangesPanel() {
+  const context = usePluginContext();
+  const [artifacts, setArtifacts] = useState<HostArtifact[]>([]);
+  const [message, setMessage] = useState('');
+  const load = async () => {
+    if (!context?.threadId || !context.turnId) return setArtifacts([]);
+    try {
+      const records = await listArtifacts(context.threadId);
+      setArtifacts(records.filter((artifact) => artifact.pluginId === context.pluginId && artifact.turnId === context.turnId));
+      setMessage('');
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+  };
+  useEffect(() => { void load(); }, [context?.pluginId, context?.threadId, context?.turnId]);
+  usePluginEvents((event) => {
+    if (event.type === 'artifacts.changed' && event.pluginId === context?.pluginId
+      && event.threadId === context?.threadId && event.turnId === context?.turnId) void load();
+  });
+  return <main className="office-changes">
+    <header><h1>本轮办公成果</h1><p>来源：Whale 办公助手</p></header>
+    {artifacts.length ? <div className="office-change-list">{artifacts.map((artifact) => <article className="office-change" key={artifact.id}>
+      <span className={`office-format ${artifact.format}`}>{artifact.format.toUpperCase()}</span>
+      <div><strong>{artifact.name}</strong><small>{formatBytes(artifact.size)} · {new Date(artifact.createdAt).toLocaleString()}</small><code title={artifact.sha256}>{artifact.sha256.slice(0, 16)}…</code></div>
+      <div className="office-change-actions"><button className="secondary" onClick={() => void openArtifact(artifact.id)}>打开</button><button className="secondary" onClick={() => void saveArtifactAs(artifact.id)}>另存为</button></div>
+    </article>)}</div> : <div className="office-change-empty"><strong>本轮尚未生成办公成果</strong><span>在成果预览中点击“确认并生成”后会显示在这里。</span></div>}
+    {message && <p className="message">{message}</p>}
+  </main>;
 }
 
 function TaskPage() {
@@ -190,6 +219,11 @@ function SpreadsheetPreview({ draft }: { draft: OfficeDraft }) {
 }
 
 function formatCell(value: unknown) { return value === null || value === undefined ? '' : String(value); }
+function formatBytes(bytes: number) {
+  if (bytes < 1_024) return `${bytes} B`;
+  if (bytes < 1_048_576) return `${(bytes / 1_024).toFixed(1)} KB`;
+  return `${(bytes / 1_048_576).toFixed(1)} MB`;
+}
 
 async function renderArtifact(draft: OfficeDraft): Promise<string> {
   if (draft.format === 'html') return toBase64(new TextEncoder().encode(renderHtmlDocument(draft.title, draft.content)));

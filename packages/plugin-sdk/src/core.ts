@@ -7,7 +7,7 @@ export interface HostAttachment {
 }
 export interface HostArtifact {
   id: string; name: string; path: string; format: 'html' | 'docx' | 'xlsx' | 'pptx'; mimeType: string;
-  size: number; sha256: string; threadId: string; taskId: string; createdAt: number;
+  size: number; sha256: string; threadId: string; taskId: string; pluginId: string | null; turnId: string | null; createdAt: number;
 }
 
 export interface ToolCallContext {
@@ -22,11 +22,11 @@ export interface PluginCredential {
   mcpServers: string[]; value: string | null;
 }
 export type PluginSurface =
-  | { kind: 'ui'; contributionId: string; contributionType: 'page' | 'action' | 'widget' | 'card'; placement: 'navigation' | 'commandPalette' | 'threadToolbar' | 'composerToolbar' | 'composer' | 'message' }
+  | { kind: 'ui'; contributionId: string; contributionType: 'page' | 'action' | 'widget' | 'card' | 'panel'; placement: 'navigation' | 'commandPalette' | 'threadToolbar' | 'composerToolbar' | 'composer' | 'message' | 'turnDetails' }
   | { kind: 'runtime' };
 export interface PluginContext {
   apiVersion: 2; pluginId: string; pluginName: string; surface: PluginSurface;
-  locale: string; theme: 'light' | 'dark'; threadId: string | null;
+  locale: string; theme: 'light' | 'dark'; threadId: string | null; turnId: string | null;
   project: { id: string; name: string; path: string } | null;
   thread: { id: string; name: string; cwd: string } | null;
   credentials: PluginCredential[]; toolCall?: ToolCallContext; message?: MessageContext;

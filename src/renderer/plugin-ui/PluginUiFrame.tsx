@@ -18,6 +18,7 @@ interface PluginUiFrameProps {
   descriptor: PluginDescriptor;
   contribution: PluginUiContribution;
   threadId: string | null;
+  turnId?: string | null;
   toolCall?: PluginToolCardContext;
   message?: PluginMessageContext;
   className?: string;
@@ -25,15 +26,15 @@ interface PluginUiFrameProps {
 }
 
 export function PluginUiFrame(props: PluginUiFrameProps) {
-  const { descriptor, contribution, threadId, toolCall, message, className, fallback = null } = props;
+  const { descriptor, contribution, threadId, turnId = null, toolCall, message, className, fallback = null } = props;
   const surface = useMemo<PluginFrameSurface>(() => ({
     kind: 'ui', contributionId: contribution.id,
     contributionType: contribution.type, placement: contribution.placement,
   }), [contribution.id, contribution.placement, contribution.type]);
-  const isFullSurface = contribution.type === 'page' || contribution.type === 'action';
+  const isFullSurface = contribution.type === 'page' || contribution.type === 'action' || contribution.type === 'panel';
   const [height, setHeight] = useState(contribution.type === 'widget' ? 26 : 120);
   const [width, setWidth] = useState(contribution.type === 'widget' ? 26 : 0);
-  const frame = usePluginFrame(descriptor, contribution.entryUrl, surface, threadId, toolCall, message);
+  const frame = usePluginFrame(descriptor, contribution.entryUrl, surface, threadId, turnId, toolCall, message);
 
   useEffect(() => frame.setResizeHandler((requestedHeight, requestedWidth) => {
     if (isFullSurface) return;
@@ -59,7 +60,7 @@ export function PluginRuntimeFrame({ descriptor }: { descriptor: PluginDescripto
   const runtime = descriptor.webMcp;
   const threadId = useAppStore((state) => state.selectedThreadId);
   const surface = useMemo<PluginFrameSurface>(() => ({ kind: 'runtime' }), []);
-  const frame = usePluginFrame(descriptor, runtime?.entryUrl ?? '', surface, threadId);
+  const frame = usePluginFrame(descriptor, runtime?.entryUrl ?? '', surface, threadId, null);
   if (!runtime) return null;
   return <iframe
     ref={frame.iframeRef}
@@ -76,6 +77,7 @@ function usePluginFrame(
   entryUrl: string,
   surface: PluginFrameSurface,
   threadId: string | null,
+  turnId: string | null,
   toolCall?: PluginToolCardContext,
   message?: PluginMessageContext,
 ) {
@@ -93,11 +95,11 @@ function usePluginFrame(
 
   const context = useCallback((): PluginFrameContext => ({
     apiVersion: 2, pluginId: descriptor.pluginId, pluginName: descriptor.pluginName, surface,
-    locale: document.documentElement.lang || 'zh-CN', theme, threadId,
+    locale: document.documentElement.lang || 'zh-CN', theme, threadId, turnId,
     project: selectedProject ? { id: selectedProject.id, name: selectedProject.name, path: selectedProject.path } : null,
     thread: selectedThread ? { id: selectedThread.id, name: selectedThread.name || selectedThread.preview || '未命名线程', cwd: selectedThread.cwd } : null,
     credentials: descriptor.credentials, ...(toolCall ? { toolCall } : {}), ...(message ? { message } : {}),
-  }), [descriptor.credentials, descriptor.pluginId, descriptor.pluginName, message, selectedProject, selectedThread, surface, theme, threadId, toolCall]);
+  }), [descriptor.credentials, descriptor.pluginId, descriptor.pluginName, message, selectedProject, selectedThread, surface, theme, threadId, toolCall, turnId]);
   const post = useCallback((data: Record<string, unknown>) => iframeRef.current?.contentWindow?.postMessage({ channel: WHALE_PLUGIN_MESSAGE_CHANNEL, nonce, ...data }, '*'), [nonce]);
   const sendContext = useCallback((type: 'host:init' | 'host:context') => post({ type, context: context() }), [context, post]);
   const initialize = useCallback(() => sendContext('host:init'), [sendContext]);
@@ -154,13 +156,13 @@ function usePluginFrame(
         ? executions.current.get(executionId) ?? null
         : null;
       const effectiveThreadId = surface.kind === 'runtime' ? execution?.threadId ?? null : threadId;
-      void handleRequest(host, descriptor, surface, effectiveThreadId, method, packet.payload, execution?.toolId ?? null, selectedProject?.id ?? null)
+      void handleRequest(host, descriptor, surface, effectiveThreadId, turnId, method, packet.payload, execution?.toolId ?? null, selectedProject?.id ?? null)
         .then((result) => post({ type: 'host:response', requestId, ok: true, result }))
         .catch((error) => post({ type: 'host:response', requestId, ok: false, error: error instanceof Error ? error.message : String(error) }));
     };
     window.addEventListener('message', listener);
     return () => window.removeEventListener('message', listener);
-  }, [descriptor, host, nonce, post, selectedProject?.id, surface, threadId]);
+  }, [descriptor, host, nonce, post, selectedProject?.id, surface, threadId, turnId]);
 
   useEffect(() => {
     if (surface.kind !== 'runtime' || !ready) return;
@@ -193,7 +195,7 @@ function usePluginFrame(
 
 async function handleRequest(
   host: ReturnType<typeof usePluginHost>, descriptor: PluginDescriptor, surface: PluginFrameSurface,
-  threadId: string | null, method: string, raw: unknown, executionToolId: string | null,
+  threadId: string | null, turnId: string | null, method: string, raw: unknown, executionToolId: string | null,
   projectId: string | null,
 ): Promise<JsonValue> {
   const payload = asRecord(raw) ?? {};
@@ -275,11 +277,16 @@ async function handleRequest(
       dataBase64: requiredString(payload.dataBase64, 70_000_000),
       threadId: requiredString(payload.threadId),
       taskId: requiredString(payload.taskId),
+      pluginId: descriptor.pluginId,
+      turnId,
     };
-    return toJsonValue(await window.whale.artifacts.create(input)) ?? null;
+    const artifact = await window.whale.artifacts.create(input);
+    host.notifyArtifactsChanged(descriptor.pluginId, artifact.threadId, artifact.turnId);
+    return toJsonValue(artifact) ?? null;
   }
   if (method === 'artifacts.list') {
-    return toJsonValue(await window.whale.artifacts.list(typeof payload.threadId === 'string' ? payload.threadId : undefined)) ?? [];
+    const artifacts = await window.whale.artifacts.list(typeof payload.threadId === 'string' ? payload.threadId : undefined);
+    return toJsonValue(artifacts.filter((artifact) => artifact.pluginId === descriptor.pluginId)) ?? [];
   }
   if (method === 'artifacts.open') { await window.whale.artifacts.open(requiredString(payload.id)); return null; }
   if (method === 'artifacts.saveAs') return window.whale.artifacts.saveAs(requiredString(payload.id));

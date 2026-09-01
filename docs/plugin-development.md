@@ -194,6 +194,7 @@ kebab-case；发布后不要随意更名，因为权限主体和输入上下文�
 | `action` | `composerToolbar` | `id`、`entry`、`title` | 输入区工具栏动作界面 |
 | `widget` | `composer` | `id`、`entry` | 输入区常驻或弹出式组件 |
 | `card` | `message` | `id`、`entry`、`title`、`match` | 线程消息中的自定义卡片 |
+| `panel` | `turnDetails` | `id`、`entry`、`title` | 属于当前插件和对话轮次的详情页签 |
 
 通用限制：
 
@@ -359,9 +360,14 @@ createRoot(document.getElementById('root')!).render(<App />);
 `PluginContext` 包含：
 
 ```text
-apiVersion, pluginId, pluginName, surface, locale, theme, threadId,
+apiVersion, pluginId, pluginName, surface, locale, theme, threadId, turnId,
 project, thread, credentials, toolCall?, message?
 ```
+
+`panel/turnDetails` 只在当前轮次包含该插件的消息项或 WebMCP 工具调用时出现，并通过
+`turnId` 获得当前详情轮次。插件创建成果时，宿主会自动写入真实 `pluginId` 和 `turnId`；
+插件不能通过请求参数冒充其他插件或轮次。`artifacts.changed` 事件用于让同插件的详情
+frame 在成果生成后立即刷新。
 
 同一份入口可以同时承载 runtime 与多个 UI Contribution：先注册 runtime，再根据
 `context.surface` 分支渲染。runtime surface 必须返回 `null`，不要展示界面。

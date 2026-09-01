@@ -30,6 +30,8 @@ describe('artifact store', () => {
       mimeType: 'text/html',
       size: bytes.length,
       threadId: 'thread-1',
+      pluginId: null,
+      turnId: null,
     });
     expect(await readFile(created.path)).toEqual(bytes);
     expect(new ArtifactStore(root).list('thread-1')).toEqual([created]);
@@ -49,8 +51,10 @@ describe('artifact store', () => {
     const bytes = Buffer.from('pptx-bytes');
     const created = new ArtifactStore(root).create({
       name: '季度复盘', format: 'pptx', dataBase64: bytes.toString('base64'), threadId: 'thread-2', taskId: 'task-2',
+      pluginId: 'whale-office-assistant', turnId: 'turn-2',
     });
     expect(created.name).toBe('季度复盘.pptx');
     expect(created.mimeType).toBe('application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    expect(created).toMatchObject({ pluginId: 'whale-office-assistant', turnId: 'turn-2' });
   });
 });

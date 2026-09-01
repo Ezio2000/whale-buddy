@@ -18,6 +18,7 @@
     "uiContributions": [
       { "id": "office-home", "type": "page", "placement": "navigation", "entry": "./ui/index.html", "title": "办公任务", "order": 20 },
       { "id": "office-command", "type": "action", "placement": "commandPalette", "entry": "./ui/index.html", "title": "新建办公任务", "description": "总结、起草、整理或生成办公成果。", "keywords": ["办公", "Word", "Excel", "总结"], "order": 20 },
+      { "id": "office-changes", "type": "panel", "placement": "turnDetails", "entry": "./ui/index.html", "title": "办公成果", "order": 25 },
       { "id": "office-result", "type": "card", "placement": "message", "entry": "./ui/index.html", "title": "办公成果预览", "match": { "itemTypes": ["dynamicToolCall"] }, "order": 20 }
     ],
     "webMcp": {

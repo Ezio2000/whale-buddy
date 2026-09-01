@@ -237,7 +237,8 @@ Whale 保存账户会话并更新侧边栏。当前源码中的固定 Issuer 是
   iframe 都能读取完整值。相关插件和 MCP 启用时，Whale 会向 sidecar 注入声明的环境变量；
   缺少必填凭据时插件不能启用。同一商城内使用相同 `key` 的插件共享一份凭据。
 - Whale 插件协议固定为 `whale.apiVersion: 2`，不读取 v1。`uiContributions` 只描述
-  `page`、`action`、`widget`、`card` 四类界面和它们的 placement；`webMcp` 声明工具、
+  `page`、`action`、`widget`、`card`、`panel` 五类界面和它们的 placement；`panel/turnDetails`
+  可以为插件相关轮次扩展详情页签；`webMcp` 声明工具、
   JSON Schema、作用域和注解。每个启用插件只有一个持久 runtime iframe，UI 通过工具调用
   它，Host Services 统一处理生命周期、凭据、MCP 权限、global/project/thread 状态、
   输入上下文和事件。

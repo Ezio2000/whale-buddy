@@ -28,6 +28,7 @@ interface PluginHostContextValue {
   callMcp(input: Parameters<typeof window.whale.plugins.callMcp>[0]): Promise<JsonValue>;
   invokeTool(pluginId: string, toolId: string, input: JsonValue, threadId?: string | null): Promise<JsonValue>;
   startTask(input: { pluginId: string; contributionId: string; toolName: string; title: string; prompt: string; attachments: LocalAttachment[]; context: JsonValue }): Promise<{ threadId: string }>;
+  notifyArtifactsChanged(pluginId: string, threadId: string, turnId: string | null): void;
   registerRuntime(pluginId: string, invoke: RuntimeInvoker): () => void;
   subscribe(listener: HostEventListener): () => void;
   reload(): Promise<void>;
@@ -42,6 +43,7 @@ const EMPTY_HOST: PluginHostContextValue = {
   callMcp: () => Promise.reject(new Error('PluginHostProvider 尚未挂载')),
   invokeTool: () => Promise.reject(new Error('PluginHostProvider 尚未挂载')),
   startTask: () => Promise.reject(new Error('PluginHostProvider 尚未挂载')),
+  notifyArtifactsChanged: () => undefined,
   registerRuntime: () => () => undefined, subscribe: () => () => undefined,
   reload: async () => undefined,
 };
@@ -226,8 +228,9 @@ export function PluginHostProvider({ children }: { children: React.ReactNode }) 
     descriptors, composerContexts, activeNavigation, activeAction, selectNavigation,
     openAction: setActiveAction, closeAction: () => setActiveAction(null), setComposerContext,
     getState, setState, callMcp: (input) => window.whale.plugins.callMcp(input), invokeTool, startTask,
+    notifyArtifactsChanged: (pluginId, threadId, turnId) => emit({ type: 'artifacts.changed', pluginId, threadId, turnId }),
     registerRuntime, subscribe: (listener) => { listeners.current.add(listener); return () => listeners.current.delete(listener); }, reload,
-  }), [activeAction, activeNavigation, composerContexts, descriptors, getState, invokeTool, registerRuntime, reload, setComposerContext, setState, startTask]);
+  }), [activeAction, activeNavigation, composerContexts, descriptors, emit, getState, invokeTool, registerRuntime, reload, setComposerContext, setState, startTask]);
 
   return <PluginHostContext.Provider value={value}>{children}<div hidden aria-hidden="true">
     {descriptors.filter((entry) => entry.webMcp).map((descriptor) => <PluginRuntimeFrame key={descriptor.pluginId} descriptor={descriptor} />)}

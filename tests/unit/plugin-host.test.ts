@@ -27,6 +27,7 @@ describe('plugin host v2 manifest', () => {
           { id: 'widget', type: 'widget', placement: 'composer', entry: './ui/index.html', order: 7 },
           { id: 'page', type: 'page', placement: 'navigation', entry: './ui/index.html', title: 'Fixture' },
           { id: 'action', type: 'action', placement: 'commandPalette', entry: './ui/index.html', title: 'Run', keywords: ['fixture'] },
+          { id: 'details', type: 'panel', placement: 'turnDetails', entry: './ui/index.html', title: 'Fixture Changes' },
           { id: 'card', type: 'card', placement: 'message', entry: './ui/index.html', title: 'Result', match: { itemTypes: ['mcpToolCall'], server: 'fixture-mcp', tools: ['inspect'] } },
         ],
         webMcp: {
@@ -45,7 +46,8 @@ describe('plugin host v2 manifest', () => {
     });
     const descriptor = readPluginDescriptor(pluginResponse(root));
     expect(descriptor?.apiVersion).toBe(2);
-    expect(descriptor?.uiContributions).toHaveLength(4);
+    expect(descriptor?.uiContributions).toHaveLength(5);
+    expect(descriptor?.uiContributions[3]).toMatchObject({ type: 'panel', placement: 'turnDetails', title: 'Fixture Changes' });
     expect(descriptor?.uiContributions[0].entryUrl).toBe('whale-plugin://plugin/fixture-plugin/ui/index.html');
     expect(descriptor?.webMcp?.tools[0]).toMatchObject({ id: 'list', name: 'fixture_list', scope: 'project' });
     expect(descriptor?.mcpPermissions).toEqual([

@@ -6,6 +6,7 @@ import { Composer } from '../../src/renderer/components/Composer';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette';
 import { Sidebar } from '../../src/renderer/components/Sidebar';
 import { Workspace } from '../../src/renderer/components/Workspace';
+import { DiffPanel } from '../../src/renderer/components/DiffPanel';
 import { contextKey, PluginHostProvider, usePluginHost } from '../../src/renderer/plugin-ui/PluginHostProvider';
 import { PluginUiFrame } from '../../src/renderer/plugin-ui/PluginUiFrame';
 import { PluginActionDialog, PluginNavigationPage } from '../../src/renderer/plugin-ui/PluginUiSurfaces';
@@ -25,6 +26,7 @@ const descriptor: PluginDescriptor = {
     { id: 'fixture-command', type: 'action', placement: 'commandPalette', entryUrl, title: 'Fixture Command', description: 'Open fixture command', keywords: ['fixture'], order: 10 },
     { id: 'fixture-thread-action', type: 'action', placement: 'threadToolbar', entryUrl, title: 'Fixture Thread', description: '', keywords: [], order: 10 },
     { id: 'fixture-composer-action', type: 'action', placement: 'composerToolbar', entryUrl, title: 'Fixture Composer', description: '', keywords: [], order: 10 },
+    { id: 'fixture-details', type: 'panel', placement: 'turnDetails', entryUrl, title: 'Fixture Changes', order: 10 },
     { id: 'fixture-card', type: 'card', placement: 'message', entryUrl, title: 'Fixture Result', itemTypes: ['mcpToolCall'], server: 'fixture-mcp', tools: ['render_fixture'], order: 10 },
   ],
   webMcp: {
@@ -51,6 +53,14 @@ beforeEach(() => {
     skills: { ...(originalWhale?.skills ?? {}), list: vi.fn().mockResolvedValue({ data: [] }) },
     mcp: { ...(originalWhale?.mcp ?? {}), list: vi.fn().mockResolvedValue({ data: [], nextCursor: null }) },
     approvals: { respond: vi.fn().mockResolvedValue(undefined) },
+    artifacts: {
+      create: vi.fn().mockImplementation(async (input) => ({
+        id: 'artifact-1', name: input.name, path: `/artifacts/${input.name}`, format: input.format,
+        mimeType: 'application/octet-stream', size: 3, sha256: 'a'.repeat(64), threadId: input.threadId,
+        taskId: input.taskId, pluginId: input.pluginId ?? null, turnId: input.turnId ?? null, createdAt: 1,
+      })),
+      list: vi.fn().mockResolvedValue([]), open: vi.fn().mockResolvedValue(undefined), saveAs: vi.fn().mockResolvedValue(null),
+    },
     events: { subscribe: vi.fn((listener: (event: WhaleEvent) => void) => { eventListeners.push(listener); return () => undefined; }) },
   } as unknown as WhaleApi });
   useAppStore.setState({
@@ -124,12 +134,57 @@ describe('plugin host UI surfaces', () => {
     render(<PluginHostProvider><ItemCard item={{
       id: 'message-1', type: 'mcpToolCall', pluginId: 'fixture-plugin', server: 'fixture-mcp',
       tool: 'render_fixture', status: 'completed', result: { answer: 42 },
-    }} approvals={[]} onRespondApproval={() => undefined} /></PluginHostProvider>);
+    }} turnId="turn-1" approvals={[]} onRespondApproval={() => undefined} /></PluginHostProvider>);
     const frame = await screen.findByTitle<HTMLIFrameElement>('Fixture Plugin · fixture-card');
     expect(screen.getByText('Fixture Result')).toBeInTheDocument();
     const postMessage = vi.spyOn(frame.contentWindow!, 'postMessage');
     fireEvent.load(frame);
-    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ context: expect.objectContaining({ message: expect.objectContaining({ itemId: 'message-1' }) }) }), '*');
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ context: expect.objectContaining({ turnId: 'turn-1', message: expect.objectContaining({ itemId: 'message-1' }) }) }), '*');
+  });
+
+  it('mounts plugin turn-details contributions with the selected turn context', async () => {
+    render(<PluginHostProvider><DiffPanel turns={[{
+      id: 'turn-1', status: 'completed', error: null, startedAt: 1, completedAt: 2, durationMs: 1_000,
+      itemOrder: ['office-item'], items: { 'office-item': { id: 'office-item', type: 'dynamicToolCall', pluginId: 'fixture-plugin' } },
+      diff: '', fileChanges: [], plan: [], planExplanation: null,
+    }]} /></PluginHostProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Fixture Changes' }));
+    const frame = await screen.findByTitle<HTMLIFrameElement>('Fixture Plugin · fixture-details');
+    const postMessage = vi.spyOn(frame.contentWindow!, 'postMessage');
+    fireEvent.load(frame);
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'host:init', context: expect.objectContaining({
+        threadId: 'thread-1', turnId: 'turn-1',
+        surface: { kind: 'ui', contributionId: 'fixture-details', contributionType: 'panel', placement: 'turnDetails' },
+      }),
+    }), '*');
+  });
+
+  it('attributes artifacts to the owning plugin and active turn at the host boundary', async () => {
+    render(<PluginHostProvider><PluginUiFrame
+      descriptor={descriptor}
+      contribution={descriptor.uiContributions[0]!}
+      threadId="thread-1"
+      turnId="turn-1"
+    /></PluginHostProvider>);
+    const frame = await screen.findByTitle<HTMLIFrameElement>('Fixture Plugin · fixture-widget');
+    const postMessage = vi.spyOn(frame.contentWindow!, 'postMessage');
+    fireEvent.load(frame);
+    const init = postMessage.mock.calls.find(([message]) => (message as { type?: string }).type === 'host:init')?.[0] as { nonce: string };
+    fireEvent(window, new MessageEvent('message', {
+      source: frame.contentWindow,
+      data: {
+        channel: 'whale-plugin-v2', nonce: init.nonce, type: 'plugin:request', requestId: 'artifact-request',
+        method: 'artifacts.create', payload: {
+          name: 'fixture.pptx', format: 'pptx', dataBase64: 'YWJj', threadId: 'thread-1', taskId: 'task-1',
+          pluginId: 'spoofed-plugin', turnId: 'spoofed-turn',
+        },
+      },
+    }));
+    await waitFor(() => expect(window.whale.artifacts.create).toHaveBeenCalledWith(expect.objectContaining({
+      pluginId: 'fixture-plugin', turnId: 'turn-1',
+    })));
+    expect(window.whale.artifacts.create).not.toHaveBeenCalledWith(expect.objectContaining({ pluginId: 'spoofed-plugin' }));
   });
 
   it('infers a WebMCP plugin for dynamic tool results without a plugin id', async () => {

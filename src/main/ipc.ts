@@ -1199,8 +1199,11 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     const artifact = artifacts.create(input);
     operations.record({
       identity: await auth.identityContext(), action: 'artifact.generate',
-      resource: { artifactId: artifact.id, name: artifact.name, format: artifact.format, sha256: artifact.sha256 },
-      threadId: artifact.threadId, outcome: 'succeeded',
+      resource: {
+        artifactId: artifact.id, name: artifact.name, format: artifact.format, sha256: artifact.sha256,
+        pluginId: artifact.pluginId, turnId: artifact.turnId,
+      },
+      threadId: artifact.threadId, turnId: artifact.turnId, outcome: 'succeeded',
     });
     return artifact;
   });

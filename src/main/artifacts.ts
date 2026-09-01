@@ -30,6 +30,7 @@ export class ArtifactStore {
       id, name, path: filePath, format: input.format, mimeType: mimeFor(input.format),
       size: data.length, sha256: createHash('sha256').update(data).digest('hex'),
       threadId: input.threadId, taskId: input.taskId, createdAt: Date.now(),
+      pluginId: input.pluginId ?? null, turnId: input.turnId ?? null,
     };
     this.state.artifacts.push(record);
     this.persist();
@@ -53,7 +54,14 @@ export class ArtifactStore {
     try {
       const value = JSON.parse(readFileSync(this.indexPath, 'utf8')) as ArtifactState;
       if (value.version !== 1 || !Array.isArray(value.artifacts)) throw new Error('invalid artifact state');
-      return value;
+      return {
+        ...value,
+        artifacts: value.artifacts.map((artifact) => ({
+          ...artifact,
+          pluginId: typeof artifact.pluginId === 'string' ? artifact.pluginId : null,
+          turnId: typeof artifact.turnId === 'string' ? artifact.turnId : null,
+        })),
+      };
     } catch { return { version: 1, artifacts: [] }; }
   }
 

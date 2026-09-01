@@ -28,6 +28,12 @@ export function ConversationList() {
     autoScrollingRef.current = true;
   }
   const items = useMemo(() => itemsForThread(conversation, threadId), [conversation, threadId]);
+  const itemTurnIds = useMemo(() => {
+    const thread = threadId ? conversation.threads[threadId] : null;
+    if (!thread) return new Map<string, string>();
+    return new Map(thread.turnOrder.flatMap((turnIdValue) =>
+      (thread.turns[turnIdValue]?.itemOrder ?? []).map((itemId) => [itemId, turnIdValue] as const)));
+  }, [conversation, threadId]);
   const visibleApprovals = approvals.filter(
     (approval) => !approval.threadId || approval.threadId === threadId,
   );
@@ -174,6 +180,7 @@ export function ConversationList() {
               >
                 <ItemCard
                   item={item}
+                  turnId={itemTurnIds.get(item.id) ?? null}
                   showAssistantAvatar={!groupedWithPreviousAssistant}
                   approvals={itemApprovals}
                   onRespondApproval={(approval, response) =>

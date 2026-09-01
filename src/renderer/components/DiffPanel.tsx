@@ -1,25 +1,41 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Diff, Hunk, parseDiff } from 'react-diff-view';
-import { Braces, Columns2, File, FileDiff, ListChecks, Rows3, X } from 'lucide-react';
+import { Braces, Columns2, File, FileDiff, FileOutput, ListChecks, Rows3, X } from 'lucide-react';
 import { useAppStore } from '../state/store';
 import type { TurnView } from '../state/conversation';
+import { PluginUiFrame } from '../plugin-ui/PluginUiFrame';
+import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 import { FileInfoDialog } from './FileInfoDialog';
 import 'react-diff-view/style/index.css';
 
-type DetailTab = 'changes' | 'plan' | 'execution';
+type CoreDetailTab = 'changes' | 'plan' | 'execution';
+type DetailTab = CoreDetailTab | `plugin:${string}:${string}`;
 
 export function DiffPanel({ turns }: { turns: TurnView[] }) {
   const latestTurnId = turns.at(-1)?.id ?? null;
+  const threadId = useAppStore((state) => state.selectedThreadId);
+  const { descriptors } = usePluginHost();
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(latestTurnId);
   const turn = turns.find((candidate) => candidate.id === selectedTurnId) ?? turns.at(-1) ?? null;
+  const pluginPanels = descriptors.flatMap((descriptor) => descriptor.uiContributions
+    .flatMap((contribution) => contribution.type === 'panel' && contribution.placement === 'turnDetails'
+      && panelMatchesTurn(descriptor.pluginId, descriptor.webMcp?.tools.map((tool) => tool.name) ?? [], turn)
+      ? [{ descriptor, contribution }]
+      : []))
+    .sort((left, right) => left.contribution.order - right.contribution.order);
   const [tab, setTab] = useState<DetailTab>(turn?.diff ? 'changes' : 'plan');
   const [viewType, setViewType] = useState<'unified' | 'split'>('unified');
   const close = useAppStore((state) => state.setRightPanel);
   const [infoFile, setInfoFile] = useState<TurnView['fileChanges'][number] | null>(null);
+  const selectedPluginPanel = pluginPanels.find(({ descriptor, contribution }) =>
+    tab === pluginPanelKey(descriptor.pluginId, contribution.id)) ?? null;
 
   useEffect(() => {
     setSelectedTurnId(latestTurnId);
   }, [latestTurnId]);
+  useEffect(() => {
+    if (tab.startsWith('plugin:') && !selectedPluginPanel) setTab(turn?.diff ? 'changes' : 'plan');
+  }, [selectedPluginPanel, tab, turn?.diff]);
 
   return (
     <aside className="details-panel">
@@ -34,6 +50,12 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
           <button className={tab === 'execution' ? 'active' : ''} onClick={() => setTab('execution')}>
             <Braces size={14} /> 执行
           </button>
+          {pluginPanels.map(({ descriptor, contribution }) => {
+            const key = pluginPanelKey(descriptor.pluginId, contribution.id);
+            return <button className={tab === key ? 'active' : ''} key={key} onClick={() => setTab(key)} title={descriptor.displayName}>
+              <FileOutput size={14} /> {contribution.title}
+            </button>;
+          })}
         </div>
         <button className="icon-button" aria-label="关闭详情" onClick={() => close(false)}>
           <X size={15} />
@@ -141,6 +163,18 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
           {turn?.error != null && <pre className="json-output error-output">{JSON.stringify(turn.error, null, 2)}</pre>}
         </div>
       )}
+      {selectedPluginPanel && (
+        <div className="details-body plugin-turn-details-body">
+          {threadId && turn ? <PluginUiFrame
+            descriptor={selectedPluginPanel.descriptor}
+            contribution={selectedPluginPanel.contribution}
+            threadId={threadId}
+            turnId={turn.id}
+            className="plugin-turn-details-frame"
+            fallback={<EmptyDetail label={`${selectedPluginPanel.descriptor.displayName}详情暂时不可用`} />}
+          /> : <EmptyDetail label="请选择对话轮次" />}
+        </div>
+      )}
       <FileInfoDialog
         file={infoFile}
         onOpenChange={(open) => {
@@ -149,6 +183,16 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
       />
     </aside>
   );
+}
+
+function pluginPanelKey(pluginId: string, contributionId: string): `plugin:${string}:${string}` {
+  return `plugin:${pluginId}:${contributionId}`;
+}
+
+function panelMatchesTurn(pluginId: string, toolNames: string[], turn: TurnView | null): boolean {
+  if (!turn) return false;
+  return Object.values(turn.items).some((item) =>
+    item.pluginId === pluginId || (typeof item.tool === 'string' && toolNames.includes(item.tool)));
 }
 
 function FileChangeSummary({

@@ -101,8 +101,9 @@ UI 只负责呈现和收集输入，业务动作应调用 WebMCP 工具。runtim
 }
 ```
 
-UI 类型只有 `page`、`action`、`widget`、`card`。位置由 `placement` 决定；action
-支持 `commandPalette`、`threadToolbar`、`composerToolbar`。WebMCP 工具名在所有已启用
+UI 类型包括 `page`、`action`、`widget`、`card`、`panel`。位置由 `placement` 决定；action
+支持 `commandPalette`、`threadToolbar`、`composerToolbar`，panel 支持 `turnDetails`。
+WebMCP 工具名在所有已启用
 插件中必须唯一。
 
 Host 会把 WebMCP 工具注册到可用的 `document.modelContext`，并同时映射成新建 Codex
