@@ -88,8 +88,13 @@ jobs:
           app="out/Whale Buddy-darwin-arm64/Whale Buddy.app"
           test -d "$app"
           codesign --verify --deep --strict --verbose=4 "$app"
-          signature="$(codesign -dvvv "$app" 2>&1 | sed -n 's/^Signature=//p')"
+          details="$(codesign -dvvv "$app" 2>&1)"
+          signature="$(printf '%s\n' "$details" | sed -n 's/^Signature=//p')"
           test "$signature" = "adhoc"
+          if printf '%s\n' "$details" | grep -q 'flags=.*runtime'; then
+            echo "Hardened Runtime is incompatible with certificate-free ad-hoc signing"
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

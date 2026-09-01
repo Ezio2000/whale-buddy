@@ -8,7 +8,10 @@ export const macosForgeStrategy: ForgePlatformStrategy = {
     osxSign: {
       identity: '-',
       identityValidation: false,
-      optionsForFile: () => ({ timestamp: 'none' }),
+      optionsForFile: () => ({
+        hardenedRuntime: false,
+        timestamp: 'none',
+      }),
     },
   },
   makers: [new MakerDMG({}, ['darwin']), new MakerZIP({}, ['darwin'])],

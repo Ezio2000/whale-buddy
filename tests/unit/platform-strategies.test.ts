@@ -40,6 +40,7 @@ describe('desktop platform strategies', () => {
       identityValidation: false,
     });
     expect(typeof osxSign === 'object' && osxSign.optionsForFile?.('Whale Buddy.app')).toEqual({
+      hardenedRuntime: false,
       timestamp: 'none',
     });
     expect(forgePlatformStrategy('win32').packagerConfig.osxSign).toBeUndefined();
