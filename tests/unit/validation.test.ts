@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   absolutePathSchemaFor,
+  hookSetEnabledSchema,
+  pluginSetEnabledSchema,
   runtimeConnectionInputSchema,
 } from '../../src/shared/validation';
 
@@ -27,6 +29,26 @@ describe('absolute path validation', () => {
   it('keeps platform path rules isolated', () => {
     expect(macosSchema.safeParse('C:\\Users\\Alice\\project').success).toBe(false);
     expect(windowsSchema.safeParse('C:\\Users\\Alice\\project').success).toBe(true);
+  });
+});
+
+describe('Hook IPC validation', () => {
+  it('requires an explicit trust hash shape for plugin activation', () => {
+    const base = {
+      pluginId: 'fixture', marketplaceName: 'fixture', marketplacePath: null,
+      pluginName: 'fixture', enabled: true,
+    };
+    expect(pluginSetEnabledSchema.safeParse({ ...base, approvedHookDigest: 'sha256:nope' }).success).toBe(false);
+    expect(pluginSetEnabledSchema.safeParse({ ...base, approvedHookDigest: `sha256:${'a'.repeat(64)}` }).success).toBe(true);
+  });
+
+  it('keeps per-Hook trust confirmation explicit', () => {
+    expect(hookSetEnabledSchema.safeParse({
+      key: 'fixture:hooks/hooks.json:stop:0:0',
+      enabled: true,
+      trustCurrentDefinition: true,
+      expectedCurrentHash: 'hash',
+    }).success).toBe(true);
   });
 });
 

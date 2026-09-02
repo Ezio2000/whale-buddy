@@ -14,6 +14,8 @@ import {
   clipboardAttachmentSchema,
   fileSearchSchema,
   historySchema,
+  hookListSchema,
+  hookSetEnabledSchema,
   idSchema,
   interruptSchema,
   marketplaceAddSchema,
@@ -121,13 +123,20 @@ const api: WhaleApi = {
     configureCredential: (input) =>
       invoke(IPC.pluginsConfigureCredential, pluginCredentialConfigureSchema.parse(input)),
     install: (input) => invoke(IPC.pluginsInstall, pluginLocationSchema.parse(input)),
-    uninstall: (pluginId) =>
-      invoke(IPC.pluginsUninstall, pluginUninstallSchema.parse({ pluginId })),
+    uninstall: (input) =>
+      invoke(IPC.pluginsUninstall, pluginUninstallSchema.parse(input)),
     setEnabled: (input) =>
       invoke(IPC.pluginsSetEnabled, pluginSetEnabledSchema.parse(input)),
     descriptors: () => invoke(IPC.pluginsDescriptors),
     callMcp: (input) =>
       invoke(IPC.pluginsCallMcp, pluginMcpCallSchema.parse(input)),
+  },
+  hooks: {
+    previewPlugin: (input) =>
+      invoke(IPC.hooksPreviewPlugin, pluginLocationSchema.parse(input)),
+    list: (input = {}) => invoke(IPC.hooksList, hookListSchema.parse(input)),
+    setEnabled: (input) =>
+      invoke(IPC.hooksSetEnabled, hookSetEnabledSchema.parse(input)),
   },
   marketplaces: {
     add: (input) => invoke(IPC.marketplacesAdd, marketplaceAddSchema.parse(input)),

@@ -13,6 +13,38 @@ function notification(sequence: number, method: string, params: unknown): WhaleE
 }
 
 describe('conversation reducer', () => {
+  it('adds and updates one lightweight card for a plugin Stop command Hook', () => {
+    let state = reduceConversation(emptyConversationState(), notification(1, 'turn/started', {
+      threadId: 'thread-1', turn: { id: 'turn-1', status: 'inProgress', items: [] },
+    }));
+    const run = {
+      id: 'stop:0:/plugin/hooks/hooks.json', eventName: 'stop', handlerType: 'command',
+      executionMode: 'sync', scope: 'turn', sourcePath: '/plugin/hooks/hooks.json',
+      source: 'plugin', displayOrder: 0n, status: 'running', statusMessage: '收尾中',
+      startedAt: 1000n, completedAt: null, durationMs: null, entries: [],
+    };
+    state = reduceConversation(state, notification(2, 'hook/started', {
+      threadId: 'thread-1', turnId: 'turn-1', run,
+    }));
+    state = reduceConversation(state, notification(3, 'hook/completed', {
+      threadId: 'thread-1', turnId: 'turn-1',
+      run: { ...run, status: 'completed', completedAt: 1020n, durationMs: 20n },
+    }));
+    const visible = itemsForThread(state, 'thread-1').filter((item) => item.type === 'hookRun');
+    expect(visible).toHaveLength(1);
+    expect(visible[0]).toEqual(expect.objectContaining({ status: 'completed', durationMs: 20 }));
+  });
+
+  it('ignores non-plugin and unsupported Hook notifications', () => {
+    let state = reduceConversation(emptyConversationState(), notification(1, 'turn/started', {
+      threadId: 'thread-1', turn: { id: 'turn-1', status: 'inProgress', items: [] },
+    }));
+    state = reduceConversation(state, notification(2, 'hook/started', {
+      threadId: 'thread-1', turnId: 'turn-1',
+      run: { id: 'x', source: 'user', eventName: 'stop', handlerType: 'command' },
+    }));
+    expect(itemsForThread(state, 'thread-1')).toHaveLength(0);
+  });
   it('publishes every tool card on item/started, including Bash commands', () => {
     let state = emptyConversationState();
     state = reduceConversation(

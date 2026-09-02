@@ -197,7 +197,7 @@ export const pluginLocationSchema = z
   })
   .strict();
 
-export const pluginUninstallSchema = z.object({ pluginId: idSchema }).strict();
+export const pluginUninstallSchema = pluginLocationSchema;
 export const pluginCredentialConfigureSchema = pluginLocationSchema.extend({
   credentialId: idSchema,
   value: z.string().max(16_384).nullable(),
@@ -209,8 +209,19 @@ export const pluginSetEnabledSchema = z
     marketplacePath: absolutePathSchema.nullable(),
     pluginName: catalogNameSchema,
     enabled: z.boolean(),
+    cwd: absolutePathSchema.optional(),
+    approvedHookDigest: z.string().regex(/^sha256:[0-9a-f]{64}$/).optional(),
   })
   .strict();
+
+export const hookListSchema = z.object({ cwd: absolutePathSchema.optional() }).strict();
+export const hookSetEnabledSchema = z.object({
+  key: z.string().min(1).max(4_096),
+  cwd: absolutePathSchema.optional(),
+  enabled: z.boolean(),
+  expectedCurrentHash: z.string().min(1).max(512).optional(),
+  trustCurrentDefinition: z.boolean().optional(),
+}).strict();
 
 export const pluginMcpCallSchema = z
   .object({

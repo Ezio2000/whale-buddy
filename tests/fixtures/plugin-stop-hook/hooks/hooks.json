@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/after-turn.mjs",
+            "commandWindows": "node.exe hooks\\after-turn.mjs",
+            "timeout": 12,
+            "async": false,
+            "statusMessage": "正在整理本轮结果"
+          }
+        ]
+      }
+    ]
+  }
+}

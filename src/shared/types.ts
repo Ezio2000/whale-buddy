@@ -16,6 +16,12 @@ import type {
   PluginWebMcpTool,
 } from './plugin';
 import type { PluginCredentialsSnapshot } from './plugin-credentials';
+import type {
+  PluginHookListInput,
+  PluginHookPreview,
+  PluginHookSetEnabledInput,
+  PluginHooksListResponse,
+} from './plugin-hooks';
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -535,12 +541,17 @@ export interface WhaleApi {
     credentials(input: PluginLocationInput): Promise<PluginCredentialsSnapshot>;
     configureCredential(input: PluginCredentialConfigureInput): Promise<PluginCredentialsSnapshot>;
     install(input: PluginLocationInput): Promise<PluginInstallResponse>;
-    uninstall(pluginId: string): Promise<void>;
+    uninstall(input: PluginLocationInput): Promise<void>;
     setEnabled(
-      input: PluginLocationInput & { enabled: boolean },
+      input: PluginLocationInput & { enabled: boolean; cwd?: string; approvedHookDigest?: string },
     ): Promise<ExtensionPolicySnapshot>;
     descriptors(): Promise<PluginDescriptor[]>;
     callMcp(input: PluginMcpCallInput): Promise<JsonValue>;
+  };
+  hooks: {
+    previewPlugin(input: PluginLocationInput): Promise<PluginHookPreview>;
+    list(input?: PluginHookListInput): Promise<PluginHooksListResponse>;
+    setEnabled(input: PluginHookSetEnabledInput): Promise<PluginHooksListResponse>;
   };
   marketplaces: {
     add(input: MarketplaceAddInput): Promise<MarketplaceAddResponse>;

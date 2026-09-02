@@ -51,6 +51,9 @@ my-marketplace/
         ├── .mcp.json                 # 可选：MCP 服务声明
         ├── skills/                   # 可选：Codex Skills
         │   └── my-skill/SKILL.md
+        ├── hooks/                    # 可选：回合生命周期 Hook
+        │   ├── hooks.json
+        │   └── after-turn.mjs
         ├── ui-src/                   # UI/runtime 源码
         │   ├── index.html
         │   └── src/main.tsx
@@ -495,6 +498,55 @@ Authorization；显式 `http_headers.Authorization` 优先。
 `ui-state/plugin-credentials.json`，并将完整值提供给 renderer 和插件 iframe。插件源码、
 Manifest 和静态 UI 产物中仍不得硬编码真实 token。
 
+### 10.1 Stop Hook
+
+Whale 第一版插件 Hook 只支持约定路径 `hooks/hooks.json` 中的 `Stop` 事件和 `command`
+处理器。不要在 `.codex-plugin/plugin.json` 增加 `hooks` 字段，也不要声明自定义配置路径。
+其他事件或处理器类型会被标记为不兼容，并阻止整个插件启用。
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/after-turn.mjs",
+            "commandWindows": "node.exe hooks\\after-turn.mjs",
+            "timeout": 15,
+            "async": false,
+            "statusMessage": "正在整理本轮结果"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`command` 必填；Windows 优先使用 `commandWindows`。`timeout` 单位为秒，默认 5；`async`
+默认 `false`。同步 Hook 可以通过输出阻止本轮结束，异步 Hook 只做收尾动作。
+
+命令从标准输入读取 JSON，常用字段包括 `session_id`、`turn_id`、`transcript_path`、`cwd`、
+`hook_event_name`（固定为 `Stop`）、`model`、`permission_mode`、`stop_hook_active` 和
+`last_assistant_message`。标准输出可以返回：
+
+```json
+{
+  "continue": true,
+  "decision": "block",
+  "reason": "需要继续处理",
+  "stopReason": "可选的停止原因",
+  "suppressOutput": false,
+  "systemMessage": "可选的系统消息"
+}
+```
+
+`continue` 默认为 `true`。仅同步 Hook 的 `decision: "block"` 会阻止结束并把 `reason` 反馈给
+模型。插件下载后 Hook 始终保持停用；首次启用插件或命令定义变化时，Whale 会展示当前平台
+实际执行的命令，用户明确确认后才记录定义哈希并启用。运行状态以轻量卡片显示在对应回合中。
+
 ## 11. 商城目录
 
 商城通过 `.agents/plugins/marketplace.json` 发布插件：
@@ -529,10 +581,11 @@ Manifest 和静态 UI 产物中仍不得硬编码真实 token。
 
 1. **下载**只安装或更新缓存，插件仍处于停用状态，不注入 Skill、MCP、UI 或 WebMCP。
 2. **启用**前检查必填凭据；成功后默认启用该插件的全部 Skills 和 MCP，并加载 UI/runtime。
-3. 用户之后可以单独停用某个 Skill 或 MCP。
-4. 停用或卸载插件会移除 UI 和 dynamic tools；在途或过期的工具请求应失败，不得继续执行。
-5. 再次启用插件时，该插件的 Skills 和 MCP 恢复默认全部开启。
-6. 停用商城源是运行时撤权，不是列表过滤；其插件、Skills 和 MCP 会在 sidecar 重启后失效。
+3. 插件包含 Hook 时，启用前必须确认实际命令；成功后可以在插件详情中逐项停用或重新信任。
+4. 用户之后可以单独停用某个 Skill 或 MCP。
+5. 停用或卸载插件会停用 Hook 并移除 UI 和 dynamic tools；在途或过期请求不得继续执行。
+6. 再次启用插件时，该插件的 Skills 和 MCP 恢复默认全部开启，Hook 重新核对定义哈希。
+7. 停用商城源是运行时撤权，不是列表过滤；其插件能力会在 sidecar 重启后失效。
 
 UI 必须正确呈现 loading、empty、error 和 disabled 状态。不要假设 MCP 一定已经载入，也
 不要因某次 iframe 重建而丢失应由 Host 保存的状态。
@@ -704,6 +757,8 @@ Manifest/Host 单元测试至少覆盖：
 - [ ] 状态选择了正确的 global/project/thread scope。
 - [ ] Composer Context 只由 thread 工具为已声明 widget 设置。
 - [ ] 凭据 env、`.mcp.json` 和 `usedBy.mcpServers` 完全一致。
+- [ ] Hook 仅使用 `hooks/hooks.json`、`Stop` 和 `command`，且没有在 manifest 声明路径。
+- [ ] 已检查 Hook 的跨平台命令、超时、同步/异步语义及标准输入输出。
 - [ ] page/action/widget/card 均处理 loading、empty 和 error。
 - [ ] 类型检查、平台检查及插件相关单元/组件测试通过。
 - [ ] GitHub Actions 使用显式 ref，Artifact 与目标提交 SHA 一致。

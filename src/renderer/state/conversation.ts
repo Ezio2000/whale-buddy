@@ -114,6 +114,27 @@ export function reduceConversation(
   if (!turnId) return state;
   const turn = ensureTurn(thread, turnId);
 
+  if (method === 'hook/started' || method === 'hook/completed') {
+    const run = record(params?.run);
+    if (
+      run?.source === 'plugin'
+      && run.eventName === 'stop'
+      && run.handlerType === 'command'
+      && typeof run.id === 'string'
+    ) {
+      upsertItem(turn, {
+        ...run,
+        id: `hook:${turnId}:${run.id}`,
+        hookRunId: run.id,
+        type: 'hookRun',
+        durationMs: bigintNumber(run.durationMs),
+        startedAt: bigintNumber(run.startedAt),
+        completedAt: bigintNumber(run.completedAt),
+      });
+    }
+    return state;
+  }
+
   if (method === 'item/started' || method === 'item/completed') {
     const item = record(params?.item);
     if (item) {
@@ -214,6 +235,11 @@ export function reduceConversation(
       item.lastNotification = { method, params };
   }
   return state;
+}
+
+function bigintNumber(value: unknown): number | null {
+  if (typeof value === 'bigint') return Number(value);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 export function hydrateHistory(

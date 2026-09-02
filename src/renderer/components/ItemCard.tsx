@@ -73,6 +73,9 @@ export function ItemCard({
     case 'plan':
       content = <PlanItem item={item} />;
       break;
+    case 'hookRun':
+      content = <HookRunItem item={item} />;
+      break;
     case 'commandExecution':
       content = <CommandItem item={item} />;
       break;
@@ -119,6 +122,50 @@ export function ItemCard({
       ))}
     </div>
   );
+}
+
+function HookRunItem({ item }: { item: ItemView }) {
+  const status = string(item.status) ?? 'running';
+  const entries = Array.isArray(item.entries)
+    ? item.entries.flatMap((entry) => {
+        const value = record(entry);
+        return value && typeof value.text === 'string'
+          ? [{ kind: string(value.kind) ?? 'output', text: value.text }]
+          : [];
+      })
+    : [];
+  const title = string(item.statusMessage) ?? '插件收尾 Hook';
+  return (
+    <Collapsible.Root className={`tool-card hook-run-card status-${status}`}>
+      <Collapsible.Trigger className="tool-card-trigger" disabled={entries.length === 0}>
+        <span className="tool-icon violet"><PlugZap size={14} /></span>
+        <span className="tool-title-grow">
+          <strong>{title}</strong>
+          <small>{hookRunDescription(status, entries.length)}</small>
+        </span>
+        <ToolElapsed item={item} status={status} />
+        {entries.length > 0 && <ChevronDown className="collapsible-chevron" size={14} />}
+      </Collapsible.Trigger>
+      {entries.length > 0 && (
+        <Collapsible.Content className="tool-card-content hook-run-output">
+          {entries.map((entry, index) => (
+            <div className={`hook-output-${entry.kind}`} key={`${entry.kind}:${index}`}>
+              <small>{entry.kind}</small>
+              <pre>{entry.text}</pre>
+            </div>
+          ))}
+        </Collapsible.Content>
+      )}
+    </Collapsible.Root>
+  );
+}
+
+function hookRunDescription(status: string, entryCount: number): string {
+  if (status === 'running') return '正在执行回合结束命令';
+  if (status === 'blocked') return `Hook 阻止结束${entryCount ? ` · ${entryCount} 条信息` : ''}`;
+  if (status === 'failed') return `命令执行失败${entryCount ? ` · ${entryCount} 条信息` : ''}`;
+  if (status === 'stopped') return '命令已停止';
+  return `回合结束命令已完成${entryCount ? ` · ${entryCount} 条信息` : ''}`;
 }
 
 function PluginMessageItem({
@@ -537,6 +584,10 @@ function statusLabel(status: string): string {
       return '完成';
     case 'failed':
       return '失败';
+    case 'blocked':
+      return '已阻止';
+    case 'stopped':
+      return '已停止';
     case 'declined':
       return '已拒绝';
     case 'interrupted':

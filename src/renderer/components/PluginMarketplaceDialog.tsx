@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   Server,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -39,6 +40,11 @@ import type {
 import type { PluginUiContribution, PluginWebMcpTool } from '../../shared/plugin';
 import type { PluginCredentialValue } from '../../shared/plugin-credentials';
 import type { PluginLocationInput } from '../../shared/types';
+import type {
+  PluginHookMetadata,
+  PluginHookPreview,
+  PluginHookPreviewItem,
+} from '../../shared/plugin-hooks';
 import { useAppStore } from '../state/store';
 
 type MarketplaceTab = 'plugins' | 'skills' | 'mcp' | 'sources';
@@ -86,6 +92,13 @@ const emptyExtensionPolicy: ExtensionPolicySnapshot = {
   plugins: [],
   enabledSkillPaths: [],
 };
+const emptyHookPreview: PluginHookPreview = {
+  pluginId: '', sourcePath: null, digest: null, hooks: [], errors: [], supported: true,
+};
+
+type HookTrustRequest =
+  | { kind: 'plugin'; located: LocatedPlugin; hooks: PluginHookPreviewItem[]; digest: string }
+  | { kind: 'hook'; hook: PluginHookMetadata; preview: PluginHookPreviewItem | null };
 
 export function PluginMarketplaceDialog() {
   const open = useAppStore((state) => state.pluginMarketplaceOpen);
@@ -106,6 +119,9 @@ export function PluginMarketplaceDialog() {
   const [selectedLocation, setSelectedLocation] = useState<PluginLocationInput | null>(null);
   const [detail, setDetail] = useState<PluginDetail | null>(null);
   const [credentials, setCredentials] = useState<PluginCredentialValue[]>([]);
+  const [hookPreview, setHookPreview] = useState<PluginHookPreview>(emptyHookPreview);
+  const [liveHooks, setLiveHooks] = useState<PluginHookMetadata[]>([]);
+  const [hookTrust, setHookTrust] = useState<HookTrustRequest | null>(null);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [capabilityDetail, setCapabilityDetail] =
@@ -201,6 +217,8 @@ export function PluginMarketplaceDialog() {
       setCredentials([]);
       setUiContributions([]);
       setWebMcpTools([]);
+      setHookPreview(emptyHookPreview);
+      setLiveHooks([]);
       return;
     }
     let cancelled = false;
@@ -209,12 +227,21 @@ export function PluginMarketplaceDialog() {
     setCredentials([]);
     setUiContributions([]);
     setWebMcpTools([]);
+    setHookPreview(emptyHookPreview);
+    setLiveHooks([]);
+    const selectedPolicy = extensionPolicy.plugins.find(
+      (entry) => entry.pluginId === selectedLocation.pluginId,
+    );
     void Promise.allSettled([
       window.whale.plugins.read(selectedLocation),
       window.whale.plugins.credentials(selectedLocation),
       window.whale.plugins.contributions(selectedLocation),
+      window.whale.hooks.previewPlugin(selectedLocation),
+      selectedPolicy?.enabled
+        ? window.whale.hooks.list(selectedProject?.path ? { cwd: selectedProject.path } : {})
+        : Promise.resolve(null),
     ])
-      .then(([detailResult, credentialResult, contributionResult]) => {
+      .then(([detailResult, credentialResult, contributionResult, previewResult, hookListResult]) => {
         if (cancelled) return;
         if (detailResult.status === 'fulfilled') setDetail(detailResult.value.plugin);
         else setError(`读取插件详情失败：${errorMessage(detailResult.reason)}`);
@@ -229,6 +256,13 @@ export function PluginMarketplaceDialog() {
         } else {
           setError(`读取插件贡献失败：${errorMessage(contributionResult.reason)}`);
         }
+        if (previewResult.status === 'fulfilled') setHookPreview(previewResult.value);
+        else setError(`读取 Hook 配置失败：${errorMessage(previewResult.reason)}`);
+        if (hookListResult.status === 'fulfilled' && hookListResult.value) {
+          setLiveHooks(hookListResult.value.data.flatMap((entry) => entry.hooks).filter(
+            (hook) => hook.pluginId === selectedLocation.pluginId,
+          ));
+        }
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
@@ -236,7 +270,7 @@ export function PluginMarketplaceDialog() {
     return () => {
       cancelled = true;
     };
-  }, [open, selectedLocation]);
+  }, [extensionPolicy.plugins, open, selectedLocation, selectedProject?.path]);
 
   const visiblePluginCatalog = plugins;
   const locatedPlugins = useMemo(() => flattenPlugins(visiblePluginCatalog), [visiblePluginCatalog]);
@@ -361,6 +395,22 @@ export function PluginMarketplaceDialog() {
     setMessage(notice);
   };
 
+  const setPluginEnabled = async (located: LocatedPlugin, approvedHookDigest?: string) => {
+    const enabled = pluginPolicyEnabled(located.plugin.id, extensionPolicy.plugins);
+    const policy = await window.whale.plugins.setEnabled({
+      ...located.location,
+      enabled: !enabled,
+      ...(selectedProject?.path ? { cwd: selectedProject.path } : {}),
+      ...(approvedHookDigest ? { approvedHookDigest } : {}),
+    });
+    setExtensionPolicy(policy);
+    await refreshAfterMutation(
+      enabled
+        ? `插件“${pluginDisplayName(located.plugin)}”已停用；运行时已重启。`
+        : `插件“${pluginDisplayName(located.plugin)}”已启用；贡献能力与已确认 Hook 已生效。`,
+    );
+  };
+
   const mutatePlugin = async (located: LocatedPlugin) => {
     const { plugin, location } = located;
     const enabled = pluginPolicyEnabled(plugin.id, extensionPolicy.plugins);
@@ -371,12 +421,22 @@ export function PluginMarketplaceDialog() {
     ) {
       return;
     }
-    if (plugin.installed && !enabled &&
-      !window.confirm(
-        `启用“${pluginDisplayName(plugin)}”？它包含的全部 Skills 与 MCP 将恢复为默认开启。`,
-      )
-    ) {
-      return;
+    if (plugin.installed && !enabled) {
+      const preview = await window.whale.hooks.previewPlugin(location).catch((reason) => {
+        setError(`读取 Hook 配置失败：${errorMessage(reason)}`);
+        return null;
+      });
+      if (!preview) return;
+      setHookPreview(preview);
+      if (!preview.supported) {
+        setError(`插件 Hook 不兼容：${preview.errors.join('；')}`);
+        return;
+      }
+      if (preview.hooks.length > 0 && preview.digest) {
+        setHookTrust({ kind: 'plugin', located, hooks: preview.hooks, digest: preview.digest });
+        return;
+      }
+      if (!window.confirm(`启用“${pluginDisplayName(plugin)}”？它包含的全部 Skills 与 MCP 将恢复为默认开启。`)) return;
     }
 
     setMutationKey(plugin.id);
@@ -384,16 +444,7 @@ export function PluginMarketplaceDialog() {
     setMessage(null);
     try {
       if (plugin.installed) {
-        const policy = await window.whale.plugins.setEnabled({
-          ...location,
-          enabled: !enabled,
-        });
-        setExtensionPolicy(policy);
-        await refreshAfterMutation(
-          enabled
-            ? `插件“${pluginDisplayName(plugin)}”已停用；运行时已重启。`
-            : `插件“${pluginDisplayName(plugin)}”已启用；全部 Skills 与 MCP 已恢复为默认开启。`,
-        );
+        await setPluginEnabled(located);
       } else {
         const response = await window.whale.plugins.install(location);
         const authHint = response.appsNeedingAuth.length
@@ -413,10 +464,73 @@ export function PluginMarketplaceDialog() {
     setMutationKey(`uninstall:${located.plugin.id}`);
     setError(null);
     try {
-      await window.whale.plugins.uninstall(located.plugin.id);
+      await window.whale.plugins.uninstall(located.location);
       await refreshAfterMutation('插件已卸载，缓存贡献不会再参与运行。');
     } catch (reason) {
       setError(`卸载失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const toggleHook = async (hook: PluginHookMetadata, enabled: boolean) => {
+    if (enabled && hook.trustStatus !== 'trusted') {
+      setHookTrust({
+        kind: 'hook',
+        hook,
+        preview: hookPreview.hooks.find((entry) => entry.key === hook.key) ?? null,
+      });
+      return;
+    }
+    setMutationKey(`hook:${hook.key}`);
+    setError(null);
+    try {
+      const response = await window.whale.hooks.setEnabled({
+        key: hook.key,
+        enabled,
+        ...(selectedProject?.path ? { cwd: selectedProject.path } : {}),
+      });
+      setLiveHooks(response.data.flatMap((entry) => entry.hooks).filter(
+        (entry) => entry.pluginId === hook.pluginId,
+      ));
+      setMessage(`Hook 已${enabled ? '启用' : '停用'}。`);
+    } catch (reason) {
+      setError(`更新 Hook 失败：${errorMessage(reason)}`);
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const approveHookTrust = async () => {
+    const request = hookTrust;
+    if (!request) return;
+    setHookTrust(null);
+    if (request.kind === 'plugin') {
+      setMutationKey(request.located.plugin.id);
+      try {
+        await setPluginEnabled(request.located, request.digest);
+      } catch (reason) {
+        setError(`启用失败：${errorMessage(reason)}`);
+      } finally {
+        setMutationKey(null);
+      }
+      return;
+    }
+    setMutationKey(`hook:${request.hook.key}`);
+    try {
+      const response = await window.whale.hooks.setEnabled({
+        key: request.hook.key,
+        enabled: true,
+        expectedCurrentHash: request.hook.currentHash,
+        trustCurrentDefinition: true,
+        ...(selectedProject?.path ? { cwd: selectedProject.path } : {}),
+      });
+      setLiveHooks(response.data.flatMap((entry) => entry.hooks).filter(
+        (entry) => entry.pluginId === request.hook.pluginId,
+      ));
+      setMessage('Hook 已信任并启用。');
+    } catch (reason) {
+      setError(`信任 Hook 失败：${errorMessage(reason)}`);
     } finally {
       setMutationKey(null);
     }
@@ -697,6 +811,8 @@ export function PluginMarketplaceDialog() {
                 uiContributions={uiContributions}
                 webMcpTools={webMcpTools}
                 credentials={credentials}
+                hookPreview={hookPreview}
+                liveHooks={liveHooks}
                 onSelect={setSelectedLocation}
                 onMutate={(located) => void mutatePlugin(located)}
                 onUninstall={(located) => void uninstallPlugin(located)}
@@ -705,6 +821,7 @@ export function PluginMarketplaceDialog() {
                   void toggleDeclaredMcp(pluginId, name, enabled)
                 }
                 onConfigureCredential={configureCredential}
+                onToggleHook={(hook, enabled) => void toggleHook(hook, enabled)}
               />
             )}
             {tab === 'skills' && (
@@ -752,6 +869,11 @@ export function PluginMarketplaceDialog() {
             </span>
             <span>未启用的扩展不会加载、连接或注入线程</span>
           </footer>
+          <HookTrustDialog
+            request={hookTrust}
+            onCancel={() => setHookTrust(null)}
+            onApprove={() => void approveHookTrust()}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -784,12 +906,15 @@ function PluginBrowser({
   uiContributions,
   webMcpTools,
   credentials,
+  hookPreview,
+  liveHooks,
   onSelect,
   onMutate,
   onUninstall,
   onToggleSkill,
   onToggleMcp,
   onConfigureCredential,
+  onToggleHook,
 }: {
   plugins: LocatedPlugin[];
   featuredIds: string[];
@@ -802,12 +927,15 @@ function PluginBrowser({
   uiContributions: PluginUiContribution[];
   webMcpTools: PluginWebMcpTool[];
   credentials: PluginCredentialValue[];
+  hookPreview: PluginHookPreview;
+  liveHooks: PluginHookMetadata[];
   onSelect: (location: PluginLocationInput) => void;
   onMutate: (plugin: LocatedPlugin) => void;
   onUninstall: (plugin: LocatedPlugin) => void;
   onToggleSkill: (skill: SkillMetadata) => void;
   onToggleMcp: (pluginId: string, name: string, enabled: boolean) => void;
   onConfigureCredential: (credentialId: string, value: string | null) => Promise<void>;
+  onToggleHook: (hook: PluginHookMetadata, enabled: boolean) => void;
 }) {
   if (!plugins.length) {
     return <EmptyState icon={<PackageOpen size={24} />} title="没有找到插件" description="可以刷新目录、清除搜索，或在“商城源”中添加一个插件目录。" />;
@@ -863,6 +991,8 @@ function PluginBrowser({
           uiContributions={selectedPlugin ? uiContributions : []}
           webMcpTools={selectedPlugin ? webMcpTools : []}
           credentials={credentials}
+          hookPreview={hookPreview}
+          liveHooks={liveHooks}
           mutationKey={mutationKey}
           onMutate={() => selectedPlugin && onMutate(selectedPlugin)}
           onUninstall={() => selectedPlugin && onUninstall(selectedPlugin)}
@@ -871,6 +1001,7 @@ function PluginBrowser({
             selectedPlugin && onToggleMcp(selectedPlugin.plugin.id, name, enabled)
           }
           onConfigureCredential={onConfigureCredential}
+          onToggleHook={onToggleHook}
         />
       </aside>
     </div>
@@ -888,12 +1019,15 @@ function PluginDetailView({
   uiContributions,
   webMcpTools,
   credentials,
+  hookPreview,
+  liveHooks,
   mutationKey,
   onMutate,
   onUninstall,
   onToggleSkill,
   onToggleMcp,
   onConfigureCredential,
+  onToggleHook,
 }: {
   located: LocatedPlugin | null;
   detail: PluginDetail | null;
@@ -905,12 +1039,15 @@ function PluginDetailView({
   uiContributions: PluginUiContribution[];
   webMcpTools: PluginWebMcpTool[];
   credentials: PluginCredentialValue[];
+  hookPreview: PluginHookPreview;
+  liveHooks: PluginHookMetadata[];
   mutationKey: string | null;
   onMutate: () => void;
   onUninstall: () => void;
   onToggleSkill: (skill: SkillMetadata) => void;
   onToggleMcp: (name: string, enabled: boolean) => void;
   onConfigureCredential: (credentialId: string, value: string | null) => Promise<void>;
+  onToggleHook: (hook: PluginHookMetadata, enabled: boolean) => void;
 }) {
   if (!located) return <EmptyState icon={<Boxes size={22} />} title="选择一个插件" description="查看它包含的 Skills 与 MCP 服务。" />;
   const { plugin, marketplace } = located;
@@ -1064,7 +1201,47 @@ function PluginDetailView({
               ))}
             </DetailSection>
           )}
-          {detail.hooks.length > 0 && <p className="plugin-secondary-capabilities">另含 {detail.hooks.length} 个 Hook</p>}
+          {(detail.hooks.length > 0 || hookPreview.errors.length > 0) && (
+            <DetailSection icon={<ShieldAlert size={13} />} title={`Stop Hooks · ${detail.hooks.length}`}>
+              {hookPreview.errors.length > 0 && (
+                <div className="plugin-hook-warning" role="alert">
+                  <AlertCircle size={14} />
+                  <span>{hookPreview.errors.join('；')}。修正后才能启用插件。</span>
+                </div>
+              )}
+              {hookPreview.hooks.map((preview) => {
+                const live = liveHooks.find((hook) => hook.key === preview.key);
+                const busy = mutationKey === `hook:${preview.key}`;
+                return (
+                  <div className="plugin-hook-card" key={preview.key}>
+                    <div className="plugin-manifest-row">
+                      <span>
+                        <strong>{preview.statusMessage ?? '回合结束命令'}</strong>
+                        <small>{preview.async ? '异步' : '同步'} · 超时 {preview.timeoutSec} 秒</small>
+                      </span>
+                      {live ? (
+                        <button
+                          role="switch"
+                          aria-label={`${preview.statusMessage ?? 'Stop Hook'} ${live.enabled ? '已启用' : '已停用'}`}
+                          aria-checked={live.enabled}
+                          className={`toggle-switch ${live.enabled ? 'enabled' : ''}`}
+                          disabled={!pluginEnabled || live.isManaged || busy}
+                          title={live.isManaged ? '由管理员策略管理' : '单独控制此 Hook'}
+                          onClick={() => onToggleHook(live, !live.enabled)}
+                        >
+                          {busy ? <LoaderCircle className="spin" size={11} /> : <span />}
+                        </button>
+                      ) : <span className="mini-state">{plugin.installed ? '随插件停用' : '下载后可管理'}</span>}
+                    </div>
+                    <code className="plugin-hook-command">{preview.platformCommand}</code>
+                    {live && <small className={`hook-trust-state ${live.trustStatus}`}>
+                      {hookTrustLabel(live.trustStatus)}
+                    </small>}
+                  </div>
+                );
+              })}
+            </DetailSection>
+          )}
         </>
       )}
     </div>
@@ -1145,6 +1322,72 @@ function PluginCredentialForm({
       </small>
     </form>
   );
+}
+
+function HookTrustDialog({
+  request,
+  onCancel,
+  onApprove,
+}: {
+  request: HookTrustRequest | null;
+  onCancel: () => void;
+  onApprove: () => void;
+}) {
+  if (!request) return null;
+  const hooks = request.kind === 'plugin'
+    ? request.hooks
+    : request.preview
+      ? [request.preview]
+      : [{
+          key: request.hook.key,
+          eventName: 'stop' as const,
+          command: request.hook.handlerType === 'command' ? request.hook.command : '',
+          platformCommand: request.hook.handlerType === 'command' ? request.hook.command : '',
+          async: request.hook.handlerType === 'command' ? request.hook.async : false,
+          timeoutSec: Number(request.hook.timeoutSec),
+          statusMessage: request.hook.statusMessage,
+          matcher: request.hook.matcher,
+        }];
+  return (
+    <Dialog.Root open onOpenChange={(next) => { if (!next) onCancel(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dialog-overlay hook-trust-overlay" />
+        <Dialog.Content className="hook-trust-dialog" aria-describedby="hook-trust-description">
+          <div className="hook-trust-heading">
+            <span className="hook-trust-icon"><ShieldAlert size={19} /></span>
+            <div>
+              <Dialog.Title>信任并启用 Stop Hook</Dialog.Title>
+              <Dialog.Description id="hook-trust-description">
+                回合完成后，这些命令会以你的本机权限执行。请确认来源和命令内容。
+              </Dialog.Description>
+            </div>
+          </div>
+          <div className="hook-trust-list">
+            {hooks.map((hook) => (
+              <section key={hook.key}>
+                <div><strong>{hook.statusMessage ?? '回合结束命令'}</strong><small>{hook.async ? '异步执行' : '同步执行'} · 超时 {hook.timeoutSec} 秒</small></div>
+                <pre>{hook.platformCommand}</pre>
+              </section>
+            ))}
+          </div>
+          <p className="hook-trust-source">
+            来源：{request.kind === 'plugin' ? request.located.marketplace.name : request.hook.sourcePath}
+          </p>
+          <div className="hook-trust-actions">
+            <button className="button secondary" onClick={onCancel}>取消</button>
+            <button className="button primary" onClick={onApprove}><ShieldCheck size={13} /> 信任并启用</button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function hookTrustLabel(status: PluginHookMetadata['trustStatus']): string {
+  if (status === 'trusted') return '已信任';
+  if (status === 'managed') return '管理员管理';
+  if (status === 'modified') return '命令已变化，需重新确认';
+  return '尚未信任';
 }
 
 function ContributionDetailView({

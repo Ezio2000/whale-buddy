@@ -22,6 +22,8 @@ import {
   configWriteSchema,
   fileSearchSchema,
   historySchema,
+  hookListSchema,
+  hookSetEnabledSchema,
   interruptSchema,
   marketplaceAddSchema,
   marketplaceNameSchema,
@@ -72,6 +74,7 @@ import type { PluginListResponse } from '../generated/protocol/typescript/v2/Plu
 import type { PluginReadResponse } from '../generated/protocol/typescript/v2/PluginReadResponse';
 import type { SkillsListResponse } from '../generated/protocol/typescript/v2/SkillsListResponse';
 import type { ListMcpServerStatusResponse } from '../generated/protocol/typescript/v2/ListMcpServerStatusResponse';
+import type { HooksListResponse } from '../generated/protocol/typescript/v2/HooksListResponse';
 import {
   isRetiredPresetSourceName,
   normalizeExtensionName,
@@ -89,6 +92,7 @@ import {
 import { callPluginMcpTool } from './plugin-mcp-client';
 import { readPluginCredentials } from './plugin-credential-manifest';
 import { readTextInside, resolvePluginRoot } from './plugin-manifest';
+import { hookStateKeyPath, previewPluginHooks } from './plugin-hooks';
 
 interface RegisterIpcOptions {
   auth: WhaleAuthManager;
@@ -351,6 +355,29 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       mergeStrategy: 'replace',
       expectedVersion: null,
     });
+
+  const writeHookStates = (
+    entries: Array<{ key: string; enabled: boolean; trustedHash?: string | null }>,
+  ) => {
+    if (entries.length === 0) return Promise.resolve();
+    return appServer.request('config/batchWrite', {
+      edits: entries.map((entry) => ({
+        keyPath: hookStateKeyPath(entry.key),
+        value: {
+          enabled: entry.enabled,
+          ...(entry.trustedHash !== undefined ? { trusted_hash: entry.trustedHash } : {}),
+        },
+        mergeStrategy: 'upsert',
+      })),
+      filePath: null,
+      expectedVersion: null,
+      reloadUserConfig: true,
+    });
+  };
+
+  const listHooks = (cwd?: string) => appServer.request('hooks/list', {
+    cwds: cwd ? [cwd] : [],
+  }) as Promise<HooksListResponse>;
 
   const loadAndReconcileSkills = async (input: {
     cwd?: string;
@@ -920,6 +947,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     if (detailResponse.plugin.summary.id !== input.pluginId) {
       throw new Error('插件详情与安装请求不匹配');
     }
+    const hookKeys = detailResponse.plugin.hooks.map((hook) => hook.key);
     // Download and activation are separate operations. Seed a disabled config
     // before installation so the upstream installer cannot start contributed
     // MCP servers as a side effect of merely downloading a plugin.
@@ -930,7 +958,12 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
         false,
       );
     }
+    await writeHookStates(hookKeys.map((key) => ({ key, enabled: false })));
     const response = await appServer.request('plugin/install', pluginLocationParams(input));
+    // Upstream install enables the plugin. Reassert Whale's download-only state
+    // before the runtime is restarted or the extension is exposed to the UI.
+    await writeConfigValue(`${pluginConfigKey(input.pluginId)}.enabled`, false);
+    await writeHookStates(hookKeys.map((key) => ({ key, enabled: false })));
     extensionPolicy.registerPlugin(
       input.pluginId,
       input.marketplaceName,
@@ -941,8 +974,26 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     await appServer.restart();
     return response;
   });
-  handle(IPC.pluginsUninstall, pluginUninstallSchema, async ({ pluginId }) => {
+  handle(IPC.pluginsUninstall, pluginUninstallSchema, async (input) => {
+    const { pluginId } = input;
+    const detailResponse = await readPluginDetail(input);
+    await writeHookStates(detailResponse.plugin.hooks.map((hook) => ({
+      key: hook.key,
+      enabled: false,
+    })));
     await appServer.request('plugin/uninstall', { pluginId });
+    if (detailResponse.plugin.hooks.length > 0) {
+      await appServer.request('config/batchWrite', {
+        edits: detailResponse.plugin.hooks.map((hook) => ({
+          keyPath: hookStateKeyPath(hook.key),
+          value: null,
+          mergeStrategy: 'replace',
+        })),
+        filePath: null,
+        expectedVersion: null,
+        reloadUserConfig: true,
+      });
+    }
     extensionPolicy.removePlugin(pluginId);
     pluginCredentials.prune(extensionPolicy.allCredentialReferences());
     replacePluginRegistry([]);
@@ -960,6 +1011,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
 
     let declaredMcpServers = plugin.mcpServers;
     let credentials = plugin.credentials;
+    let hookKeys: string[] = [];
     if (enabled) {
       const detailResponse = await appServer.request(
         'plugin/read',
@@ -969,6 +1021,12 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
         throw new Error('插件详情与启用请求不匹配');
       }
       declaredMcpServers = detailResponse.plugin.mcpServers;
+      hookKeys = detailResponse.plugin.hooks.map((hook) => hook.key);
+      const preview = previewPluginHooks(detailResponse);
+      if (!preview.supported) throw new Error(preview.errors.join('\n'));
+      if (preview.hooks.length > 0 && input.approvedHookDigest !== preview.digest) {
+        throw new Error('Hook 定义已变化，请重新检查命令并确认信任');
+      }
       credentials = readPluginCredentials(detailResponse);
       const missingCredentials = pluginCredentials.missingRequired(
         input.marketplaceName,
@@ -993,8 +1051,40 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
           true,
         );
       }
+      await writeHookStates(hookKeys.map((key) => ({ key, enabled: false })));
+      try {
+        await writeConfigValue(`${pluginConfigKey(pluginId)}.enabled`, true);
+        await appServer.restart();
+        if (hookKeys.length > 0) {
+          const hookList = await listHooks(input.cwd);
+          const liveHooks = hookList.data.flatMap((entry) => entry.hooks).filter((hook) =>
+            hook.pluginId === pluginId
+            && hook.source === 'plugin'
+            && hook.eventName === 'stop'
+            && hook.handlerType === 'command'
+            && hookKeys.includes(hook.key));
+          if (liveHooks.length !== hookKeys.length) {
+            throw new Error('Hook 加载结果与插件声明不一致');
+          }
+          await writeHookStates(liveHooks.map((hook) => ({
+            key: hook.key,
+            enabled: true,
+            trustedHash: hook.currentHash,
+          })));
+        }
+      } catch (error) {
+        await writeHookStates(hookKeys.map((key) => ({ key, enabled: false })));
+        await writeConfigValue(`${pluginConfigKey(pluginId)}.enabled`, false);
+        await appServer.restart();
+        throw error;
+      }
+    } else {
+      const detailResponse = await readPluginDetail(input);
+      hookKeys = detailResponse.plugin.hooks.map((hook) => hook.key);
+      await writeHookStates(hookKeys.map((key) => ({ key, enabled: false })));
+      await writeConfigValue(`${pluginConfigKey(pluginId)}.enabled`, false);
+      await appServer.restart();
     }
-    await writeConfigValue(`${pluginConfigKey(pluginId)}.enabled`, enabled);
     const snapshot = extensionPolicy.setPluginEnabled(
       pluginId,
       enabled,
@@ -1003,8 +1093,36 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     );
     replacePluginRegistry([]);
     broadcastPluginsChanged();
-    await appServer.restart();
     return snapshot;
+  });
+
+  handle(IPC.hooksPreviewPlugin, pluginLocationSchema, async (input) =>
+    previewPluginHooks(await readPluginDetail(input)),
+  );
+  handle(IPC.hooksList, hookListSchema, async ({ cwd }) => pluginHooksOnly(await listHooks(cwd)));
+  handle(IPC.hooksSetEnabled, hookSetEnabledSchema, async (input) => {
+    const response = await listHooks(input.cwd);
+    const hook = response.data.flatMap((entry) => entry.hooks).find((entry) => entry.key === input.key);
+    if (!hook) throw new Error('Hook 不存在或所属插件尚未启用');
+    if (hook.source !== 'plugin' || hook.pluginId === null) throw new Error('这里只能管理插件 Hook');
+    if (!extensionPolicy.isPluginEnabled(hook.pluginId)) throw new Error('Hook 所属插件尚未启用');
+    if (hook.eventName !== 'stop' || hook.handlerType !== 'command') {
+      throw new Error('当前仅支持 Stop command Hook');
+    }
+    if (hook.isManaged) throw new Error('此 Hook 由管理员策略管理，不能修改');
+    if (input.enabled && hook.trustStatus !== 'trusted') {
+      if (!input.trustCurrentDefinition || input.expectedCurrentHash !== hook.currentHash) {
+        throw new Error('Hook 定义未受信任或已变化，请重新检查命令');
+      }
+    }
+    await writeHookStates([{
+      key: hook.key,
+      enabled: input.enabled,
+      ...(input.enabled && input.trustCurrentDefinition
+        ? { trustedHash: hook.currentHash }
+        : {}),
+    }]);
+    return pluginHooksOnly(await listHooks(input.cwd));
   });
 
   handle(IPC.marketplacesAdd, marketplaceAddSchema, async (input) => {
@@ -1390,6 +1508,20 @@ function auditItemAction(type: string | null): string | null {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function pluginHooksOnly(response: HooksListResponse): HooksListResponse {
+  return {
+    data: response.data.map((entry) => ({
+      ...entry,
+      hooks: entry.hooks.filter((hook) =>
+        hook.source === 'plugin'
+        && hook.eventName === 'stop'
+        && hook.handlerType === 'command'),
+      warnings: [],
+      errors: [],
+    })),
+  };
 }
 
 function pluginLocationParams(input: {

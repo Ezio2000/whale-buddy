@@ -3,6 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { ItemCard } from '../../src/renderer/components/ItemCard';
 
 describe('ItemCard', () => {
+  it('renders plugin Hook progress and expandable output', () => {
+    render(
+      <ItemCard
+        item={{
+          id: 'hook', type: 'hookRun', status: 'failed', statusMessage: '整理结果',
+          durationMs: 25, entries: [{ kind: 'error', text: 'fixture failed' }],
+        }}
+        approvals={[]}
+        onRespondApproval={() => undefined}
+      />,
+    );
+    expect(screen.getByText('整理结果')).toBeInTheDocument();
+    expect(screen.getByText('失败 · 25 ms')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByText('fixture failed')).toBeInTheDocument();
+  });
   it('renders a Bash card in the waiting state as soon as execution starts', () => {
     render(
       <ItemCard

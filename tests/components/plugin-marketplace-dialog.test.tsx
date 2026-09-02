@@ -182,6 +182,14 @@ beforeEach(() => {
       uninstall: vi.fn().mockResolvedValue(undefined),
       setEnabled: vi.fn().mockResolvedValue(extensionPolicy),
     },
+    hooks: {
+      previewPlugin: vi.fn().mockResolvedValue({
+        pluginId: 'fixture-plugin', sourcePath: '/fixture/plugin/hooks/hooks.json',
+        digest: null, hooks: [], errors: [], supported: true,
+      }),
+      list: vi.fn().mockResolvedValue({ data: [] }),
+      setEnabled: vi.fn().mockResolvedValue({ data: [] }),
+    },
     skills: {
       list: vi.fn().mockResolvedValue(skillResponse),
       setEnabled: vi.fn().mockResolvedValue({ effectiveEnabled: false }),
@@ -264,6 +272,52 @@ afterEach(() => {
 });
 
 describe('PluginMarketplaceDialog', () => {
+  it('previews Stop commands and requires trust before enabling the plugin', async () => {
+    const installedPlugin = {
+      ...pluginResponse.marketplaces[0].plugins[0],
+      installed: true,
+      enabled: false,
+    };
+    const disabledPolicy = {
+      ...extensionPolicy,
+      plugins: extensionPolicy.plugins.map((plugin) => ({ ...plugin, enabled: false })),
+    };
+    vi.mocked(window.whale.plugins.list).mockResolvedValue({
+      ...pluginResponse,
+      marketplaces: [{ ...pluginResponse.marketplaces[0], plugins: [installedPlugin] }],
+    });
+    vi.mocked(window.whale.marketplaces.sources).mockResolvedValue(disabledPolicy);
+    vi.mocked(window.whale.plugins.read).mockResolvedValue({
+      plugin: {
+        marketplaceName: 'fixture-marketplace', marketplacePath: '/fixture/marketplace.json',
+        summary: installedPlugin, shareUrl: null, description: '测试 Hook', skills: [],
+        hooks: [{ key: 'fixture-plugin:hooks/hooks.json:stop:0:0', eventName: 'stop' }],
+        apps: [], appTemplates: [], mcpServers: [], scheduledTasks: null,
+      },
+    } as never);
+    vi.mocked(window.whale.hooks.previewPlugin).mockResolvedValue({
+      pluginId: 'fixture-plugin', sourcePath: '/fixture/plugin/hooks/hooks.json',
+      digest: `sha256:${'a'.repeat(64)}`, supported: true, errors: [],
+      hooks: [{
+        key: 'fixture-plugin:hooks/hooks.json:stop:0:0', eventName: 'stop',
+        command: 'node hooks/after-turn.mjs', platformCommand: 'node hooks/after-turn.mjs',
+        async: false, timeoutSec: 12, statusMessage: '整理本轮结果', matcher: null,
+      }],
+    });
+
+    render(<PluginMarketplaceDialog />);
+    expect(await screen.findByText('Stop Hooks · 1')).toBeInTheDocument();
+    expect(screen.getByText('node hooks/after-turn.mjs')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '启用插件' }));
+    expect(await screen.findByRole('heading', { name: '信任并启用 Stop Hook' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '信任并启用' }));
+    await waitFor(() => expect(window.whale.plugins.setEnabled).toHaveBeenCalledWith({
+      pluginId: 'fixture-plugin', marketplaceName: 'fixture-marketplace',
+      marketplacePath: '/fixture/marketplace.json', pluginName: 'fixture-tools', enabled: true,
+      cwd: '/workspace/project', approvedHookDigest: `sha256:${'a'.repeat(64)}`,
+    }));
+  });
+
   it('renders host credential contributions and saves secrets through Whale IPC', async () => {
     const installedPlugin = {
       ...pluginResponse.marketplaces[0].plugins[0],
@@ -614,6 +668,7 @@ describe('PluginMarketplaceDialog', () => {
         marketplaceName: 'fixture-marketplace',
         marketplacePath: '/fixture/marketplace.json',
         pluginName: 'fixture-tools',
+        cwd: '/workspace/project',
         enabled: false,
       }),
     );

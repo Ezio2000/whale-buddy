@@ -243,5 +243,7 @@ function itemSignature(item: ReturnType<typeof itemsForThread>[number]): string 
     summaryLength,
     contentLength,
     changesLength,
+    Array.isArray(item.entries) ? item.entries.length : 0,
+    String(item.durationMs ?? ''),
   ].join(':');
 }
