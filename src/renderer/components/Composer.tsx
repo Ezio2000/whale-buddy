@@ -41,8 +41,19 @@ export function Composer() {
     state.projects.find((candidate) => candidate.id === state.selectedProjectId),
   );
   const selectedThreadId = useAppStore((state) => state.selectedThreadId);
+  const preferredModel = useAppStore((state) =>
+    state.preferences.model
+    || state.connectionSettings?.provider.model
+    || state.models.find((model) => model.isDefault)?.model
+    || state.models[0]?.model
+    || '',
+  );
+  const submittedModel = useAppStore((state) =>
+    state.selectedThreadId ? state.lastTaskByThread[state.selectedThreadId]?.model ?? '' : '',
+  );
   const conversation = useAppStore((state) => state.conversation);
   const activeTurn = activeTurnForThread(conversation, selectedThreadId);
+  const currentModel = activeTurn ? submittedModel || preferredModel : preferredModel;
   const composerWidgets = useMemo(() => descriptors
     .flatMap((descriptor) => descriptor.uiContributions
       .filter((contribution) => contribution.type === 'widget' && contribution.placement === 'composer')
@@ -495,41 +506,53 @@ export function Composer() {
             ))}
             {savingAttachments && <span className="composer-saving-indicator">正在保存…</span>}
           </div>
-          {activeTurn ? (
-            <div className="turn-control-buttons">
-              <button className="send-button pause-button" aria-label="暂停当前任务" title="暂停，可稍后继续" onClick={() => void pause()}>
-                <Pause size={14} fill="currentColor" />
+          <div className="composer-submit-controls">
+            {selectedThreadId && currentModel && (
+              <div
+                className="composer-model-indicator"
+                aria-label={`当前模型：${currentModel}`}
+                title={`当前模型：${currentModel}`}
+              >
+                <Sparkles size={12} />
+                <span>{currentModel}</span>
+              </div>
+            )}
+            {activeTurn ? (
+              <div className="turn-control-buttons">
+                <button className="send-button pause-button" aria-label="暂停当前任务" title="暂停，可稍后继续" onClick={() => void pause()}>
+                  <Pause size={14} fill="currentColor" />
+                </button>
+                <button className="send-button stop-button" aria-label="取消当前回合" title="取消" onClick={() => void interrupt()}>
+                  <Square size={13} fill="currentColor" />
+                </button>
+              </div>
+            ) : resumableTask?.threadId === selectedThreadId ? (
+              <button
+                className="send-button resume-button"
+                aria-label="继续任务"
+                title="继续任务"
+                onClick={() => {
+                  const needsConfirmation = resumableTask.status !== 'paused';
+                  if (!needsConfirmation || window.confirm(
+                    resumableTask.status === 'failed'
+                      ? '确认在新回合中重试失败任务？'
+                      : '确认在新回合中继续异常中断的任务？',
+                  )) void resumeTask();
+                }}
+              >
+                <RotateCcw size={14} />
               </button>
-              <button className="send-button stop-button" aria-label="取消当前回合" title="取消" onClick={() => void interrupt()}>
-                <Square size={13} fill="currentColor" />
+            ) : (
+              <button
+                className="send-button"
+                aria-label="发送"
+                disabled={!selectedThreadId || (!text.trim() && attachments.length === 0)}
+                onClick={() => void submit()}
+              >
+                <Send size={15} />
               </button>
-            </div>
-          ) : resumableTask?.threadId === selectedThreadId ? (
-            <button
-              className="send-button resume-button"
-              aria-label="继续任务"
-              title="继续任务"
-              onClick={() => {
-                const needsConfirmation = resumableTask.status !== 'paused';
-                if (!needsConfirmation || window.confirm(
-                  resumableTask.status === 'failed'
-                    ? '确认在新回合中重试失败任务？'
-                    : '确认在新回合中继续异常中断的任务？',
-                )) void resumeTask();
-              }}
-            >
-              <RotateCcw size={14} />
-            </button>
-          ) : (
-            <button
-              className="send-button"
-              aria-label="发送"
-              disabled={!selectedThreadId || (!text.trim() && attachments.length === 0)}
-              onClick={() => void submit()}
-            >
-              <Send size={15} />
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

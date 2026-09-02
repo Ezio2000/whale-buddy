@@ -80,6 +80,16 @@ afterEach(() => {
 });
 
 describe('Composer', () => {
+  it('shows the current model beside the composer controls', () => {
+    useAppStore.setState((state) => ({
+      preferences: { ...state.preferences, model: 'whale-code-pro' },
+    }));
+
+    render(<Composer />);
+
+    expect(screen.getByLabelText('当前模型：whale-code-pro')).toHaveTextContent('whale-code-pro');
+  });
+
   it('saves pasted clipboard files and sends them as unified attachments', async () => {
     render(<Composer />);
     const textarea = screen.getByRole('textbox');

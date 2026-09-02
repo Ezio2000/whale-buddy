@@ -1657,6 +1657,7 @@ pre {
 .composer-tools {
   position: relative;
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 4px;
   color: var(--text-faint);
@@ -1687,8 +1688,47 @@ pre {
   background: var(--danger);
 }
 
+.composer-submit-controls,
 .turn-control-buttons {
   display: flex;
+  align-items: center;
+}
+
+.composer-submit-controls {
+  min-width: 0;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.composer-model-indicator {
+  display: flex;
+  min-width: 0;
+  max-width: min(180px, 32vw);
+  height: 26px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.composer-model-indicator svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.composer-model-indicator span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.turn-control-buttons {
   gap: 6px;
 }
 
