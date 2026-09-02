@@ -109,7 +109,7 @@ export function SettingsDialog() {
           <div className="dialog-heading">
             <div>
               <Dialog.Title>设置</Dialog.Title>
-              <Dialog.Description>配置 {branding.name} 的品牌、连接、模型 Provider 与执行策略。</Dialog.Description>
+              <Dialog.Description>配置 {branding.name} 的模型服务、使用偏好与安全选项。</Dialog.Description>
             </div>
             <Dialog.Close className="icon-button dialog-close-target" aria-label="关闭">
               <X size={16} />
@@ -202,33 +202,18 @@ export function SettingsDialog() {
               )}
             </section>
             <section>
-              <h3>模型 Provider</h3>
+              <h3>模型服务</h3>
+              <p className="settings-section-intro">只需填写服务地址、模型名称和 API Key。</p>
               <div className="provider-fields">
-                  <SettingRow label="Provider ID" hint="用于 Codex 配置；只允许小写字母、数字、_ 和 -。">
+                  <SettingRow label="服务地址" hint="由你的模型服务提供方给出，通常以 /v1 结尾。">
                     <TextField
-                      ariaLabel="Provider ID"
-                      value={connectionDraft.provider.id}
-                      placeholder="my_provider"
-                      onChange={(id) => updateProviderDraft(setConnectionDraft, { id })}
-                    />
-                  </SettingRow>
-                  <SettingRow label="显示名称" hint={`显示在 ${branding.name} 的连接设置中。`}>
-                    <TextField
-                      ariaLabel="Provider 名称"
-                      value={connectionDraft.provider.name}
-                      placeholder="My Responses Provider"
-                      onChange={(name) => updateProviderDraft(setConnectionDraft, { name })}
-                    />
-                  </SettingRow>
-                  <SettingRow label="Responses Base URL" hint="填写 API 根地址，例如 https://gateway.example/v1。">
-                    <TextField
-                      ariaLabel="Responses Base URL"
+                      ariaLabel="模型服务地址"
                       value={connectionDraft.provider.baseUrl}
                       placeholder="https://gateway.example/v1"
                       onChange={(baseUrl) => updateProviderDraft(setConnectionDraft, { baseUrl })}
                     />
                   </SettingRow>
-                  <SettingRow label="模型名称" hint="必须是该 Provider 接受的原始模型 ID。">
+                  <SettingRow label="模型名称" hint="填写服务提供方给你的模型名称。">
                     <TextField
                       ariaLabel="自定义模型名称"
                       value={connectionDraft.provider.model}
@@ -237,15 +222,15 @@ export function SettingsDialog() {
                     />
                   </SettingRow>
                   <SettingRow
-                    label="API Key"
+                    label="访问密钥"
                     hint={
                       connectionSettings?.provider.hasApiKey
-                        ? `已明文保存在 ${branding.name} 的 runtime-settings.json`
-                        : `将明文写入 ${branding.name} 的 runtime-settings.json，并以环境变量传给 sidecar。`
+                        ? '已保存；留空不会覆盖现有密钥。'
+                        : '用于连接模型服务，只保存在这台电脑上。'
                     }
                   >
                     <SecretTextField
-                      ariaLabel="自定义 Provider API Key"
+                      ariaLabel="模型服务访问密钥"
                       value={connectionDraft.provider.apiKey ?? ''}
                       placeholder={connectionSettings?.provider.hasApiKey ? '留空以保留现有密钥' : '输入 Provider API Key'}
                       canReveal={Boolean(
@@ -287,16 +272,36 @@ export function SettingsDialog() {
                   <div className="settings-provider-note">
                     <Check size={16} />
                     <span>
-                      <strong>{connectionDraft.provider.name || connectionDraft.provider.id || '自定义 Provider'}</strong>
-                      {' '}将使用模型 <code>{connectionDraft.provider.model || '尚未配置'}</code>，请求地址为
+                      将使用模型 <strong>{connectionDraft.provider.model || '尚未配置'}</strong>，请求地址为
                       {' '}<code>{responsesEndpoint(connectionDraft.provider.baseUrl)}</code>。
                       {connectionDraft.provider.apiKey
-                        ? ' API Key 已填写，保存后将明文写入 runtime-settings.json。'
+                        ? ' 访问密钥已填写。'
                         : connectionSettings?.provider.hasApiKey
-                          ? ' API Key 已明文保存在 runtime-settings.json，点击眼睛按钮可查看。'
-                          : ' 尚未填写 API Key。'}
+                          ? ' 已使用保存的访问密钥。'
+                          : ' 尚未填写访问密钥。'}
                     </span>
                   </div>
+                  <details className="settings-advanced">
+                    <summary><ChevronDown size={13} /> 高级连接设置</summary>
+                    <div className="settings-advanced-body">
+                      <SettingRow label="Provider ID" hint="Codex 内部使用的服务标识。">
+                        <TextField
+                          ariaLabel="Provider ID"
+                          value={connectionDraft.provider.id}
+                          placeholder="custom"
+                          onChange={(id) => updateProviderDraft(setConnectionDraft, { id })}
+                        />
+                      </SettingRow>
+                      <SettingRow label="显示名称" hint={`显示在 ${branding.name} 的连接信息中。`}>
+                        <TextField
+                          ariaLabel="Provider 名称"
+                          value={connectionDraft.provider.name}
+                          placeholder="自定义模型服务"
+                          onChange={(name) => updateProviderDraft(setConnectionDraft, { name })}
+                        />
+                      </SettingRow>
+                    </div>
+                  </details>
               </div>
               <div className="connection-save-row">
                 <div className="connection-message" role="status">{connectionMessage}</div>
@@ -311,7 +316,20 @@ export function SettingsDialog() {
               </div>
             </section>
             <section>
-              <h3>模型</h3>
+              <h3>回答方式</h3>
+              <p className="settings-section-intro">日常使用只需要选择回答时的思考强度。</p>
+              {capabilities.supportsReasoning && (
+                <SettingRow label="思考强度" hint="越深入通常越慢，也会使用更多额度。">
+                  <SelectField
+                    value={preferences.effort}
+                    onChange={(effort) => void update({ effort })}
+                    options={effortOptions}
+                  />
+                </SettingRow>
+              )}
+              <details className="settings-advanced">
+                <summary><ChevronDown size={13} /> 高级模型能力</summary>
+                <div className="settings-advanced-body">
               <SettingRow label="使用模型" hint="由上方 Provider 的模型名称决定。">
                 <code>{connectionDraft.provider.model || '尚未配置'}</code>
               </SettingRow>
@@ -396,15 +414,6 @@ export function SettingsDialog() {
                   </SettingRow>
                 </>
               )}
-              {capabilities.supportsReasoning && (
-                <SettingRow label="会话推理强度" hint="当前会话默认值；更高强度通常需要更多时间和用量。">
-                  <SelectField
-                    value={preferences.effort}
-                    onChange={(effort) => void update({ effort })}
-                    options={effortOptions}
-                  />
-                </SettingRow>
-              )}
               <div className="connection-save-row model-capability-save-row">
                 <div className="connection-message" role="status">{connectionMessage}</div>
                 <button
@@ -416,6 +425,8 @@ export function SettingsDialog() {
                   保存能力并重连
                 </button>
               </div>
+                </div>
+              </details>
             </section>
             <section>
               <h3>执行权限</h3>

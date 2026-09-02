@@ -2521,6 +2521,49 @@ pre {
   display: contents;
 }
 
+.settings-section-intro {
+  margin: -2px 0 4px;
+  color: var(--text-faint);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.settings-advanced {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.settings-advanced > summary {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 620;
+  list-style: none;
+}
+
+.settings-advanced > summary::-webkit-details-marker { display: none; }
+
+.settings-advanced > summary svg {
+  transition: transform 150ms ease;
+}
+
+.settings-advanced[open] > summary {
+  border-bottom: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+}
+
+.settings-advanced[open] > summary svg { transform: rotate(180deg); }
+
+.settings-advanced-body { padding: 0 10px 10px; }
+
 .provider-actions,
 .connection-save-row {
   display: flex;

@@ -53,6 +53,11 @@ describe('SettingsDialog model capabilities', () => {
 
     render(<SettingsDialog />);
 
+    expect(screen.getByText('只需填写服务地址、模型名称和 API Key。')).toBeInTheDocument();
+    expect(screen.getByLabelText('模型服务地址')).toHaveValue('https://sub2api.example/v1');
+    expect(screen.getByLabelText('模型服务访问密钥')).toBeInTheDocument();
+    expect(screen.getByText('思考强度')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('高级模型能力'));
     expect(screen.getByText('能力概览')).toBeInTheDocument();
     expect(screen.getByText('视觉')).toBeInTheDocument();
     expect(screen.getByText('128K 上下文')).toBeInTheDocument();
