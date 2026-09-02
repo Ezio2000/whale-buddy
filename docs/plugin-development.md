@@ -710,5 +710,5 @@ Manifest/Host 单元测试至少覆盖：
 - [ ] 安装包端到端验证覆盖启用、停用、重启和真实 MCP 调用。
 
 仓库内完整实现示例见
-`marketplaces/xiaojing/plugins/xiaojing-knowledge-base/`；SDK 的最小 API 说明见
+`marketplaces/aihub/plugins/xiaojing-knowledge-base/`；SDK 的最小 API 说明见
 `packages/plugin-sdk/README.md`。

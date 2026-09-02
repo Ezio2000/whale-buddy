@@ -1,0 +1,98 @@
+{
+  "name": "xiaojing-outlook",
+  "version": "0.1.0+codex.20260902062224",
+  "description": "\u7edf\u4e00\u67e5\u8be2 Outlook \u65e5\u5386\u3001\u4f01\u4e1a\u901a\u8baf\u5f55\u3001\u4e2a\u4eba\u8054\u7cfb\u4eba\u548c\u90ae\u4ef6\uff0c\u5e76\u901a\u8fc7\u4e0d\u53ef\u53d8\u9884\u89c8\u5b89\u5168\u53d1\u9001\u90ae\u4ef6\u3002",
+  "author": {
+    "name": "AI\u5c0f\u9cb8"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "\u5c0f\u9cb8 Outlook",
+    "shortDescription": "\u7edf\u4e00\u5904\u7406\u65e5\u5386\u3001\u8054\u7cfb\u4eba\u548c\u90ae\u4ef6\u3002",
+    "longDescription": "\u901a\u8fc7 AIHub MCP \u67e5\u8be2\u5f53\u524d\u7528\u6237\u7684 Outlook \u65e5\u5386\u3001\u4f01\u4e1a\u901a\u8baf\u5f55\u3001\u4e2a\u4eba\u8054\u7cfb\u4eba\u548c\u90ae\u4ef6\u3002\u90ae\u4ef6\u53d1\u9001\u4e0e\u56de\u590d\u91c7\u7528\u4e0d\u53ef\u53d8\u9884\u89c8\u548c\u77ed\u7801\u786e\u8ba4\u6d41\u7a0b\u3002",
+    "developerName": "AI\u5c0f\u9cb8",
+    "category": "Productivity",
+    "capabilities": [
+      "MCP",
+      "Outlook",
+      "Calendar",
+      "Contacts",
+      "Mail"
+    ],
+    "brandColor": "#3A6F9B",
+    "defaultPrompt": "\u5e2e\u6211\u67e5\u8be2 Outlook \u65e5\u5386\u3001\u8054\u7cfb\u4eba\u6216\u90ae\u4ef6\uff1b\u6d89\u53ca\u53d1\u9001\u65f6\u5148\u521b\u5efa\u9884\u89c8\u5e76\u7b49\u5f85\u6211\u786e\u8ba4\u3002"
+  },
+  "mcpServers": "./.mcp.json",
+  "whale": {
+    "apiVersion": 2,
+    "uiContributions": [
+      {
+        "id": "outlook-navigation",
+        "type": "page",
+        "placement": "navigation",
+        "entry": "./ui/index.html",
+        "title": "Outlook",
+        "order": 110
+      },
+      {
+        "id": "outlook-command",
+        "type": "action",
+        "placement": "commandPalette",
+        "entry": "./ui/index.html",
+        "title": "\u6253\u5f00 Outlook \u52a9\u624b",
+        "description": "\u67e5\u770b\u65e5\u5386\u3001\u8054\u7cfb\u4eba\u3001\u90ae\u4ef6\u53ca\u5b89\u5168\u53d1\u9001\u80fd\u529b\u3002",
+        "keywords": [
+          "Outlook",
+          "\u65e5\u5386",
+          "\u8054\u7cfb\u4eba",
+          "\u90ae\u4ef6"
+        ],
+        "order": 110
+      },
+      {
+        "id": "outlook-message-card",
+        "type": "card",
+        "placement": "message",
+        "entry": "./ui/index.html",
+        "title": "Outlook \u7ed3\u679c",
+        "match": {
+          "itemTypes": [
+            "mcpToolCall"
+          ],
+          "server": "xiaojing-outlook",
+          "tools": [
+            "outlook_calendar_search",
+            "outlook_directory_search",
+            "outlook_contact_search",
+            "outlook_mail_search",
+            "outlook_mail_get",
+            "outlook_mail_send_preview",
+            "outlook_mail_reply_preview",
+            "outlook_mail_send",
+            "outlook_mail_action_cancel",
+            "outlook_mail_history",
+            "outlook_mail_history_get"
+          ]
+        },
+        "order": 110
+      }
+    ],
+    "credentials": [
+      {
+        "id": "aihub-token",
+        "key": "aihub/token",
+        "credentialType": "bearerToken",
+        "label": "AIHub MCP API Key",
+        "description": "\u4ece AIHub \u521b\u5efa\u7684 MCP API Key\uff0c\u5e94\u4ee5 aihub_mcp_ \u5f00\u5934\uff1b\u540c\u4e00\u5546\u57ce\u7684\u77e5\u8bc6\u5e93\u63d2\u4ef6\u53ef\u5171\u4eab\u3002",
+        "env": "AIHUB_MCP_TOKEN",
+        "required": true,
+        "scope": "marketplace",
+        "usedBy": {
+          "mcpServers": [
+            "xiaojing-outlook"
+          ]
+        }
+      }
+    ]
+  }
+}

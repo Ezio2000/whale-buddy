@@ -10,7 +10,7 @@
     "codex:build": "node scripts/build-codex.mjs",
     "protocol:generate": "node scripts/generate-protocol.mjs",
     "protocol:check": "node scripts/check-protocol.mjs",
-    "plugins:build": "vite build --config marketplaces/xiaojing/plugins/xiaojing-knowledge-base/vite.config.ts && vite build --config marketplaces/office/plugins/whale-office-assistant/vite.config.ts",
+    "plugins:build": "vite build --config marketplaces/aihub/plugins/xiaojing-knowledge-base/vite.config.ts && vite build --config marketplaces/aihub/plugins/xiaojing-outlook/vite.config.ts && vite build --config marketplaces/office/plugins/whale-office-assistant/vite.config.ts",
     "sidecar:check": "node scripts/check-sidecar.mjs",
     "predev": "pnpm sidecar:check",
     "dev": "electron-forge start",

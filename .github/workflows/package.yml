@@ -84,10 +84,13 @@ jobs:
       - run: pnpm test
       - run: pnpm exec electron-forge make --platform=darwin --arch=arm64
 
-      - name: Verify bundled office marketplace
+      - name: Verify bundled marketplaces
         run: |
           test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/office/.agents/plugins/marketplace.json"
           test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/office/plugins/whale-office-assistant/ui/index.html"
+          test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/aihub/.agents/plugins/marketplace.json"
+          test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/aihub/plugins/xiaojing-knowledge-base/ui/index.html"
+          test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/aihub/plugins/xiaojing-outlook/ui/index.html"
 
       - name: Verify macOS ad-hoc signature
         run: |
@@ -113,7 +116,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Whale-Plugin-UI
-          path: marketplaces/xiaojing/plugins/xiaojing-knowledge-base/ui/
+          path: |
+            marketplaces/aihub/plugins/xiaojing-knowledge-base/ui/
+            marketplaces/aihub/plugins/xiaojing-outlook/ui/
           if-no-files-found: error
 
   windows-x64:
@@ -195,12 +200,16 @@ jobs:
       - run: pnpm test
       - run: pnpm exec electron-forge make --platform=win32 --arch=x64
 
-      - name: Verify bundled office marketplace
+      - name: Verify bundled marketplaces
         shell: pwsh
         run: |
-          $root = "out/Whale Buddy-win32-x64/resources/office"
-          if (-not (Test-Path "$root/.agents/plugins/marketplace.json")) { throw "Missing office marketplace" }
-          if (-not (Test-Path "$root/plugins/whale-office-assistant/ui/index.html")) { throw "Missing office plugin UI" }
+          $office = "out/Whale Buddy-win32-x64/resources/office"
+          $aihub = "out/Whale Buddy-win32-x64/resources/aihub"
+          if (-not (Test-Path "$office/.agents/plugins/marketplace.json")) { throw "Missing office marketplace" }
+          if (-not (Test-Path "$office/plugins/whale-office-assistant/ui/index.html")) { throw "Missing office plugin UI" }
+          if (-not (Test-Path "$aihub/.agents/plugins/marketplace.json")) { throw "Missing AIHub marketplace" }
+          if (-not (Test-Path "$aihub/plugins/xiaojing-knowledge-base/ui/index.html")) { throw "Missing knowledge base plugin UI" }
+          if (-not (Test-Path "$aihub/plugins/xiaojing-outlook/ui/index.html")) { throw "Missing Outlook plugin UI" }
 
       - uses: actions/upload-artifact@v4
         with:

@@ -1,7 +1,7 @@
 {
-  "name": "xiaojing",
+  "name": "whale-aihub",
   "interface": {
-    "displayName": "\u5c0f\u9cb8\u5546\u57ce"
+    "displayName": "Whale AIHub"
   },
   "plugins": [
     {

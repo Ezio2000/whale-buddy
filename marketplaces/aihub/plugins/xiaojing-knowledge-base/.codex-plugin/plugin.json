@@ -1,6 +1,6 @@
 {
   "name": "xiaojing-knowledge-base",
-  "version": "0.3.2+codex.20260901143000",
+  "version": "0.3.2+codex.20260902062223",
   "description": "\u641c\u7d22\u5f53\u524d\u7528\u6237\u83b7\u6388\u6743\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
   "author": {
     "name": "AI\u5c0f\u9cb8"
@@ -32,7 +32,7 @@
         "type": "page",
         "placement": "navigation",
         "entry": "./ui/index.html",
-        "title": "小鲸知识库",
+        "title": "\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
         "order": 100
       },
       {
@@ -40,11 +40,11 @@
         "type": "action",
         "placement": "commandPalette",
         "entry": "./ui/index.html",
-        "title": "浏览小鲸知识库",
-        "description": "读取并浏览当前账号获授权的知识库。",
+        "title": "\u6d4f\u89c8\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
+        "description": "\u8bfb\u53d6\u5e76\u6d4f\u89c8\u5f53\u524d\u8d26\u53f7\u83b7\u6388\u6743\u7684\u77e5\u8bc6\u5e93\u3002",
         "keywords": [
-          "知识库",
-          "小鲸",
+          "\u77e5\u8bc6\u5e93",
+          "\u5c0f\u9cb8",
           "AIHub",
           "dataset"
         ],
@@ -55,7 +55,7 @@
         "type": "action",
         "placement": "threadToolbar",
         "entry": "./ui/index.html",
-        "title": "线程知识库",
+        "title": "\u7ebf\u7a0b\u77e5\u8bc6\u5e93",
         "order": 100
       },
       {
@@ -63,7 +63,7 @@
         "type": "action",
         "placement": "composerToolbar",
         "entry": "./ui/index.html",
-        "title": "选择知识库",
+        "title": "\u9009\u62e9\u77e5\u8bc6\u5e93",
         "order": 100
       },
       {
@@ -71,11 +71,16 @@
         "type": "card",
         "placement": "message",
         "entry": "./ui/index.html",
-        "title": "小鲸知识库结果",
+        "title": "\u5c0f\u9cb8\u77e5\u8bc6\u5e93\u7ed3\u679c",
         "match": {
-          "itemTypes": ["mcpToolCall"],
+          "itemTypes": [
+            "mcpToolCall"
+          ],
           "server": "xiaojing-knowledge-base",
-          "tools": ["gac_kb_list_datasets", "gac_kb_search"]
+          "tools": [
+            "gac_kb_list_datasets",
+            "gac_kb_search"
+          ]
         },
         "order": 100
       }
@@ -86,17 +91,24 @@
         {
           "id": "list-knowledge-bases",
           "name": "xiaojing_list_knowledge_bases",
-          "title": "列出小鲸知识库",
-          "description": "列出当前账号有权访问的小鲸知识库。",
+          "title": "\u5217\u51fa\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
+          "description": "\u5217\u51fa\u5f53\u524d\u8d26\u53f7\u6709\u6743\u8bbf\u95ee\u7684\u5c0f\u9cb8\u77e5\u8bc6\u5e93\u3002",
           "scope": "global",
-          "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
-          "annotations": { "readOnlyHint": true, "untrustedContentHint": true }
+          "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "untrustedContentHint": true
+          }
         },
         {
           "id": "set-knowledge-scope",
           "name": "xiaojing_set_knowledge_scope",
-          "title": "设置线程知识库范围",
-          "description": "为当前线程选择后续知识检索使用的知识库。",
+          "title": "\u8bbe\u7f6e\u7ebf\u7a0b\u77e5\u8bc6\u5e93\u8303\u56f4",
+          "description": "\u4e3a\u5f53\u524d\u7ebf\u7a0b\u9009\u62e9\u540e\u7eed\u77e5\u8bc6\u68c0\u7d22\u4f7f\u7528\u7684\u77e5\u8bc6\u5e93\u3002",
           "scope": "thread",
           "inputSchema": {
             "type": "object",
@@ -105,25 +117,47 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "properties": { "id": { "type": "string" }, "name": { "type": "string" } },
-                  "required": ["id", "name"],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
                   "additionalProperties": false
                 }
               }
             },
-            "required": ["datasets"],
+            "required": [
+              "datasets"
+            ],
             "additionalProperties": false
           },
-          "annotations": { "readOnlyHint": false, "untrustedContentHint": false }
+          "annotations": {
+            "readOnlyHint": false,
+            "untrustedContentHint": false
+          }
         },
         {
           "id": "clear-knowledge-scope",
           "name": "xiaojing_clear_knowledge_scope",
-          "title": "清除线程知识库范围",
-          "description": "清除当前线程已选择的知识库范围。",
+          "title": "\u6e05\u9664\u7ebf\u7a0b\u77e5\u8bc6\u5e93\u8303\u56f4",
+          "description": "\u6e05\u9664\u5f53\u524d\u7ebf\u7a0b\u5df2\u9009\u62e9\u7684\u77e5\u8bc6\u5e93\u8303\u56f4\u3002",
           "scope": "thread",
-          "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
-          "annotations": { "readOnlyHint": false, "untrustedContentHint": false }
+          "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "untrustedContentHint": false
+          }
         }
       ]
     },
@@ -132,8 +166,8 @@
         "id": "aihub-token",
         "key": "aihub/token",
         "credentialType": "bearerToken",
-        "label": "AIHub Token",
-        "description": "\u7528\u4e8e\u8bbf\u95ee\u5c0f\u9cb8\u77e5\u8bc6\u5e93\u548c Outlook \u670d\u52a1\u3002",
+        "label": "AIHub MCP API Key",
+        "description": "\u4ece AIHub \u521b\u5efa\u7684 MCP API Key\uff0c\u5e94\u4ee5 aihub_mcp_ \u5f00\u5934\uff1b\u540c\u4e00\u5546\u57ce\u7684 Outlook \u63d2\u4ef6\u53ef\u5171\u4eab\u3002",
         "env": "AIHUB_MCP_TOKEN",
         "required": true,
         "scope": "marketplace",
@@ -146,16 +180,20 @@
     ],
     "permissions": {
       "mcp": [
-      {
-        "principal": "webMcp:list-knowledge-bases",
-        "server": "xiaojing-knowledge-base",
-        "tools": ["gac_kb_list_datasets"]
-      },
-      {
-        "principal": "webMcp:set-knowledge-scope",
-        "server": "xiaojing-knowledge-base",
-        "tools": ["gac_kb_search"]
-      }
+        {
+          "principal": "webMcp:list-knowledge-bases",
+          "server": "xiaojing-knowledge-base",
+          "tools": [
+            "gac_kb_list_datasets"
+          ]
+        },
+        {
+          "principal": "webMcp:set-knowledge-scope",
+          "server": "xiaojing-knowledge-base",
+          "tools": [
+            "gac_kb_search"
+          ]
+        }
       ]
     }
   }

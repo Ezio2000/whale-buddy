@@ -25,7 +25,8 @@
   "include": [
     "src",
     "packages",
-    "marketplaces/xiaojing/plugins/xiaojing-knowledge-base/ui-src/src",
+    "marketplaces/aihub/plugins/xiaojing-knowledge-base/ui-src/src",
+    "marketplaces/aihub/plugins/xiaojing-outlook/ui-src/src",
     "marketplaces/office/plugins/whale-office-assistant/ui-src/src",
     "tests",
     "forge.config.ts",

@@ -100,7 +100,7 @@ describe('plugin host v2 manifest', () => {
   });
 
   it('reads v2 credential declarations shared by both Xiaojing plugins', () => {
-    const marketplaceRoot = path.resolve('marketplaces/xiaojing/plugins');
+    const marketplaceRoot = path.resolve('marketplaces/aihub/plugins');
     const knowledge = readPluginCredentials(pluginResponse(path.join(marketplaceRoot, 'xiaojing-knowledge-base'), 'xiaojing-knowledge-base', 'xiaojing-knowledge-base'));
     const outlook = readPluginCredentials(pluginResponse(path.join(marketplaceRoot, 'xiaojing-outlook'), 'xiaojing-outlook', 'xiaojing-outlook'));
     expect(knowledge).toHaveLength(1);

@@ -33,6 +33,7 @@ const config: ForgeConfig = {
       : [
           ...sidecarBundleResources(canonicalSidecar, existsSync, targetPlatform),
           path.resolve('marketplaces/office'),
+          path.resolve('marketplaces/aihub'),
         ],
   },
   rebuildConfig: {},
