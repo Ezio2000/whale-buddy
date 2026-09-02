@@ -46,6 +46,13 @@ describe('desktop platform strategies', () => {
     expect(forgePlatformStrategy('win32').packagerConfig.osxSign).toBeUndefined();
   });
 
+  it('builds only the native installer format for each platform', () => {
+    expect(forgePlatformStrategy('darwin').makers).toHaveLength(1);
+    expect(forgePlatformStrategy('darwin').makers[0].constructor.name).toBe('MakerDMG');
+    expect(forgePlatformStrategy('win32').makers).toHaveLength(1);
+    expect(forgePlatformStrategy('win32').makers[0].constructor.name).toBe('MakerSquirrel');
+  });
+
   it('provides native menu topology from each platform implementation', () => {
     const window = {
       isDestroyed: () => false,

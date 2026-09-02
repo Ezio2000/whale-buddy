@@ -108,17 +108,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Whale-Buddy-macOS-arm64
-          path: |
-            out/make/*.dmg
-            out/make/zip/darwin/arm64/*.zip
-          if-no-files-found: error
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Whale-Plugin-UI
-          path: |
-            marketplaces/aihub/plugins/xiaojing-knowledge-base/ui/
-            marketplaces/aihub/plugins/xiaojing-outlook/ui/
+          path: out/make/*.dmg
           if-no-files-found: error
 
   windows-x64:
@@ -214,7 +204,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Whale-Buddy-Windows-x64
-          path: out/make/squirrel.windows/x64/*
+          path: out/make/squirrel.windows/x64/*Setup.exe
           if-no-files-found: error
 
   publish-release:
@@ -234,7 +224,7 @@ jobs:
         run: |
           mkdir release-files
           find release-artifacts -type f \
-            \( -name '*.dmg' -o -name '*.zip' -o -name '*Setup.exe' \) \
+            \( -name '*.dmg' -o -name '*Setup.exe' \) \
             -print0 \
             | while IFS= read -r -d '' source; do
                 target="release-files/$(basename "$source")"

@@ -27,7 +27,7 @@ gh run download <RUN_ID> --repo Ezio2000/whale-buddy \
   --name AI-Xiaojing-macOS-arm64
 ```
 
-macOS Artifact 同时包含 DMG 和 ZIP；Windows Artifact 包含 Squirrel 安装文件。不得使用
+macOS Artifact 只包含 DMG；Windows Artifact 只包含 Squirrel `Setup.exe`。不得使用
 其他提交的 Artifact，也不得使用本地 `out/`、本地 sidecar 或 Electron Forge 产物部署。
 macOS 用户无需手动运行 `codesign`；从浏览器下载后如果首次启动被 Gatekeeper 拦截，可在
 **系统设置 → 隐私与安全性** 中选择“仍要打开”。
@@ -101,8 +101,8 @@ CI 验证使用的只读上游子模块，不参与正式安装包选择 sidecar
 进入 GitHub 仓库的 **Actions → Package desktop installers → Run workflow**，选择：
 
 - `all`：并行构建 macOS arm64 和 Windows x64；
-- `macos`：只构建 DMG 和 ZIP；
-- `windows`：只构建 Squirrel `Setup.exe`、NUPKG 和 `RELEASES`。
+- `macos`：只构建并上传 DMG；
+- `windows`：构建 Squirrel 安装器，但 Artifact 只上传 `Setup.exe`。
 
 也可以使用 GitHub CLI：
 

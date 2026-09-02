@@ -657,14 +657,12 @@ gh workflow run package.yml --ref <branch-or-sha> -f platform=macos
 
 1. run 的 `headSha` 与待验证提交的 `git rev-parse HEAD` 完全一致；
 2. run 结论为 `success`；
-3. Artifact 下载到临时目录；
-4. 插件端到端测试使用该 run 的 `Whale-Plugin-UI`，App 安装使用同 run 的平台包；
-5. 验证结束后删除临时下载和解包目录，不提交构建产物。
+3. Artifact 下载到临时目录；macOS 只应包含 DMG，Windows 只应包含 `Setup.exe`；
+4. 验证结束后删除临时下载和解包目录，不提交构建产物。
 
 本地商城在 App 重启后会重新从商城 source 解析插件入口，不保证继续读取先前安装缓存。因此
-端到端验证时，应把同一 CI run 的 `Whale-Plugin-UI` 覆盖到稳定的临时商城副本，并确认
-`ui/index.html` 引用的 asset hash 与 `ui/assets/` 实际文件一致。不要只看到“插件已下载”就
-假设缓存中的 UI 会被使用。
+端到端验证应使用仓库目标提交中的商城源码，并确认 `ui/index.html` 引用的 asset hash 与
+`ui/assets/` 实际文件一致。不要只看到“插件已下载”就假设缓存中的 UI 会被使用。
 
 ### 14.3 测试清单
 
