@@ -2169,7 +2169,7 @@ pre {
 
 .react-diff-shell {
   padding-bottom: 20px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .diff-file header {
@@ -2186,7 +2186,7 @@ pre {
 }
 
 .diff-file header code {
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .diff {
@@ -2194,12 +2194,12 @@ pre {
   --diff-text-color: var(--text-muted);
   --diff-font-family: var(--font-mono);
   --diff-selection-background-color: var(--accent-soft);
-  --diff-gutter-insert-background-color: var(--green-soft);
+  --diff-gutter-insert-background-color: color-mix(in srgb, var(--green-soft) 60%, var(--surface));
   --diff-code-insert-background-color: color-mix(in srgb, var(--green-soft) 60%, var(--surface));
-  --diff-gutter-delete-background-color: var(--danger-soft);
+  --diff-gutter-delete-background-color: color-mix(in srgb, var(--danger-soft) 60%, var(--surface));
   --diff-code-delete-background-color: color-mix(in srgb, var(--danger-soft) 60%, var(--surface));
-  font-size: 9.5px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .raw-diff {
