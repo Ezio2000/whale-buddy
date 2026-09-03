@@ -1072,14 +1072,13 @@ pre {
 
 .tool-card {
   overflow: hidden;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
+  background: var(--surface-muted);
   border-radius: var(--radius-md);
 }
 
 .hook-run-card.status-failed,
 .hook-run-card.status-blocked {
-  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-muted));
 }
 
 .hook-run-output { display: grid; gap: 8px; }
@@ -1290,7 +1289,7 @@ pre {
   padding: 9px 10px;
   overflow: auto;
   color: var(--text-muted);
-  background: color-mix(in srgb, var(--surface-muted) 76%, var(--surface));
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 11px;
