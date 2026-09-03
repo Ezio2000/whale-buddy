@@ -7,11 +7,11 @@ on:
     tags-ignore:
       - "v*"
     paths-ignore:
-      - README.md
+      - "**.md"
       - docs/**
   pull_request:
     paths-ignore:
-      - README.md
+      - "**.md"
       - docs/**
 
 # 同一分支连续 push 时取消尚未完成的旧 run，避免堆积。
