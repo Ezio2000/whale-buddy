@@ -1,29 +1,31 @@
 :root {
   color-scheme: light;
-  --bg: #f4f7fb;
-  --surface: rgba(255, 255, 255, .88);
-  --surface-solid: #fff;
-  --text: #15243a;
-  --muted: #68778d;
-  --line: rgba(56, 91, 130, .16);
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-solid: #ffffff;
+  --text: #0d0d0d;
+  --muted: #5d5d5d;
+  --line: #ececec;
   --blue: #2869aa;
   --blue-soft: #e4f0fb;
   --teal: #168379;
   --amber: #a86a17;
+  --danger: #c33c3c;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #18202b;
-  --surface: rgba(35, 46, 60, .9);
-  --surface-solid: #242f3d;
-  --text: #edf3fa;
-  --muted: #a2afbf;
-  --line: rgba(184, 205, 228, .16);
+  --bg: #212121;
+  --surface: #2f2f2f;
+  --surface-solid: #2f2f2f;
+  --text: #ececec;
+  --muted: #b4b4b4;
+  --line: rgb(255 255 255 / 10%);
   --blue: #7eb8ed;
   --blue-soft: #253f58;
   --teal: #63c6ba;
   --amber: #e8b86f;
+  --danger: #f08a8a;
 }
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; color: var(--text); }
@@ -81,7 +83,7 @@ svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width:
 .meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
 .meta span { padding: 3px 6px; color: var(--muted); background: var(--bg); border-radius: 5px; font-size: 9px; }
 .tool-card pre { max-height: 300px; margin: 0; padding: 10px; overflow: auto; color: var(--muted); background: var(--bg); border-radius: 9px; white-space: pre-wrap; font-size: 10px; }
-.card-error { padding: 12px; color: #c34f4f; }
+.card-error { padding: 12px; color: var(--danger); }
 .card-error p { margin: 5px 0 0; white-space: pre-wrap; }
 @media (max-width: 760px) {
   .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -1,24 +1,26 @@
 :root {
   color-scheme: light;
-  --bg: #faf9f6;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --text: #292925;
-  --muted: #85847d;
-  --line: #dedbd2;
-  --accent: #347b78;
-  --accent-soft: #e4f0ee;
+  --text: #0d0d0d;
+  --muted: #5d5d5d;
+  --line: #ececec;
+  --accent: #0d0d0d;
+  --accent-soft: #f4f4f4;
+  --danger: #c33c3c;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #222423;
-  --surface: #292b2a;
-  --text: #edede9;
-  --muted: #a3a39d;
-  --line: #444744;
-  --accent: #73b8b3;
-  --accent-soft: #253f3d;
+  --bg: #212121;
+  --surface: #2f2f2f;
+  --text: #ececec;
+  --muted: #b4b4b4;
+  --line: rgb(255 255 255 / 10%);
+  --accent: #ececec;
+  --accent-soft: #303030;
+  --danger: #f08a8a;
 }
 
 * { box-sizing: border-box; }
@@ -79,7 +81,7 @@ button { color: inherit; }
 .selector-actions > div { display: flex; gap: 5px; }
 .selector-actions button { padding: 4px 8px; font-size: 10px; }
 .selector-actions button:disabled { opacity: .4; cursor: default; }
-.error, .card-error { color: #bd5148; }
+.error, .card-error { color: var(--danger); }
 .dataset-list {
   display: grid;
   min-height: 0;
