@@ -164,7 +164,6 @@ pre {
   min-height: 0;
   flex-direction: column;
   background: var(--sidebar);
-  border-right: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -230,7 +229,7 @@ pre {
   place-items: center;
   color: var(--text-muted);
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .icon-button:not(:disabled):hover,
@@ -258,7 +257,7 @@ pre {
   display: flex;
   align-items: center;
   min-width: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .project-row:hover,
@@ -341,7 +340,7 @@ pre {
   padding: 0 8px;
   color: var(--text-muted);
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   text-align: left;
 }
 
@@ -385,13 +384,34 @@ pre {
 }
 
 .thread-copy strong {
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 570;
 }
 
 .thread-copy small {
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 11px;
+}
+
+.new-thread-button {
+  display: flex;
+  width: 100%;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 570;
+  transition: background 120ms ease;
+}
+
+.new-thread-button:not(:disabled):hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 .empty-project-button {
@@ -443,7 +463,7 @@ pre {
   padding: 0 9px;
   color: var(--text-muted);
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .sidebar-footer > button:hover {
@@ -589,7 +609,7 @@ pre {
   padding: 0 9px;
   color: var(--text-muted);
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 620;
 }
@@ -610,7 +630,7 @@ pre {
   padding: 0 9px;
   color: var(--accent);
   background: var(--accent-soft);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 620;
 }
@@ -1108,7 +1128,7 @@ pre {
   height: 27px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .tool-icon.charcoal {
@@ -1257,7 +1277,7 @@ pre {
 .file-change {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .file-change-header {
@@ -1343,7 +1363,7 @@ pre {
   place-items: center;
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .approval-heading strong {
@@ -1446,7 +1466,7 @@ pre {
   justify-content: center;
   gap: 6px;
   padding: 0 11px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 570;
 }
@@ -1577,7 +1597,7 @@ pre {
 
 .composer-area {
   flex: 0 0 auto;
-  padding: 8px 22px 10px;
+  padding: 10px 16px 18px;
   background: linear-gradient(transparent, var(--surface) 14%);
 }
 
@@ -1586,22 +1606,22 @@ pre {
   overflow: visible;
   width: min(768px, 100%);
   margin: 0 auto;
-  padding: 9px 10px 8px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: 13px;
-  box-shadow: 0 4px 18px rgb(30 30 26 / 5%);
+  padding: 11px 12px 9px;
+  background: var(--surface-composer);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .composer-shell:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 11%, transparent), 0 5px 20px rgb(30 30 26 / 6%);
+  border-color: color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow: var(--shadow-focus);
 }
 
 .composer-shell.dragging-files {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent), 0 5px 20px rgb(30 30 26 / 6%);
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+  box-shadow: var(--shadow-focus);
 }
 
 .composer-drop-hint {
@@ -1612,7 +1632,7 @@ pre {
   place-items: center;
   color: var(--accent);
   background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   font-size: 13px;
   font-weight: 650;
   pointer-events: none;
@@ -1621,14 +1641,14 @@ pre {
 .composer-shell textarea {
   display: block;
   width: 100%;
-  max-height: 180px;
-  padding: 2px 3px 5px;
+  max-height: 220px;
+  padding: 4px 6px 6px;
   overflow: auto;
   color: var(--text);
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.5;
   resize: none;
 }
@@ -1657,19 +1677,20 @@ pre {
 }
 
 .composer-tools .icon-button {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
 }
 
 .send-button {
   display: grid;
-  width: 29px;
-  height: 29px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   place-items: center;
   color: var(--inverse-fg);
   background: var(--inverse-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-full);
 }
 
 .send-button:not(:disabled):hover {
@@ -1700,18 +1721,15 @@ pre {
   height: 26px;
   align-items: center;
   gap: 5px;
-  padding: 0 8px;
+  padding: 0 4px;
   color: var(--text-muted);
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 9.5px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 570;
 }
 
 .composer-model-indicator svg {
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--text-muted);
 }
 
 .composer-model-indicator span {
@@ -1872,7 +1890,7 @@ pre {
   overflow: auto;
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
 }
 
@@ -1925,7 +1943,7 @@ pre {
   height: 27px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .composer-suggestion-icon.skill {
@@ -2046,7 +2064,7 @@ pre {
   color: var(--text);
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2410,7 +2428,7 @@ pre {
   padding: 0 9px;
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   outline: 0;
   font-size: 11px;
 }
@@ -2445,7 +2463,7 @@ pre {
   color: var(--text);
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   outline: 0;
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -3444,7 +3462,7 @@ pre {
   padding: 0 9px;
   background: var(--surface-muted);
   border: 1px solid var(--border-strong);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   outline: 0;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -3528,7 +3546,7 @@ pre {
   padding: 0 7px;
   color: var(--accent);
   background: var(--accent-soft);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 620;
 }
@@ -3831,7 +3849,7 @@ pre {
   color: var(--text-muted);
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 9.5px;
   overflow-wrap: anywhere;
   white-space: normal;
@@ -3845,7 +3863,7 @@ pre {
   color: var(--text-muted);
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: 9px;
   line-height: 1.5;
@@ -3859,7 +3877,7 @@ pre {
   padding: 10px;
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .plugin-mcp-tool {
@@ -4128,7 +4146,7 @@ pre {
   padding: 8px 10px;
   color: var(--danger);
   background: var(--danger-soft);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 10px;
 }
 
@@ -4198,7 +4216,7 @@ pre {
   padding: 0 9px;
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   outline: 0;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -4432,7 +4450,7 @@ pre {
   padding: 5px 8px;
   color: var(--text-muted);
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   text-align: left;
 }
 
@@ -4638,7 +4656,7 @@ pre {
   padding: 8px;
   color: var(--text-muted);
   background: var(--surface-muted);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 10px;
   line-height: 1.4;
 }
@@ -5185,7 +5203,7 @@ pre {
   padding: 9px 10px;
   color: var(--warning);
   background: var(--warning-soft);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 10.5px;
   line-height: 1.4;
 }

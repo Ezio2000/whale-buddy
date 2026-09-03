@@ -89,15 +89,15 @@ export function Sidebar() {
       <section className="sidebar-section threads-section">
         <div className="sidebar-section-heading">
           <span>线程</span>
-          <button
-            className="icon-button"
-            aria-label="新建线程"
-            disabled={!selectedProject}
-            onClick={() => void newThread()}
-          >
-            <Plus size={15} />
-          </button>
         </div>
+        <button
+          className="new-thread-button"
+          disabled={!selectedProject}
+          onClick={() => void newThread()}
+        >
+          <Plus size={16} />
+          <span>新线程</span>
+        </button>
         <div className="thread-list">
           {projectThreads.map((thread) => (
             <ThreadRow

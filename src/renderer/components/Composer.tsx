@@ -425,7 +425,7 @@ export function Composer() {
               (tool) => nextText.includes(`$${tool.server}.${tool.name}`),
             ));
             event.target.style.height = 'auto';
-            event.target.style.height = `${Math.min(event.target.scrollHeight, 180)}px`;
+            event.target.style.height = `${Math.min(event.target.scrollHeight, 220)}px`;
           }}
           onPaste={(event) => {
             const files = Array.from(event.clipboardData.items)
