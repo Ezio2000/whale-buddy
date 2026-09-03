@@ -104,7 +104,7 @@ describe('ItemCard', () => {
         onRespondApproval={() => undefined}
       />,
     );
-    expect(screen.getByText('先检查协议，再执行测试')).toBeInTheDocument();
+    expect(screen.getAllByText('先检查协议，再执行测试').length).toBeGreaterThan(0);
 
     rerender(
       <ItemCard
@@ -113,9 +113,9 @@ describe('ItemCard', () => {
         onRespondApproval={() => undefined}
       />,
     );
-    expect(screen.getByText('仅有原始推理内容')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /思考过程/ }));
     expect(screen.getAllByText('仅有原始推理内容')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: /思考过程/ }));
+    expect(screen.getAllByText('仅有原始推理内容')).toHaveLength(1);
 
     rerender(
       <ItemCard

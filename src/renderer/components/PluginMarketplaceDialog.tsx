@@ -1194,9 +1194,13 @@ function PluginDetailView({
           {webMcpTools.length > 0 && (
             <DetailSection icon={<Wrench size={13} />} title={`WebMCP 工具 · ${webMcpTools.length}`}>
               {webMcpTools.map((tool) => (
-                <div className="plugin-ui-contribution" key={tool.id}>
-                  <strong>{tool.title}</strong>
-                  <small><code>{tool.name}</code> · {tool.scope} · {tool.description}</small>
+                <div className="plugin-mcp-manifest" key={tool.id}>
+                  <div className="plugin-manifest-row">
+                    <span>
+                      <strong>{tool.title}</strong>
+                      <small><code>{tool.name}</code> · {tool.scope} · {tool.description}</small>
+                    </span>
+                  </div>
                 </div>
               ))}
             </DetailSection>

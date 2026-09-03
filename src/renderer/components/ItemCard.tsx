@@ -4,7 +4,6 @@ import {
   Bot,
   Brain,
   CheckCircle2,
-  ChevronDown,
   CircleDot,
   FileCode2,
   Globe2,
@@ -135,8 +134,16 @@ function HookRunItem({ item }: { item: ItemView }) {
       })
     : [];
   const title = string(item.statusMessage) ?? '插件收尾 Hook';
+  const running = status === 'running';
+  const [open, setOpen] = useState(running);
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (running && !wasRunning.current) setOpen(true);
+    if (!running && wasRunning.current) setOpen(false);
+    wasRunning.current = running;
+  }, [running]);
   return (
-    <Collapsible.Root className={`tool-card hook-run-card status-${status}`}>
+    <Collapsible.Root className={`tool-card hook-run-card status-${status}`} open={open} onOpenChange={setOpen}>
       <Collapsible.Trigger className="tool-card-trigger" disabled={entries.length === 0}>
         <span className="tool-icon violet"><PlugZap size={14} /></span>
         <span className="tool-title-grow">
@@ -144,7 +151,6 @@ function HookRunItem({ item }: { item: ItemView }) {
           <small>{hookRunDescription(status, entries.length)}</small>
         </span>
         <ToolElapsed item={item} status={status} />
-        {entries.length > 0 && <ChevronDown className="collapsible-chevron" size={14} />}
       </Collapsible.Trigger>
       {entries.length > 0 && (
         <Collapsible.Content className="tool-card-content hook-run-output">
@@ -268,10 +274,18 @@ function AgentMessage({ item, showAvatar }: { item: ItemView; showAvatar: boolea
 function Reasoning({ item, showAvatar }: { item: ItemView; showAvatar: boolean }) {
   const summary = textArray(item.summary).join('\n\n');
   const raw = textArray(item.content).join('\n\n');
+  const running = isRunningStatus(string(item.status) ?? 'inProgress');
+  const [open, setOpen] = useState(running);
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (running && !wasRunning.current) setOpen(true);
+    if (!running && wasRunning.current) setOpen(false);
+    wasRunning.current = running;
+  }, [running]);
   return (
     <article className="message agent-message reasoning-message">
       <AssistantIdentity show={showAvatar} />
-      <Collapsible.Root className="tool-card reasoning-card">
+      <Collapsible.Root className="tool-card reasoning-card" open={open} onOpenChange={setOpen}>
         <Collapsible.Trigger className="tool-card-trigger">
           <span className="tool-icon violet">
             <Brain size={15} />
@@ -280,7 +294,6 @@ function Reasoning({ item, showAvatar }: { item: ItemView; showAvatar: boolean }
             <strong>思考过程</strong>
             <small>{truncate(summary || raw, 90)}</small>
           </span>
-          <ChevronDown className="collapsible-chevron" size={15} />
         </Collapsible.Trigger>
         <Collapsible.Content className="tool-card-content reasoning-content">
           {summary && <Markdown>{summary}</Markdown>}
@@ -347,7 +360,6 @@ function FileChangeItem({ item }: { item: ItemView }) {
           <small>{changes.length ? `${changes.length} 个文件` : '正在准备变更'}</small>
         </span>
         <ToolElapsed item={item} status={string(item.status) ?? 'inProgress'} />
-        <ChevronDown className="collapsible-chevron" size={15} />
       </Collapsible.Trigger>
       <Collapsible.Content className="tool-card-content file-change-list">
         {changes.map((rawChange, index) => {
@@ -387,6 +399,31 @@ function ToolItem({ item }: { item: ItemView }) {
     if (!running && wasRunning.current) setOpen(false);
     wasRunning.current = running;
   }, [running]);
+  const argumentsText = item.arguments === undefined ? null : stringifyDetail(item.arguments);
+  const resultText = item.result === undefined ? null : stringifyDetail(item.result);
+  const errorText = item.error === undefined ? null : stringifyDetail(item.error);
+  const detail = argumentsText === null && resultText === null && errorText === null ? undefined : (
+    <>
+      {argumentsText !== null && (
+        <section className="tool-detail-section">
+          <small>参数</small>
+          <pre className="json-output">{argumentsText}</pre>
+        </section>
+      )}
+      {resultText !== null && (
+        <section className="tool-detail-section">
+          <small>结果</small>
+          <pre className="json-output">{resultText}</pre>
+        </section>
+      )}
+      {errorText !== null && (
+        <section className="tool-detail-section">
+          <small>错误</small>
+          <pre className="json-output">{errorText}</pre>
+        </section>
+      )}
+    </>
+  );
   return (
     <ToolActivityCard
       item={item}
@@ -394,6 +431,9 @@ function ToolItem({ item }: { item: ItemView }) {
       iconTone="amber"
       title={label}
       status={status}
+      detail={detail}
+      open={open}
+      onOpenChange={setOpen}
     />
   );
 }
@@ -446,22 +486,53 @@ function ToolActivityCard({
   iconTone,
   title,
   status,
+  detail,
+  open,
+  onOpenChange,
 }: {
   item: ItemView;
   icon: React.ReactNode;
   iconTone: string;
   title: string;
   status: string;
+  detail?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
+  if (detail === undefined) {
+    return (
+      <article className="tool-card compact-tool-card tool-activity-card">
+        <span className={`tool-icon ${iconTone}`}>{icon}</span>
+        <span>
+          <strong>{title}</strong>
+        </span>
+        <ToolElapsed item={item} status={status} />
+      </article>
+    );
+  }
   return (
-    <article className="tool-card compact-tool-card tool-activity-card">
-      <span className={`tool-icon ${iconTone}`}>{icon}</span>
-      <span>
-        <strong>{title}</strong>
-      </span>
-      <ToolElapsed item={item} status={status} />
-    </article>
+    <Collapsible.Root className="tool-card tool-activity-card" open={open} onOpenChange={onOpenChange}>
+      <Collapsible.Trigger className="tool-card-trigger compact-tool-card">
+        <span className={`tool-icon ${iconTone}`}>{icon}</span>
+        <span className="tool-title-grow">
+          <strong>{title}</strong>
+        </span>
+        <ToolElapsed item={item} status={status} />
+      </Collapsible.Trigger>
+      <Collapsible.Content className="tool-card-content">
+        {detail}
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
+}
+
+function stringifyDetail(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function customMessageCard(item: ItemView, descriptors: PluginDescriptor[]) {

@@ -1166,18 +1166,24 @@ pre {
   background: var(--surface-muted);
 }
 
-.collapsible-chevron {
-  flex: 0 0 auto;
-  color: var(--text-faint);
-  transition: transform 150ms ease;
-}
-
-[data-state='open'] > .collapsible-chevron {
-  transform: rotate(180deg);
-}
-
 .tool-card-content {
   padding: 0 11px 11px 12px;
+}
+
+.tool-detail-section {
+  display: grid;
+  gap: 3px;
+  padding-top: 4px;
+}
+
+.tool-detail-section + .tool-detail-section {
+  margin-top: 7px;
+}
+
+.tool-detail-section small {
+  color: var(--text-faint);
+  font-size: 9.5px;
+  text-transform: uppercase;
 }
 
 .reasoning-content {
