@@ -1411,22 +1411,22 @@ pre {
 }
 
 .approval-heading strong {
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 .approval-heading p,
 .approval-questions p {
   margin: 3px 0 0;
   color: var(--text-muted);
-  font-size: 10.5px;
-  line-height: 1.4;
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
 .approval-detail {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin: 9px 0 0 36px;
+  margin: 10px 0 0;
 }
 
 .approval-detail code {
@@ -1434,8 +1434,8 @@ pre {
   overflow: auto;
   color: var(--text);
   background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
-  border-radius: 6px;
-  font-size: 10.5px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
   white-space: pre-wrap;
 }
 
@@ -1467,7 +1467,7 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  margin: 10px 0 0 36px;
+  margin: 10px 0 0;
 }
 
 .approval-questions label {
@@ -1492,7 +1492,7 @@ pre {
   padding: 7px 8px;
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   outline: none;
 }
 
