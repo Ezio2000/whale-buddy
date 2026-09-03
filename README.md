@@ -51,7 +51,9 @@ pnpm platform:check
 ```
 
 本地不得运行 `pnpm codex:build`、`pnpm protocol:generate`、`pnpm build`、`pnpm make`、
-`pnpm app:run`、`pnpm app:verify` 或直接调用 Electron Forge 的 package/make 命令。
+`pnpm app:run`、`pnpm app:verify` 或直接调用 Electron Forge 的 package/make 命令，
+也不得以 `pnpm dev`、`pnpm start` 等方式在本地构建、打包或启动应用，或手动下载、
+修复 Electron 二进制；界面目检与完整测试一律通过 GitHub Actions 的产物完成。
 协议生成、官方 sidecar 下载、平台打包和安装产物制作统一由
 `.github/workflows/package.yml` 完成。本地验证结束后，应通过 `git status --short --branch`
 确认没有意外修改；需要保持无本地缓存时，还应确认 `node_modules/`、`out/`、`.sidecar/`

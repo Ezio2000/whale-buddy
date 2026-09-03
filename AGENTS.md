@@ -8,6 +8,11 @@
 - 禁止在本地运行 `pnpm codex:build`、`pnpm protocol:generate`、`pnpm build`、
   `pnpm make`、`pnpm app:run`、`pnpm app:verify`，也禁止直接调用 Electron Forge
   的 package/make 命令。
+- 禁止在本地构建、打包或启动应用：`pnpm dev`、`pnpm start` 与任何
+  electron-forge start 调用都不允许，即使仅为界面目检或验证改动。
+- 禁止在本地下载或修复 Electron 二进制（如运行
+  `node node_modules/electron/install.js`）。测试因本地 Electron 二进制缺失而
+  失败时视为环境问题，不要修复本地环境，直接推送后由 GitHub Actions 验证。
 - 本地部署必须下载当前提交对应的 GitHub Actions Artifact，不能使用 `out/`、
   本地 sidecar 或其他本地打包产物。
 - 触发工作流时必须显式传入目标 `--ref`；下载前检查 Actions run 的 `headSha` 与
