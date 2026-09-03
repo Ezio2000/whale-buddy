@@ -43,7 +43,7 @@ export function Welcome() {
     <main className="welcome-screen">
       <div className="welcome-card">
         <div className="welcome-logo-wrap">
-          <BrandMark size={61} />
+          <BrandMark size={72} />
         </div>
         <p className="eyebrow">你的本地 Codex 工作台</p>
         <h1>欢迎使用 {brandName}</h1>
