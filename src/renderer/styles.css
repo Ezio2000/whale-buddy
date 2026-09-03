@@ -916,7 +916,7 @@ pre {
 .markdown-body blockquote,
 .markdown-body pre,
 .markdown-body table {
-  margin: 0.7em 0;
+  margin: 1em 0;
 }
 
 .markdown-body ul,
@@ -925,7 +925,7 @@ pre {
 }
 
 .markdown-body li + li {
-  margin-top: 0.22em;
+  margin-top: 0.3em;
 }
 
 .markdown-body h1,
@@ -971,14 +971,38 @@ pre {
 
 .markdown-body table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.markdown-body th {
+  background: var(--surface-muted);
 }
 
 .markdown-body th,
 .markdown-body td {
-  padding: 6px 8px;
-  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
   text-align: left;
+}
+
+.markdown-body tr:last-child td {
+  border-bottom: 0;
+}
+
+.markdown-body hr {
+  margin: 1.5em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.markdown-body img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
 }
 
 .shiki-wrap,
