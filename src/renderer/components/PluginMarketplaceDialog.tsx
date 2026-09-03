@@ -1,12 +1,15 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   AlertCircle,
+  BookOpen,
   Boxes,
   Check,
   ChevronRight,
   CircleOff,
   Cloud,
   Download,
+  FileCode2,
+  FileText,
   KeyRound,
   LoaderCircle,
   PanelsTopLeft,
@@ -1418,48 +1421,41 @@ function ContributionDetailView({
           <p>{contribution.kind === 'skill' ? 'Skill 详情' : 'MCP 详情'} · {enabledLabel}</p>
         </div>
       </div>
-      <div className="contribution-detail-body embedded">
-        {contribution.kind === 'skill' ? (
-          <>
-            <section>
-              <h4>功能预览</h4>
-              <p>{contribution.description}</p>
-            </section>
-            <section>
-              <h4>Skill 路径</h4>
-              <code>{contribution.path}</code>
-            </section>
-            <section>
-              <h4>SKILL.md</h4>
-              <pre>{contribution.contents}</pre>
-            </section>
-          </>
-        ) : (
-          <>
-            <section>
-              <h4>MCP 配置路径</h4>
-              <code>{contribution.path}</code>
-            </section>
-            <section>
-              <h4>配置参数（明文）</h4>
-              <pre>{contribution.configuration}</pre>
-            </section>
-            <section>
-              <h4>工具预览 · {contribution.tools.length}</h4>
-              {contribution.tools.length > 0 ? (
-                <div className="contribution-tool-list">
-                  {contribution.tools.map((tool) => (
-                    <div className="plugin-mcp-tool" key={tool.name}>
-                      <Wrench size={11} />
+      {contribution.kind === 'skill' ? (
+        <>
+          <DetailSection icon={<FileText size={13} />} title="功能预览">
+            <p className="plugin-detail-description">{contribution.description}</p>
+          </DetailSection>
+          <DetailSection icon={<FileCode2 size={13} />} title="Skill 路径">
+            <pre className="terminal-output">{contribution.path}</pre>
+          </DetailSection>
+          <DetailSection icon={<BookOpen size={13} />} title="SKILL.md">
+            <pre className="terminal-output">{contribution.contents}</pre>
+          </DetailSection>
+        </>
+      ) : (
+        <>
+          <DetailSection icon={<FileCode2 size={13} />} title="MCP 配置路径">
+            <pre className="terminal-output">{contribution.path}</pre>
+          </DetailSection>
+          <DetailSection icon={<KeyRound size={13} />} title="配置参数（明文）">
+            <pre className="terminal-output">{contribution.configuration}</pre>
+          </DetailSection>
+          <DetailSection icon={<Wrench size={13} />} title={`工具预览 · ${contribution.tools.length}`}>
+            {contribution.tools.length > 0 ? (
+              <div>
+                {contribution.tools.map((tool) => (
+                  <div className="plugin-mcp-manifest" key={tool.name}>
+                    <div className="plugin-manifest-row">
                       <span><code>{tool.name}</code><small>{tool.description}</small></span>
                     </div>
-                  ))}
-                </div>
-              ) : <p>当前没有可预览的运行时工具。</p>}
-            </section>
-          </>
-        )}
-      </div>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="manifest-empty">当前没有可预览的运行时工具。</p>}
+          </DetailSection>
+        </>
+      )}
     </div>
   );
 }
