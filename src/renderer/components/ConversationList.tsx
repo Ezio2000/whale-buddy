@@ -6,7 +6,7 @@ import { useAppStore } from '../state/store';
 import { ApprovalCard } from './ApprovalCard';
 import { ItemCard } from './ItemCard';
 
-const ESTIMATED_ITEM_HEIGHT = 150;
+const ESTIMATED_ITEM_HEIGHT = 180;
 
 export function ConversationList() {
   const conversation = useAppStore((state) => state.conversation);

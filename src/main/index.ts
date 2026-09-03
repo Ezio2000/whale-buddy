@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import packageJson from '../../package.json';
 import protocolManifest from '../generated/protocol/manifest.json';
@@ -71,7 +71,7 @@ async function createWindow(): Promise<void> {
     minWidth: 980,
     minHeight: 680,
     title: branding.name,
-    backgroundColor: '#f3f2ef',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#212121' : '#ffffff',
     ...platform.windowChromeOptions(),
     webPreferences: {
       preload: path.join(moduleDirectory, 'preload.js'),
