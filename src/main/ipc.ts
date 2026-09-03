@@ -315,7 +315,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     }
     eventSequence += 1;
     if (status.phase !== 'ready') {
-      scheduler?.handleRuntimeUnavailable(status.message ?? 'Codex app-server 当前不可用');
+      scheduler?.handleRuntimeUnavailable(status.message ?? `${runtimeSettings.readBranding().name} app-server 当前不可用`);
     }
     broadcast({
       kind: 'runtime',
@@ -1135,7 +1135,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       await appServer.request('marketplace/remove', {
         marketplaceName: response.marketplaceName,
       });
-      throw new Error('此应用不支持 Codex 预设扩展来源');
+      throw new Error('此应用不支持预设扩展来源');
     }
     extensionPolicy.addMarketplace(
       response.marketplaceName,
@@ -1205,7 +1205,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       throw new Error('此应用只允许通过插件启用 Skill');
     }
     if (input.scope === 'system') {
-      throw new Error('此应用不加载 Codex 内置 Skills');
+      throw new Error('此应用不加载内置 Skills');
     }
     if (input.pluginId && !extensionPolicy.isPluginEnabled(input.pluginId)) {
       throw new Error('请先启用提供此 Skill 的插件');

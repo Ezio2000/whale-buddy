@@ -133,7 +133,7 @@ export function ConversationList() {
           <Sparkles size={24} />
         </div>
         <h2>准备开始一段新工作</h2>
-        <p>从左侧选择项目并创建线程，{brandName}会在这里展示 Codex 的消息、命令与文件变更。</p>
+        <p>从左侧选择项目并创建线程，{brandName}会在这里展示执行消息、命令与文件变更。</p>
       </div>
     );
   }
@@ -155,7 +155,7 @@ export function ConversationList() {
       {items.length === 0 && unmatchedApprovals.length === 0 ? (
         <div className="conversation-empty compact-empty">
           <h2>这个线程还是空的</h2>
-          <p>在下方描述你想完成的事情。Codex 的执行活动会实时出现在这里。</p>
+          <p>在下方描述你想完成的事情。{brandName} 的执行活动会实时出现在这里。</p>
         </div>
       ) : (
         <div

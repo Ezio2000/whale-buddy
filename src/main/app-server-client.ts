@@ -33,7 +33,7 @@ export class AppServerRpcError extends Error {
 }
 
 export class AppServerExitedError extends Error {
-  constructor(message = 'Codex app-server 已退出') {
+  constructor(message = 'app-server 已退出') {
     super(message);
     this.name = 'AppServerExitedError';
   }
@@ -166,7 +166,7 @@ export class AppServerClient extends EventEmitter {
   async request(method: string, params?: unknown): Promise<unknown> {
     await this.start();
     if (this.currentStatus.phase !== 'ready') {
-      throw new Error(this.currentStatus.message ?? 'Codex app-server 尚未就绪');
+      throw new Error(this.currentStatus.message ?? `${this.brandName()} app-server 尚未就绪`);
     }
 
     const maxAttempts = READ_ONLY_METHODS.has(method) ? 3 : 1;
@@ -223,7 +223,7 @@ export class AppServerClient extends EventEmitter {
         windowsHide: true,
       });
     } catch (error) {
-      const message = `无法启动 Codex sidecar：${error instanceof Error ? error.message : String(error)}`;
+      const message = `无法启动 ${this.brandName()} sidecar：${error instanceof Error ? error.message : String(error)}`;
       this.options.diagnosticLog.write('runtime', message);
       this.setStatus({ phase: 'unavailable', pid: null, message });
       throw new Error(message);
@@ -237,7 +237,7 @@ export class AppServerClient extends EventEmitter {
       const initialized = (await this.rawRequest('initialize', {
         clientInfo: {
           name: 'whale_buddy',
-          title: this.options.clientTitle?.() ?? 'AI小鲸',
+          title: this.brandName(),
           version: this.options.clientVersion,
         },
         capabilities: {
@@ -406,8 +406,14 @@ export class AppServerClient extends EventEmitter {
     });
   }
 
+  private brandName(): string {
+    return this.options.clientTitle?.() ?? 'AI小鲸';
+  }
+
   private write(message: unknown): void {
-    if (!this.child || !this.child.stdin.writable) throw new AppServerExitedError();
+    if (!this.child || !this.child.stdin.writable) {
+      throw new AppServerExitedError(`${this.brandName()} app-server 已退出`);
+    }
     this.child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
@@ -436,7 +442,7 @@ export class AppServerClient extends EventEmitter {
     });
     if (this.child === child) {
       this.child = null;
-      this.rejectAllPending(new AppServerExitedError('Codex app-server 未能及时退出'));
+      this.rejectAllPending(new AppServerExitedError(`${this.brandName()} app-server 未能及时退出`));
     }
   }
 

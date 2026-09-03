@@ -90,7 +90,7 @@ export function Workspace() {
           <div className="header-actions">
             {activeTurn && (
               <span className="running-indicator">
-                <span className="spinner-dot" /> Codex 正在工作
+                <span className="spinner-dot" /> {brandName} 正在工作
               </span>
             )}
             {selectedThread && threadActions.map(({ descriptor, contribution }) => (

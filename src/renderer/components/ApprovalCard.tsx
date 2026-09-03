@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Check, ShieldCheck, X } from 'lucide-react';
+import { useAppStore } from '../state/store';
 import type { PendingApproval } from '../state/store';
 
 interface ApprovalCardProps {
@@ -10,6 +11,7 @@ interface ApprovalCardProps {
 export function ApprovalCard({ approval, onRespond }: ApprovalCardProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [jsonContent, setJsonContent] = useState('{}');
+  const brandName = useAppStore((state) => state.branding.name);
   const kind = approvalKind(approval.method);
   const questions = Array.isArray(approval.params.questions) ? approval.params.questions : [];
   const permissions = record(approval.params.permissions);
@@ -17,17 +19,17 @@ export function ApprovalCard({ approval, onRespond }: ApprovalCardProps) {
   const title = useMemo(() => {
     switch (kind) {
       case 'command':
-        return 'Codex 请求执行命令';
+        return `${brandName} 请求执行命令`;
       case 'file':
-        return 'Codex 请求修改文件';
+        return `${brandName} 请求修改文件`;
       case 'permissions':
-        return 'Codex 请求额外权限';
+        return `${brandName} 请求额外权限`;
       case 'input':
-        return 'Codex 需要你的回答';
+        return `${brandName} 需要你的回答`;
       case 'mcp':
         return 'MCP 服务请求信息';
     }
-  }, [kind]);
+  }, [kind, brandName]);
 
   const decline = () => {
     if (kind === 'mcp') onRespond({ action: 'decline', content: null, _meta: null });

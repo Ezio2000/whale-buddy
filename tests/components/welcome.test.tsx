@@ -38,7 +38,7 @@ describe('Welcome', () => {
     }, true);
 
     render(<Welcome />);
-    expect(screen.getByRole('heading', { name: 'Codex sidecar 尚未就绪' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'AI小鲸 sidecar 尚未就绪' })).toBeInTheDocument();
     expect(screen.getByText('自动重启次数已用尽')).toBeInTheDocument();
     expect(screen.getByText('/private/whale/sidecar-home')).toBeInTheDocument();
     expect(screen.getByText('/private/whale/codex-home')).toBeInTheDocument();

@@ -14,7 +14,7 @@ export function Welcome() {
       <main className="welcome-screen">
         <div className="welcome-card runtime-card">
           <BrandMark size={55} />
-          <h1>Codex sidecar 尚未就绪</h1>
+          <h1>{brandName} sidecar 尚未就绪</h1>
           <p>{runtime.message ?? `${brandName}正在等待本地 app-server。`}</p>
           <dl className="runtime-paths">
             <div>
@@ -45,10 +45,10 @@ export function Welcome() {
         <div className="welcome-logo-wrap">
           <BrandMark size={72} />
         </div>
-        <p className="eyebrow">你的本地 Codex 工作台</p>
+        <p className="eyebrow">你的本地 {brandName} 工作台</p>
         <h1>欢迎使用 {brandName}</h1>
         <p className="welcome-copy">
-          打开本地项目，让 Codex 阅读代码、执行命令并提交清晰可审阅的文件变更。
+          打开本地项目，让 {brandName} 阅读代码、执行命令并提交清晰可审阅的文件变更。
         </p>
         <div className="welcome-actions">
           <button className="button primary large full" onClick={() => setSettingsOpen(true)}>

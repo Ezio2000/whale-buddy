@@ -14,6 +14,7 @@ export function App() {
   const connectionSettings = useAppStore((state) => state.connectionSettings);
   const runtime = useAppStore((state) => state.runtime);
   const preferences = useAppStore((state) => state.preferences);
+  const brandName = useAppStore((state) => state.branding.name);
   const notice = useAppStore((state) => state.notice);
   const setNotice = useAppStore((state) => state.setNotice);
   const setSettingsOpen = useAppStore((state) => state.setSettingsOpen);
@@ -45,7 +46,7 @@ export function App() {
     return (
       <div className="splash-screen">
         <span className="large-spinner" />
-        <p>正在连接本地 Codex…</p>
+        <p>正在连接本地 {brandName}…</p>
       </div>
     );
   }
@@ -61,7 +62,7 @@ export function App() {
       {runtime.phase !== 'ready' && (
         <div className="reconnect-banner">
           <AlertCircle size={14} />
-          <span>{runtime.message ?? 'Codex app-server 连接中断，正在恢复…'}</span>
+          <span>{runtime.message ?? `${brandName} 服务连接中断，正在恢复…`}</span>
           <button onClick={() => setSettingsOpen(true)}>
             <Settings2 size={13} /> 连接设置
           </button>

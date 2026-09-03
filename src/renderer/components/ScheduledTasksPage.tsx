@@ -52,6 +52,7 @@ export function ScheduledTasksPage() {
   const projects = useAppStore((state) => state.projects);
   const models = useAppStore((state) => state.models);
   const preferences = useAppStore((state) => state.preferences);
+  const brandName = useAppStore((state) => state.branding.name);
   const runtime = useAppStore((state) => state.runtime);
   const setNotice = useAppStore((state) => state.setNotice);
   const selectProject = useAppStore((state) => state.selectProject);
@@ -129,7 +130,7 @@ export function ScheduledTasksPage() {
       mergeRun(setRuns, run);
       if (run.status === 'skipped') {
         setNotice(run.skippedReason === 'runtimeUnavailable'
-          ? 'Codex 服务当前不可用，任务没有执行。'
+          ? `${brandName} 服务当前不可用，任务没有执行。`
           : '任务正在运行，本次触发已跳过。');
       } else {
         setNotice('任务已开始运行。');
@@ -306,6 +307,7 @@ function RunHistory({
   onClose(): void;
   onOpenThread(): void;
 }) {
+  const brandName = useAppStore((state) => state.branding.name);
   return (
     <aside className="scheduled-history">
       <header>
@@ -319,7 +321,7 @@ function RunHistory({
             <div><RunBadge run={run} /><span>{run.trigger === 'manual' ? '手动' : '定时'}</span></div>
             <time>{formatDateTime(run.scheduledAt, task.timezone)}</time>
             {run.error && <p>{run.error}</p>}
-            {run.status === 'skipped' && <p>{skippedReasonLabel(run.skippedReason)}</p>}
+            {run.status === 'skipped' && <p>{skippedReasonLabel(run.skippedReason, brandName)}</p>}
           </div>
         ))}
       </div>
@@ -553,10 +555,10 @@ function isActive(run?: ScheduledRun): boolean {
   return run?.status === 'running' || run?.status === 'waitingApproval';
 }
 
-function skippedReasonLabel(reason: ScheduledRun['skippedReason']): string {
+function skippedReasonLabel(reason: ScheduledRun['skippedReason'], brandName: string): string {
   if (reason === 'missed') return '应用未运行或休眠期间已错过';
   if (reason === 'conflict') return '上一次运行尚未结束';
-  if (reason === 'runtimeUnavailable') return 'Codex 服务不可用';
+  if (reason === 'runtimeUnavailable') return `${brandName} 服务不可用`;
   return '本次运行已跳过';
 }
 

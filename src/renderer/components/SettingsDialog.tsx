@@ -151,7 +151,7 @@ export function SettingsDialog() {
             </section>
             <section>
               <h3>网络</h3>
-              <SettingRow label="代理方式" hint={`仅作用于 ${branding.name} 自己启动的 Codex sidecar。`}>
+              <SettingRow label="代理方式" hint={`仅作用于 ${branding.name} 自己启动的 sidecar。`}>
                 <SelectField
                   value={connectionDraft.proxy.mode}
                   onChange={(mode) =>
@@ -284,7 +284,7 @@ export function SettingsDialog() {
                   <details className="settings-advanced">
                     <summary><ChevronDown size={13} /> 高级连接设置</summary>
                     <div className="settings-advanced-body">
-                      <SettingRow label="Provider ID" hint="Codex 内部使用的服务标识。">
+                      <SettingRow label="Provider ID" hint={`${branding.name} 内部使用的服务标识。`}>
                         <TextField
                           ariaLabel="Provider ID"
                           value={connectionDraft.provider.id}
@@ -333,7 +333,7 @@ export function SettingsDialog() {
               <SettingRow label="使用模型" hint="由上方 Provider 的模型名称决定。">
                 <code>{connectionDraft.provider.model || '尚未配置'}</code>
               </SettingRow>
-              <SettingRow label="能力概览" hint="保存后写入 Codex 模型目录，决定运行时可用能力。">
+              <SettingRow label="能力概览" hint={`保存后写入 ${branding.name} 模型目录，决定运行时可用能力。`}>
                 <div className="model-capability-summary">
                   <span>文本</span>
                   {capabilities.imageInput && <span>视觉</span>}

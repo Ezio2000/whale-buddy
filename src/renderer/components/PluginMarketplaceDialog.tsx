@@ -865,7 +865,7 @@ export function PluginMarketplaceDialog() {
 
           <footer className="marketplace-footer">
             <span>
-              {selectedProject ? `项目：${selectedProject.name}` : `${brandName} 独立 Codex Home`}
+              {selectedProject ? `项目：${selectedProject.name}` : `${brandName} 独立配置目录`}
             </span>
             <span>未启用的扩展不会加载、连接或注入线程</span>
           </footer>
@@ -1612,7 +1612,7 @@ function McpManager({
             </article>
           );
         })}
-        {!servers.length && <EmptyState icon={<PlugZap size={24} />} title="还没有 MCP 服务" description="安装包含 MCP 的插件，或在隔离的 Codex 配置中添加 MCP 后重新读取配置。" />}
+        {!servers.length && <EmptyState icon={<PlugZap size={24} />} title="还没有 MCP 服务" description={`安装包含 MCP 的插件，或在隔离的 ${brandName} 配置中添加 MCP 后重新读取配置。`} />}
       </div>
       <aside className="plugin-detail-pane"><ContributionDetailView contribution={detail} /></aside>
     </div>
@@ -1835,7 +1835,7 @@ function pluginDisplayName(plugin: PluginSummary): string {
 }
 
 function pluginDescription(plugin: PluginSummary): string {
-  return plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? '包含可复用的 Codex 能力。';
+  return plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? '包含可复用的能力。';
 }
 
 function pluginCapabilitySummary(plugin: PluginSummary): string {
