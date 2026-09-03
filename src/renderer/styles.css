@@ -4770,7 +4770,7 @@ pre {
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgb(25 24 21 / 4%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
 
 .scheduled-card.disabled {
@@ -4804,7 +4804,7 @@ pre {
   height: 14px;
   background: white;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
   transition: transform 120ms ease;
 }
 
@@ -4851,7 +4851,7 @@ pre {
   flex-wrap: wrap;
   gap: 5px 13px;
   color: var(--text-faint);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .scheduled-card-meta span:not(:first-child)::before {
@@ -4867,7 +4867,7 @@ pre {
   gap: 5px;
   margin-top: 9px;
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .scheduled-health-error {
@@ -4894,7 +4894,7 @@ pre {
   color: var(--text-muted);
   background: transparent;
   border-radius: 6px;
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .scheduled-card-actions button:not(:disabled):hover,
@@ -4918,7 +4918,7 @@ pre {
   color: var(--text-muted);
   background: var(--surface-muted);
   border-radius: 999px;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -4971,7 +4971,7 @@ pre {
 .scheduled-history > header span {
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5014,13 +5014,13 @@ pre {
   display: block;
   margin-top: 6px;
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .scheduled-run p {
   margin: 6px 0 0;
   color: var(--danger);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -5048,7 +5048,7 @@ pre {
 .scheduled-editor-header p {
   margin: 4px 0 0;
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .scheduled-editor form {
@@ -5070,7 +5070,7 @@ pre {
   flex-direction: column;
   gap: 6px;
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -5113,7 +5113,7 @@ pre {
   color: var(--warning);
   background: var(--warning-soft);
   border-radius: var(--radius-sm);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -5131,7 +5131,7 @@ pre {
 
 .scheduled-plugin-contexts > div:first-child span {
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .scheduled-plugin-widgets {
@@ -5154,7 +5154,7 @@ pre {
 
 .scheduled-plugin-widget > span {
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .scheduled-plugin-widget .plugin-ui-frame {
