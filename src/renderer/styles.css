@@ -124,6 +124,24 @@ button:disabled {
   opacity: 0.45;
 }
 
+button,
+.icon-button,
+.new-thread-button,
+.sidebar-footer > button,
+.thread-main,
+.project-main,
+.menu-item,
+.select-item,
+.plugin-card,
+.source-row {
+  transition: background-color 130ms ease, color 130ms ease, border-color 130ms ease;
+}
+
+:where(button, a, input, select, textarea, [role='switch'], [role='tab']):focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
 code,
 pre {
   font-family: var(--font-mono);
