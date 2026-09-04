@@ -44,8 +44,8 @@ h1 { margin: 6px 0 7px; font-size: 28px; letter-spacing: -.035em; }
 .status.ready { color: var(--teal); background: color-mix(in srgb, var(--teal) 10%, var(--surface-solid)); border-color: color-mix(in srgb, var(--teal) 22%, transparent); }
 .status.ready span { background: var(--teal); }
 .capability-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.capability-grid article { min-height: 146px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 34px rgba(24, 48, 78, .06); backdrop-filter: blur(12px); }
-.glyph, .tool-icon { display: grid; width: 35px; height: 35px; place-items: center; margin-bottom: 19px; color: var(--blue); background: var(--blue-soft); border-radius: 10px; }
+.capability-grid article { min-height: 146px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 34px rgb(0 0 0 / 5%); backdrop-filter: blur(12px); }
+.glyph, .tool-icon { display: grid; width: 35px; height: 35px; place-items: center; margin-bottom: 19px; color: var(--blue); background: var(--blue-soft); border-radius: 12px; }
 .glyph.people { color: #7a58b5; background: color-mix(in srgb, #7a58b5 13%, var(--surface-solid)); }
 .glyph.mail { color: #b45c72; background: color-mix(in srgb, #b45c72 13%, var(--surface-solid)); }
 .glyph.shield { color: var(--teal); background: color-mix(in srgb, var(--teal) 13%, var(--surface-solid)); }
@@ -60,7 +60,7 @@ svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width:
 .prompts { margin-top: 20px; }
 .prompts > span { color: var(--muted); font-size: 10px; }
 .prompts > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
-.prompts p { margin: 0; padding: 8px 11px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
+.prompts p { margin: 0; padding: 8px 11px; background: var(--surface); border: 1px solid var(--line); border-radius:  999px; }
 .tool-card { display: grid; gap: 10px; max-height: 600px; overflow: auto; }
 .tool-card > header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
 .tool-icon { width: 33px; height: 33px; margin: 0; }
@@ -73,16 +73,16 @@ svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width:
 .result-state { padding: 4px 7px; color: var(--blue); background: var(--blue-soft); border-radius: 999px; font-size: 9px; }
 .result-state.attention { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, var(--surface-solid)); }
 .result-state.success { color: var(--teal); background: color-mix(in srgb, var(--teal) 12%, var(--surface-solid)); }
-.preview-note { padding: 9px 10px; color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, var(--surface-solid)); border: 1px solid color-mix(in srgb, var(--amber) 20%, transparent); border-radius: 9px; }
+.preview-note { padding: 9px 10px; color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, var(--surface-solid)); border: 1px solid color-mix(in srgb, var(--amber) 20%, transparent); border-radius: 12px; }
 .result-list { display: grid; gap: 7px; }
-.result-list section { padding: 10px 11px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.result-list section { padding: 10px 11px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .result-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .result-heading strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-heading span { color: var(--muted); font-size: 9px; white-space: nowrap; }
 .result-list p { margin: 6px 0 0; line-height: 1.55; white-space: pre-wrap; }
 .meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
-.meta span { padding: 3px 6px; color: var(--muted); background: var(--bg); border-radius: 5px; font-size: 9px; }
-.tool-card pre { max-height: 300px; margin: 0; padding: 10px; overflow: auto; color: var(--muted); background: var(--bg); border-radius: 9px; white-space: pre-wrap; font-size: 10px; }
+.meta span { padding: 3px 6px; color: var(--muted); background: var(--bg); border-radius: 999px; font-size: 9px; }
+.tool-card pre { max-height: 300px; margin: 0; padding: 10px; overflow: auto; color: var(--muted); background: var(--bg); border-radius: 12px; white-space: pre-wrap; font-size: 10px; }
 .card-error { padding: 12px; color: var(--danger); }
 .card-error p { margin: 5px 0 0; white-space: pre-wrap; }
 @media (max-width: 760px) {
