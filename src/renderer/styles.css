@@ -444,6 +444,7 @@ pre {
   background: transparent;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
+  font-size: 14px;
 }
 
 .empty-project-button:hover {
@@ -463,10 +464,12 @@ pre {
 
 .empty-thread-list button {
   align-self: center;
-  padding: 5px 9px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 6px;
+  padding: 6px 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-full);
+  font-size: 12px;
 }
 
 .sidebar-footer {
