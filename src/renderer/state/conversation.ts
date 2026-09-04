@@ -107,6 +107,13 @@ export function reduceConversation(
   if (method === 'turn/completed') {
     const turn = record(params?.turn);
     if (turn) mergeTurn(thread, turn, false);
+    // Some providers end a turn without item/completed for every streamed
+    // item; nothing can still be running after the turn is over.
+    for (const threadTurn of Object.values(thread.turns)) {
+      for (const item of Object.values(threadTurn.items)) {
+        if (item.status === 'inProgress') item.status = 'completed';
+      }
+    }
     return state;
   }
 
