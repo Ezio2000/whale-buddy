@@ -1929,8 +1929,8 @@ pre {
   bottom: calc(100% + 7px);
   left: 0;
   z-index: 8;
-  max-height: 270px;
-  padding: 5px;
+  max-height: 300px;
+  padding: 6px;
   overflow: auto;
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
@@ -1941,13 +1941,13 @@ pre {
 .composer-suggestions button {
   display: flex;
   width: 100%;
-  min-height: 31px;
+  min-height: 36px;
   align-items: center;
   gap: 9px;
-  padding: 5px 8px;
+  padding: 7px 10px;
   color: var(--text-muted);
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   text-align: left;
 }
 
