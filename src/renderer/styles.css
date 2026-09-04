@@ -760,7 +760,7 @@ pre {
   margin-top: 2px;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .file-info-heading-icon {
@@ -2827,6 +2827,10 @@ pre {
 .marketplace-title h2,
 .marketplace-title p {
   margin: 0;
+}
+
+.marketplace-title h2 {
+  font-size: 18px;
 }
 
 .marketplace-title h2 {
