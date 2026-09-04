@@ -164,3 +164,8 @@ button { color: inherit; }
 .browser-list article div { min-width: 0; }
 .browser-list article strong { font-size: 12px; }
 .browser-list article p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
