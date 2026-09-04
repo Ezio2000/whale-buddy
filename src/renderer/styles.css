@@ -902,14 +902,35 @@ pre {
   display: block;
 }
 
-.message-avatar,
 .message-avatar-spacer {
   display: none;
+}
+
+.agent-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.agent-message .message-avatar {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-top: 2px;
+  color: var(--text-muted);
+  background: transparent;
+  border-radius: 50%;
 }
 
 .user-message {
   display: flex;
   justify-content: flex-end;
+}
+
+.user-message .message-avatar {
+  display: none;
 }
 
 .message-content {
