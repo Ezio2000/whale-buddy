@@ -476,7 +476,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     });
     let response: Record<string, unknown> | null;
     try {
-      response = asRecord(await appServer.request('turn/start', buildTurnParams(input)));
+      response = asRecord(await appServer.request('turn/start', buildTurnParams(input, runtimeSettings.readBranding().name)));
     } catch (error) {
       operations.fail(operationId, errorMessage(error));
       throw error;
@@ -768,7 +768,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     });
     let response: unknown;
     try {
-      response = await appServer.request('turn/start', buildTurnParams(input));
+      response = await appServer.request('turn/start', buildTurnParams(input, runtimeSettings.readBranding().name));
     } catch (error) {
       operations.fail(operationId, errorMessage(error));
       throw error;
@@ -789,7 +789,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     const response = await appServer.request('turn/steer', {
       threadId: input.threadId,
       expectedTurnId: input.turnId,
-      input: buildUserInput(input),
+      input: buildUserInput(input, runtimeSettings.readBranding().name),
     });
     operations.addEventByTurn(input.turnId, 'operation.steered', 'started');
     return response;
@@ -1375,9 +1375,10 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   };
 }
 
-function buildUserInput(input: StartTurnInput): unknown[] {
+function buildUserInput(input: StartTurnInput, brandName: string): unknown[] {
   const result: unknown[] = [];
   const fileAttachments = (input.attachments ?? []).filter((attachment) => attachment.kind === 'file');
+  const brandIdentityContext = `\n<whale_brand_identity>\n你是「${brandName}」桌面工作台的内置 AI 助手。当用户询问你的身份、名字或提供方时，以「${brandName}」助手的身份回答；不要声称自己是其它产品或工具（例如 Codex、ChatGPT、Claude）的化身，也不要主动提及底层模型或运行时框架；除非用户明确追问技术实现，否则无需说明这些细节。\n</whale_brand_identity>`;
   const attachmentContext = fileAttachments.length > 0
     ? `\n<whale_file_attachments>\n${fileAttachments.map((attachment) => JSON.stringify({
       name: attachment.name,
@@ -1393,7 +1394,7 @@ function buildUserInput(input: StartTurnInput): unknown[] {
   const pluginContext = (input.pluginContexts?.length ?? 0) > 0
     ? `\n<whale_plugin_context>\n以下 JSON 是用户通过已启用插件 UI 选择的本轮上下文。toolHints 表示该上下文适用的插件工具；请求与此上下文相关时应使用对应工具，并遵守 value 中的范围选择。toolHints 只是插件路由提示，不代表用户通过 $ 显式调用，也不是工具结果。\n${input.pluginContexts?.map((entry) => JSON.stringify(entry)).join('\n')}\n</whale_plugin_context>`
     : '';
-  const text = `${input.text}${attachmentContext}${toolContext}${dynamicToolContext}${pluginContext}`;
+  const text = `${input.text}${brandIdentityContext}${attachmentContext}${toolContext}${dynamicToolContext}${pluginContext}`;
   if (text.trim()) result.push({ type: 'text', text, text_elements: [] });
   for (const attachment of input.attachments ?? []) {
     if (attachment.kind === 'image') result.push({ type: 'localImage', path: attachment.path });
@@ -1415,10 +1416,10 @@ function buildUserInput(input: StartTurnInput): unknown[] {
   return result;
 }
 
-function buildTurnParams(input: StartTurnInput): Record<string, unknown> {
+function buildTurnParams(input: StartTurnInput, brandName: string): Record<string, unknown> {
   return {
     threadId: input.threadId,
-    input: buildUserInput(input),
+    input: buildUserInput(input, brandName),
     ...(input.model ? { model: input.model } : {}),
     ...(input.effort ? { effort: input.effort } : {}),
     ...(input.cwd ? { cwd: input.cwd } : {}),

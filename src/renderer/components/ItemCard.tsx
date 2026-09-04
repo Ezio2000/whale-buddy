@@ -221,6 +221,7 @@ function UserMessage({ item }: { item: ItemView }) {
     .filter(Boolean)
     .join('\n');
   const text = rawText
+    .replace(/\n?<whale_brand_identity>\n[\s\S]*?\n<\/whale_brand_identity>\n?/g, '')
     .replace(/\n?<whale_file_attachments>\n[\s\S]*?\n<\/whale_file_attachments>\n?/g, '')
     .replace(/\n?<whale_explicit_tools>\n[\s\S]*?\n<\/whale_explicit_tools>\n?/g, '')
     .replace(/\n?<whale_plugin_context>\n[\s\S]*?\n<\/whale_plugin_context>\n?/g, '')
