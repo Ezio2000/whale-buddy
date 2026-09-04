@@ -1055,6 +1055,11 @@ pre {
   background-color: var(--shiki-dark-bg) !important;
 }
 
+:root[data-theme='dark'] .shiki-wrap .shiki,
+:root[data-theme='dark'] .code-fallback {
+  background-color: #1a1a1a !important;
+}
+
 .attachment-row,
 .composer-attachments {
   display: flex;
