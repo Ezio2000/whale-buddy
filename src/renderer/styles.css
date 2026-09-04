@@ -1794,7 +1794,7 @@ pre {
 .artifacts-main {
   min-width: 0;
   overflow: auto;
-  background: var(--surface-muted);
+  background: var(--bg);
 }
 
 .artifacts-page {
@@ -1821,6 +1821,9 @@ pre {
   align-items: center;
   gap: 9px;
   margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 670;
+  letter-spacing: -0.02em;
 }
 
 .artifacts-header p,
@@ -1873,7 +1876,7 @@ pre {
   white-space: nowrap;
 }
 
-.artifact-copy code { font-size: 10px; }
+.artifact-copy code { font-size: 11px; }
 .artifact-actions { gap: 7px; }
 .artifact-actions button { display: flex; align-items: center; gap: 5px; }
 
