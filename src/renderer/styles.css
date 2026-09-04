@@ -387,8 +387,8 @@ pre {
 }
 
 .thread-status-dot.active {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
 }
 
 .thread-copy {
@@ -1201,8 +1201,8 @@ pre {
 }
 
 .tool-icon.teal {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--violet);
+  background: var(--violet-soft);
 }
 
 .tool-icon.muted {
@@ -2006,15 +2006,19 @@ pre {
   background: var(--violet-soft);
 }
 
-.composer-suggestion-icon.tool,
+.composer-suggestion-icon.tool {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
 .composer-suggestion-icon.mcp {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--blue);
+  background: var(--blue-soft);
 }
 
 .composer-suggestion-icon.webMcp {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--amber);
+  background: var(--amber-soft);
 }
 
 .composer-suggestion-copy {
