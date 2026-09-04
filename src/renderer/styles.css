@@ -479,6 +479,12 @@ pre {
   color: var(--text-muted);
   background: transparent;
   border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.sidebar-footer > .account-button {
+  height: 40px;
+  margin-bottom: 2px;
 }
 
 .sidebar-footer > button:hover {
@@ -503,8 +509,8 @@ pre {
 }
 
 .account-avatar {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
   object-fit: cover;
   border-radius: 50%;
