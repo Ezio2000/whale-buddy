@@ -56,7 +56,7 @@ describe('DiffPanel', () => {
     expect(screen.getByRole('combobox', { name: '对话轮次' })).toHaveValue('turn-1');
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('operation-1')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /变更/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Changes/ }));
     expect(screen.getAllByText('src/a.ts')).toHaveLength(2);
     expect(screen.getByText('修改')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '分栏视图' }));
