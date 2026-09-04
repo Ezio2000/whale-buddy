@@ -4591,14 +4591,14 @@ pre {
   max-width: calc(100vw - 80px);
   align-items: center;
   gap: 7px;
-  padding: 7px 9px;
+  padding: 7px 14px;
   color: var(--warning);
-  background: var(--warning-soft);
-  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgb(0 0 0 / 10%);
+  background: color-mix(in srgb, var(--surface-raised) 85%, transparent);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
   transform: translateX(-50%);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .reconnect-banner button {
@@ -4620,13 +4620,12 @@ pre {
   max-width: min(430px, calc(100vw - 36px));
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 10px 10px 12px;
-  color: var(--text);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
+  padding: 12px 14px;
+  color: var(--inverse-fg);
+  background: var(--inverse-bg);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -4642,14 +4641,14 @@ pre {
   flex: 0 0 auto;
   padding: 0;
   place-items: center;
-  color: var(--text-faint);
+  color: color-mix(in srgb, var(--inverse-fg) 70%, transparent);
   background: transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
 }
 
 .toast button:hover {
-  color: var(--text);
-  background: var(--surface-muted);
+  color: var(--inverse-fg);
+  background: color-mix(in srgb, var(--inverse-fg) 14%, transparent);
 }
 
 .error-output {
