@@ -301,7 +301,9 @@ export function hydrateHistory(
       if (!order.includes(itemId)) order.push(itemId);
       pageItemOrders.set(turnId, order);
     }
-    upsertItem(ensureTurn(thread, turnId), item);
+    // Items arrive from the authoritative history page without a status
+    // field; a finished history turn must not read as still-running.
+    upsertItem(ensureTurn(thread, turnId), { ...item, status: string(item.status) ?? 'completed' });
   }
   if (mode === 'prepend') {
     thread.turnOrder = uniqueOrder(pageTurnOrder, existingTurnOrder);

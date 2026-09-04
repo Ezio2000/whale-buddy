@@ -152,6 +152,22 @@ describe('conversation reducer', () => {
     expect(turn.items['item-1'].text).toBe('保留');
   });
 
+  it('defaults history items without a status to completed so reasoning stays collapsed', () => {
+    const state = hydrateHistory(emptyConversationState(), 'thread-1', {
+      turns: [{ id: 'turn-1', status: 'completed', items: [], itemsView: 'summary' }],
+      items: [{
+        turnId: 'turn-1',
+        item: { id: 'reasoning-1', type: 'reasoning', summary: ['已完成的思考'] },
+      }],
+      plans: [],
+      changes: [],
+      turnsNextCursor: null,
+      itemsNextCursor: null,
+    });
+    const item = state.threads['thread-1'].turns['turn-1'].items['reasoning-1'];
+    expect(item.status).toBe('completed');
+  });
+
   it('uses the authoritative item history order instead of lossy turn summaries', () => {
     const state = hydrateHistory(emptyConversationState(), 'thread-1', {
       turns: [{
