@@ -1289,7 +1289,7 @@ pre {
   padding: 9px 10px;
   overflow: auto;
   color: var(--text-muted);
-  background: var(--surface-raised);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 11px;
