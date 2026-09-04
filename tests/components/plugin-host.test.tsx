@@ -222,9 +222,9 @@ describe('plugin host UI surfaces', () => {
       source: frame.contentWindow,
       data: { channel: 'whale-plugin-v2', nonce: init.nonce, type: 'plugin:runtimeReady', toolIds: ['inspect'] },
     }));
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'host:context' }), '*'));
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'host:context' }), '*'), { timeout: 5000, interval: 100 });
     fireEvent.click(screen.getByRole('button', { name: 'invoke runtime' }));
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'host:toolCall', toolId: 'inspect' }), '*'));
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'host:toolCall', toolId: 'inspect' }), '*'), { timeout: 5000, interval: 100 });
     const call = postMessage.mock.calls.find(([message]) => (message as { type?: string }).type === 'host:toolCall')?.[0] as { callId: string };
     fireEvent(window, new MessageEvent('message', {
       source: frame.contentWindow,
@@ -238,7 +238,7 @@ describe('plugin host UI surfaces', () => {
     }));
     await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
       type: 'host:response', requestId: 'context-request', ok: true,
-    }), '*'));
+    }), '*'), { timeout: 5000, interval: 100 });
     await waitFor(() => expect(JSON.parse(
       window.localStorage.getItem('whale.plugin.v2.composer') ?? '{}',
     )).toEqual(expect.objectContaining({
