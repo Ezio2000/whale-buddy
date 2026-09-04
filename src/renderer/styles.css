@@ -3329,7 +3329,7 @@ pre {
   color: var(--text);
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   transform: translate(-50%, -50%);
   animation: dialog-in 150ms ease-out;
@@ -3341,7 +3341,7 @@ pre {
   gap: 11px;
 }
 
-.hook-trust-heading h2 { margin: 0 0 4px; font-size: 15px; }
+.hook-trust-heading h2 { margin: 0 0 4px; font-size: 16px; }
 .hook-trust-heading p,
 .hook-trust-source { margin: 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
 
@@ -3373,8 +3373,8 @@ pre {
   font-size: 11px;
 }
 
-.hook-trust-list small { color: var(--text-faint); font-size: 9.5px; }
-.hook-trust-list pre { margin: 8px 0 0; overflow: auto; color: var(--text-muted); font-size: 10px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hook-trust-list small { color: var(--text-faint); font-size: 10px; }
+.hook-trust-list pre { margin: 8px 0 0; overflow: auto; color: var(--text-muted); font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .hook-trust-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 .detail-loading {
