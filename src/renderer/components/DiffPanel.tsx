@@ -23,7 +23,7 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
       ? [{ descriptor, contribution }]
       : []))
     .sort((left, right) => left.contribution.order - right.contribution.order);
-  const [tab, setTab] = useState<DetailTab>(turn?.diff ? 'changes' : 'plan');
+  const [tab, setTab] = useState<DetailTab>('execution');
   const [viewType, setViewType] = useState<'unified' | 'split'>('unified');
   const close = useAppStore((state) => state.setRightPanel);
   const [infoFile, setInfoFile] = useState<TurnView['fileChanges'][number] | null>(null);
@@ -34,8 +34,8 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
     setSelectedTurnId(latestTurnId);
   }, [latestTurnId]);
   useEffect(() => {
-    if (tab.startsWith('plugin:') && !selectedPluginPanel) setTab(turn?.diff ? 'changes' : 'plan');
-  }, [selectedPluginPanel, tab, turn?.diff]);
+    if (tab.startsWith('plugin:') && !selectedPluginPanel) setTab('execution');
+  }, [selectedPluginPanel, tab]);
 
   return (
     <aside className="details-panel">

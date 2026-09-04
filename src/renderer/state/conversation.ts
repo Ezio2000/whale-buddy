@@ -441,7 +441,9 @@ function mergeTurn(thread: ThreadView, raw: Record<string, unknown>, includeItem
   if (includeItems && Array.isArray(raw.items)) {
     for (const rawItem of raw.items) {
       const item = record(rawItem);
-      if (item) upsertItem(turn, item);
+      // History turns are finished by definition; items persisted without a
+      // status must not read as still-running (reasoning would stay open).
+      if (item) upsertItem(turn, { ...item, status: string(item.status) ?? 'completed' });
     }
   }
   return turn;

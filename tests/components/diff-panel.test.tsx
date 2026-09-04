@@ -54,15 +54,15 @@ describe('DiffPanel', () => {
   it('renders unified/split controls and plan status', () => {
     render(<DiffPanel turns={[turn]} />);
     expect(screen.getByRole('combobox', { name: '对话轮次' })).toHaveValue('turn-1');
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('operation-1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /变更/ }));
     expect(screen.getAllByText('src/a.ts')).toHaveLength(2);
     expect(screen.getByText('修改')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '分栏视图' }));
     fireEvent.click(screen.getByRole('button', { name: /计划/ }));
     expect(screen.getByText('验证 sidecar')).toBeInTheDocument();
     expect(screen.getByText('已完成')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /执行/ }));
-    expect(screen.getByText('Alice')).toBeInTheDocument();
-    expect(screen.getByText('operation-1')).toBeInTheDocument();
   });
 
   it('switches between every conversation turn', () => {

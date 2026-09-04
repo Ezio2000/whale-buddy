@@ -931,7 +931,7 @@ pre {
   top: 0;
   left: 0;
   width: 100%;
-  padding: 8px 0;
+  padding: 6px 0;
 }
 
 .virtual-row.assistant-continuation-row {
@@ -941,33 +941,16 @@ pre {
 .item-wrap {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
 }
 
 .message {
   display: block;
 }
 
+.message-avatar,
 .message-avatar-spacer {
   display: none;
-}
-
-.agent-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 11px;
-}
-
-.agent-message .message-avatar {
-  display: grid;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-  place-items: center;
-  margin-top: 2px;
-  color: var(--text-muted);
-  background: transparent;
-  border-radius: 50%;
 }
 
 .user-message {
@@ -982,15 +965,15 @@ pre {
 .message-content {
   min-width: 0;
   padding: 2px 0;
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .user-message .message-content {
   display: inline-block;
   width: fit-content;
   max-width: 70%;
-  padding: 10px 18px;
+  padding: 8px 16px;
   background: var(--surface-muted);
   border-radius: var(--radius-bubble);
 }
@@ -1014,7 +997,7 @@ pre {
 .markdown-body blockquote,
 .markdown-body pre,
 .markdown-body table {
-  margin: 0.75em 0;
+  margin: 0.65em 0;
 }
 
 .markdown-body ul,
@@ -1023,7 +1006,7 @@ pre {
 }
 
 .markdown-body li + li {
-  margin-top: 0.22em;
+  margin-top: 0.18em;
 }
 
 .markdown-body h1,
@@ -1113,9 +1096,9 @@ pre {
 .shiki-wrap .shiki,
 .code-fallback {
   margin: 0;
-  padding: 12px 14px;
+  padding: 11px 13px;
   background: var(--surface-muted) !important;
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.55;
 }
 

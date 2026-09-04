@@ -154,7 +154,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   historyByThread: {},
   approvals: [],
   preferences: readPreferences(),
-  rightPanelOpen: false,
+  rightPanelOpen: true,
   settingsOpen: false,
   pluginMarketplaceOpen: false,
   commandPaletteOpen: false,
