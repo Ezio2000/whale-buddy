@@ -1584,8 +1584,8 @@ pre {
 
 .button.secondary {
   color: var(--text);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
 }
 
 .button.ghost {
@@ -2492,7 +2492,7 @@ pre {
 }
 
 .settings-groups section {
-  padding-top: 17px;
+  padding-top: 14px;
 }
 
 .settings-groups h3 {
@@ -2527,6 +2527,24 @@ pre {
 .setting-row small {
   color: var(--text-faint);
   font-size: 10px;
+}
+
+.setting-row > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.settings-actions > span {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .select-trigger {
