@@ -147,6 +147,10 @@ pre {
   font-family: var(--font-mono);
 }
 
+::selection {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -5279,8 +5283,8 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 }
 
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   background: transparent;
 }
 
