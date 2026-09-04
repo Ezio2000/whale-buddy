@@ -169,3 +169,5 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   outline: 2px solid var(--text);
   outline-offset: 1px;
 }
+
+input[type="checkbox"] { accent-color: var(--accent); }
