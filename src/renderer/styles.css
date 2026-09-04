@@ -133,6 +133,7 @@ button:disabled:not([title]) {
 button,
 .icon-button,
 .new-thread-button,
+.sidebar-nav button,
 .sidebar-footer > button,
 .thread-main,
 .project-main,
@@ -483,6 +484,37 @@ pre {
   font-size: 12px;
 }
 
+.sidebar-nav {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px 10px;
+}
+
+.sidebar-nav button {
+  display: flex;
+  width: 100%;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  color: var(--text-muted);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.sidebar-nav button:hover {
+  color: var(--text);
+  background: var(--sidebar-hover);
+}
+
+.sidebar-nav button.active {
+  color: var(--text);
+  background: var(--sidebar-selected);
+}
+
 .sidebar-footer {
   padding: 10px 8px 12px;
 }
@@ -508,11 +540,6 @@ pre {
 .sidebar-footer > button:hover {
   color: var(--text);
   background: var(--sidebar-hover);
-}
-
-.sidebar-footer > button.active {
-  color: var(--text);
-  background: var(--sidebar-selected);
 }
 
 .account-button .account-name {

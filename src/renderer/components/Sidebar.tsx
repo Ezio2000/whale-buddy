@@ -57,6 +57,31 @@ export function Sidebar() {
         <span>{brandName}</span>
       </div>
 
+      <nav className="sidebar-nav">
+        <button
+          className={workspaceView === 'artifacts' ? 'active' : ''}
+          onClick={() => setWorkspaceView('artifacts')}
+        >
+          <FileArchive size={15} />
+          <span>成果库</span>
+        </button>
+        <button
+          className={workspaceView === 'schedules' ? 'active' : ''}
+          onClick={() => setWorkspaceView('schedules')}
+        >
+          <CalendarClock size={15} />
+          <span>定时任务</span>
+        </button>
+        <button onClick={() => openPluginMarketplace(true)}>
+          <PackageOpen size={15} />
+          <span>插件商城</span>
+        </button>
+        <button onClick={() => openSettings(true)}>
+          <Settings size={15} />
+          <span>设置</span>
+        </button>
+      </nav>
+
       <section className="sidebar-section project-section">
         <div className="sidebar-section-heading">
           <span>本地项目</span>
@@ -161,28 +186,6 @@ export function Sidebar() {
 
       <div className="sidebar-footer">
         <AccountButton />
-        <button
-          className={workspaceView === 'artifacts' ? 'active' : ''}
-          onClick={() => setWorkspaceView('artifacts')}
-        >
-          <FileArchive size={15} />
-          <span>成果库</span>
-        </button>
-        <button
-          className={workspaceView === 'schedules' ? 'active' : ''}
-          onClick={() => setWorkspaceView('schedules')}
-        >
-          <CalendarClock size={15} />
-          <span>定时任务</span>
-        </button>
-        <button onClick={() => openPluginMarketplace(true)}>
-          <PackageOpen size={15} />
-          <span>插件商城</span>
-        </button>
-        <button onClick={() => openSettings(true)}>
-          <Settings size={15} />
-          <span>设置</span>
-        </button>
       </div>
     </aside>
   );
