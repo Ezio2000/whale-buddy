@@ -1908,15 +1908,20 @@ pre {
   background: var(--violet-soft);
 }
 
-.composer-attachments > .capability-chip.tool,
+.composer-attachments > .capability-chip.tool {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
 .composer-attachments > .capability-chip.mcp {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--blue);
+  background: var(--blue-soft);
 }
 
 .composer-attachments > .capability-chip.webMcp {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: color-mix(in srgb, var(--amber) 30%, var(--border));
 }
 
 .composer-attachments button {
