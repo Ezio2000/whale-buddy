@@ -258,6 +258,11 @@ pre {
   border-radius: var(--radius-sm);
 }
 
+.icon-button:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
 .icon-button:not(:disabled):hover,
 .icon-button[data-state='open'] {
   color: var(--text);
@@ -591,13 +596,21 @@ pre {
   align-items: flex-end;
   gap: 12px;
   padding: 0 16px 10px 20px;
+  -webkit-app-region: drag;
 }
 
+.workspace-header .header-actions,
+.workspace-header button {
+  -webkit-app-region: no-drag;
+}
+
+/* Purely reserves vertical space under the macOS traffic lights; the
+   drag region lives on the header itself so this overlay never
+   swallows clicks aimed at the header action buttons. */
 .window-drag-spacer {
   position: absolute;
   inset: 0 0 auto;
   height: 35px;
-  -webkit-app-region: drag;
 }
 
 .thread-heading {
