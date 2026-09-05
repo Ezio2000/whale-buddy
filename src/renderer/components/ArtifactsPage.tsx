@@ -42,7 +42,7 @@ export function ArtifactsPage() {
           <div className="artifact-copy"><strong>{artifact.name}</strong><span>{formatBytes(artifact.size)} · {new Date(artifact.createdAt).toLocaleString()}</span><code title={artifact.sha256}>{artifact.sha256.slice(0, 16)}…</code></div>
           <div className="artifact-actions">
             <button className="button secondary" aria-label={`打开 ${artifact.name}`} onClick={() => void window.whale.artifacts.open(artifact.id).catch((error) => setNotice(errorMessage(error)))}><ExternalLink size={14} /> 打开</button>
-            <button aria-label={`另存为 ${artifact.name}`} onClick={() => void window.whale.artifacts.saveAs(artifact.id).catch((error) => setNotice(errorMessage(error)))}><Download size={14} /> 另存为</button>
+            <button className="button secondary" aria-label={`另存为 ${artifact.name}`} onClick={() => void window.whale.artifacts.saveAs(artifact.id).catch((error) => setNotice(errorMessage(error)))}><Download size={14} /> 另存为</button>
           </div>
         </article>)}</div>}
   </div>;
