@@ -1,8 +1,10 @@
 {
   "name": "whale-office-assistant",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "总结办公文件、起草材料、整理数据并生成 HTML、Word、Excel 和 PowerPoint 成果。",
-  "author": { "name": "Whale Buddy" },
+  "author": {
+    "name": "Whale Buddy"
+  },
   "skills": "./skills/",
   "interface": {
     "displayName": "Whale 办公助手",
@@ -10,16 +12,60 @@
     "longDescription": "读取 PDF、Word、Excel、PPT、CSV 等材料，通过当前 Codex 线程完成总结、起草和数据整理，并在确认后生成正式成果。",
     "developerName": "Whale Buddy",
     "category": "Productivity",
-    "capabilities": ["Documents", "Spreadsheets", "Artifacts"],
+    "capabilities": [
+      "Documents",
+      "Spreadsheets",
+      "Artifacts"
+    ],
     "brandColor": "#3973A8"
   },
   "whale": {
     "apiVersion": 2,
     "uiContributions": [
-      { "id": "office-home", "type": "page", "placement": "navigation", "entry": "./ui/index.html", "title": "办公任务", "order": 20 },
-      { "id": "office-command", "type": "action", "placement": "commandPalette", "entry": "./ui/index.html", "title": "新建办公任务", "description": "总结、起草、整理或生成办公成果。", "keywords": ["办公", "Word", "Excel", "总结"], "order": 20 },
-      { "id": "office-changes", "type": "panel", "placement": "turnDetails", "entry": "./ui/index.html", "title": "办公成果", "order": 25 },
-      { "id": "office-result", "type": "card", "placement": "message", "entry": "./ui/index.html", "title": "办公成果预览", "match": { "itemTypes": ["dynamicToolCall"] }, "order": 20 }
+      {
+        "id": "office-home",
+        "type": "page",
+        "placement": "navigation",
+        "entry": "./ui/index.html",
+        "title": "办公任务",
+        "order": 20
+      },
+      {
+        "id": "office-command",
+        "type": "action",
+        "placement": "commandPalette",
+        "entry": "./ui/index.html",
+        "title": "新建办公任务",
+        "description": "总结、起草、整理或生成办公成果。",
+        "keywords": [
+          "办公",
+          "Word",
+          "Excel",
+          "总结"
+        ],
+        "order": 20
+      },
+      {
+        "id": "office-changes",
+        "type": "panel",
+        "placement": "turnDetails",
+        "entry": "./ui/index.html",
+        "title": "办公成果",
+        "order": 25
+      },
+      {
+        "id": "office-result",
+        "type": "card",
+        "placement": "message",
+        "entry": "./ui/index.html",
+        "title": "办公成果预览",
+        "match": {
+          "itemTypes": [
+            "dynamicToolCall"
+          ]
+        },
+        "order": 20
+      }
     ],
     "webMcp": {
       "entry": "./ui/index.html",
@@ -33,20 +79,64 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "taskId": { "type": "string" },
-              "title": { "type": "string" },
-              "format": { "type": "string", "enum": ["html", "docx", "xlsx", "pptx"] },
-              "summary": { "type": "string" },
-              "content": { "type": "string" },
-              "sheetName": { "type": "string", "description": "XLSX 工作表名称，最长 31 个字符。" },
-              "columns": { "type": "array", "items": { "type": "string" } },
+              "taskId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "html",
+                  "docx",
+                  "xlsx",
+                  "pptx"
+                ]
+              },
+              "summary": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "sheetName": {
+                "type": "string",
+                "description": "XLSX 工作表名称，最长 31 个字符。"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
               "rows": {
                 "type": "array",
                 "description": "XLSX 数据行。可传与 columns 对齐的二维数组，或键名与 columns 完全一致的对象数组。",
                 "items": {
                   "anyOf": [
-                    { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
-                    { "type": "array", "items": { "type": ["string", "number", "boolean", "null"] } }
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      }
+                    }
                   ]
                 }
               },
@@ -58,20 +148,98 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "title": { "type": "string" },
-                    "body": { "type": "string" },
-                    "bullets": { "type": "array", "items": { "type": "string" } },
-                    "notes": { "type": "string" }
+                    "title": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "bullets": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "notes": {
+                      "type": "string"
+                    }
                   },
-                  "required": ["title"],
+                  "required": [
+                    "title"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "sheets": {
+                "type": "array",
+                "minItems": 1,
+                "description": "XLSX 工作簿的完整工作表列表。多表必须使用此字段；不要同时传顶层 columns/rows。预览及导出严格使用此列表。",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sheetName": {
+                      "type": "string",
+                      "description": "XLSX 工作表名称，最长 31 个字符。"
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "description": "XLSX 数据行。可传与 columns 对齐的二维数组，或键名与 columns 完全一致的对象数组。",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "sheetName",
+                    "columns",
+                    "rows"
+                  ],
                   "additionalProperties": false
                 }
               }
             },
-            "required": ["taskId", "title", "format", "summary", "content"],
+            "required": [
+              "taskId",
+              "title",
+              "format",
+              "summary",
+              "content"
+            ],
             "additionalProperties": false
           },
-          "annotations": { "readOnlyHint": false, "untrustedContentHint": false }
+          "annotations": {
+            "readOnlyHint": false,
+            "untrustedContentHint": false
+          }
         }
       ]
     }

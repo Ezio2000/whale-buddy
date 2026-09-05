@@ -1,3 +1,4 @@
+import { outlookEntries, resultRecords } from './result-data';
 import type { ReactNode } from 'react';
 import {
   usePluginContext,
@@ -111,39 +112,28 @@ function OutlookCard({ toolCall }: { toolCall?: ToolCallContext }) {
           </section>
         ))}
       </div>
-      {items.length === 0 && <pre>{truncate(textFrom(toolCall.result), 2_400) || '操作已完成，没有可展示的详细结果。'}</pre>}
+      {items.length === 0 && <p>操作已完成，没有匹配结果。</p>}
+      {resultRecords(toolCall.result).map((result, index) => typeof result.matched_count === 'number' ? <p key={index}>本次展示 {items.length} 项 · 总匹配 {result.matched_count} 项{result.has_more === true ? ' · 可在对话中继续查询下一页' : ''}</p> : null)}
     </article>
   );
 }
 
 function extractItems(value: unknown, tool: string): ResultItem[] {
   const items: ResultItem[] = [];
-  walk(value, (candidate) => {
-    const entry = record(candidate);
-    if (!entry || !looksLikeResult(entry, tool)) return;
+  for (const entry of outlookEntries(value, tool)) {
     const title = firstString(entry, titleFields(tool));
     const subtitle = firstString(entry, ['email', 'mail', 'address', 'organizer', 'sender', 'from', 'status']);
-    const detail = firstString(entry, ['body', 'body_preview', 'preview', 'snippet', 'content', 'description', 'location']);
+    const detail = firstString(entry, ['body', 'content', 'body_preview', 'preview', 'snippet', 'description', 'location']);
     const meta = [
       firstString(entry, ['start', 'start_time', 'received_at', 'sent_at', 'date', 'created_at']),
       firstString(entry, ['end', 'end_time']),
       listString(entry.to ?? entry.recipients ?? entry.attendees),
     ].filter((item): item is string => Boolean(item));
-    if (!title && !subtitle && !detail && meta.length === 0) return;
+    if (!title && !subtitle && !detail && meta.length === 0) continue;
     items.push({ title, subtitle, detail: truncate(detail, 900), meta });
-  });
+  }
   return items.filter((item, index) => items.findIndex((other) =>
     `${other.title}|${other.subtitle}|${other.detail}` === `${item.title}|${item.subtitle}|${item.detail}`) === index);
-}
-
-function looksLikeResult(entry: Record<string, unknown>, tool: string): boolean {
-  const keys = new Set(Object.keys(entry));
-  const expected = tool.includes('calendar')
-    ? ['subject', 'title', 'start', 'start_time', 'location']
-    : tool.includes('directory') || tool.includes('contact')
-      ? ['display_name', 'name', 'email', 'mail', 'department']
-      : ['subject', 'title', 'body', 'snippet', 'sender', 'from', 'recipients', 'to', 'status'];
-  return expected.some((key) => keys.has(key));
 }
 
 function titleFields(tool: string): string[] {
@@ -193,22 +183,10 @@ function CapabilityIcon({ kind }: { kind: string }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[kind] ?? paths.mail}</svg>;
 }
 
-function walk(value: unknown, visit: (value: unknown) => void, depth = 0): void {
-  if (depth > 7) return;
-  visit(value);
-  if (Array.isArray(value)) value.forEach((item) => walk(item, visit, depth + 1));
-  else {
-    const entry = record(value);
-    if (entry) Object.values(entry).forEach((item) => walk(item, visit, depth + 1));
-    if (typeof value === 'string') {
-      try { walk(JSON.parse(value), visit, depth + 1); } catch { /* Plain text fallback. */ }
-    }
-  }
-}
-
 function firstString(entry: Record<string, unknown>, fields: string[]): string {
   for (const field of fields) {
-    const value = string(entry[field]);
+    const nested = record(entry[field]);
+    const value = string(entry[field]) ?? (nested ? string(nested.content) ?? string(nested.address) ?? string(nested.name) : null);
     if (value) return value;
   }
   return '';

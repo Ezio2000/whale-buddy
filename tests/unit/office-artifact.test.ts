@@ -88,3 +88,20 @@ describe('office PowerPoint drafts', () => {
     expect(() => parseOfficeDraft({ ...powerpointBase, slides: [{ title: '封面', bullets: Array.from({ length: 13 }, () => '要点') }] })).toThrow('要点过多或过长');
   });
 });
+
+describe('multi-sheet workbook integrity', () => {
+  it('exports exactly the worksheets and cells used by the preview', () => {
+    const draft = parseOfficeDraft({ ...base, sheets: [
+      { sheetName: '原始数据', columns: ['产品', '销量'], rows: [['A', 12], ['B', 20]] },
+      { sheetName: '产品排名', columns: ['名次', '产品'], rows: [[1, 'B'], [2, 'A']] },
+    ] });
+    const workbook = XLSX.read(renderXlsxArtifact(draft), { type: 'array' });
+    expect(workbook.SheetNames).toEqual(['原始数据', '产品排名']);
+    expect(XLSX.utils.sheet_to_json(workbook.Sheets['产品排名'], { header: 1 })).toEqual([['名次', '产品'], [1, 'B'], [2, 'A']]);
+  });
+  it('rejects colliding normalized sheet names and conflicting single-sheet input', () => {
+    const sheet = { sheetName: 'Data', columns: ['A'], rows: [[1]] };
+    expect(() => parseOfficeDraft({ ...base, sheets: [sheet, { ...sheet, sheetName: 'data' }] })).toThrow('不能重复');
+    expect(() => parseOfficeDraft({ ...base, sheets: [sheet], columns: ['A'] })).toThrow('不能同时提供');
+  });
+});

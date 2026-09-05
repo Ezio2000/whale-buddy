@@ -39,7 +39,8 @@ export async function ensureBundledMarketplaces(
     added = true;
   }
   const migrated = await migrateAIHubPlugin(client, policy);
-  if (added || migrated) await client.restart();
+  const refreshed = await refreshBundledPluginUis(client, policy);
+  if (added || migrated || refreshed) await client.restart();
 }
 
 
@@ -83,4 +84,32 @@ export async function migrateAIHubPlugin(
   if (enabled && !mcpEnabled) policy.setMcpEnabled(mergedId, server, false);
   policy.markMigration(migration);
   return true;
+}
+
+// Ship UI fixes to already-installed bundled plugins without changing enabled
+// preferences, per-tool policies, credentials or historical plugin state.
+export async function refreshBundledPluginUis(
+  client: Pick<AppServerClient, 'request'>,
+  policy: ExtensionPolicyStore,
+): Promise<boolean> {
+  let refreshed = false;
+  for (const [marketplace, pluginName] of [
+    ['whale-office', 'whale-office-assistant'], ['whale-aihub', 'xiaojing-knowledge-base'],
+  ]) {
+    const migration = 'ui-audit-20260905-v1:' + pluginName;
+    const source = policy.source(marketplace);
+    if (policy.hasMigration(migration) || !source?.preset || !source.enabled || !source.source) continue;
+    const plugin = policy.snapshot().plugins.find((entry) => entry.pluginId === pluginName + '@' + marketplace);
+    if (!plugin) { policy.markMigration(migration); continue; }
+    await client.request('plugin/install', { marketplacePath: path.join(source.source, '.agents/plugins/marketplace.json'), remoteMarketplaceName: null, pluginName });
+    await client.request('config/batchWrite', {
+      edits: [
+        { keyPath: pluginConfigKey(plugin.pluginId) + '.enabled', value: plugin.enabled, mergeStrategy: 'replace' },
+        ...plugin.mcpServers.map((server) => ({ keyPath: pluginMcpConfigKey(plugin.pluginId, server) + '.enabled', value: plugin.enabledMcpServers.includes(server), mergeStrategy: 'replace' })),
+      ], expectedVersion: null,
+    });
+    policy.markMigration(migration);
+    refreshed = true;
+  }
+  return refreshed;
 }

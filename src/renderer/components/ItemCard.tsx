@@ -21,7 +21,7 @@ import {
 import type { ItemView } from '../state/conversation';
 import type { PendingApproval } from '../state/store';
 import { ApprovalCard } from './ApprovalCard';
-import { Markdown } from './Markdown';
+import { Markdown, MarkdownTurnContext } from './Markdown';
 import { PluginUiFrame } from '../plugin-ui/PluginUiFrame';
 import { usePluginHost } from '../plugin-ui/PluginHostProvider';
 import { useAppStore } from '../state/store';
@@ -113,7 +113,7 @@ export function ItemCard({
 
   return (
     <div className={`item-wrap item-${item.type}`}>
-      {content}
+      <MarkdownTurnContext.Provider value={turnId}>{content}</MarkdownTurnContext.Provider>
       {approvals.map((approval) => (
         <ApprovalCard
           key={`${typeof approval.id}:${String(approval.id)}`}

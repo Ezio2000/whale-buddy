@@ -1,3 +1,4 @@
+import { ResultCard } from './result-card';
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as mammoth from 'mammoth/mammoth.browser';
@@ -5,7 +6,7 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as XLSX from 'xlsx';
 import {
-  createArtifact, getState, listArtifacts, openArtifact, pickAttachments, readAttachment, setState as persistState,
+  createArtifact, listArtifacts, openArtifact, pickAttachments, readAttachment,
   saveArtifactAs, startTask, usePluginContext, usePluginEvents,
   type JsonValue,
 } from '@whale-buddy/plugin-sdk/ui';
@@ -13,19 +14,18 @@ import { definePluginRuntime } from '@whale-buddy/plugin-sdk/runtime';
 import type { HostArtifact, HostAttachment } from '@whale-buddy/plugin-sdk/ui';
 import { parseRichText, renderDocxArtifact } from './docx-artifact';
 import { renderHtmlDocument } from './html-document';
-import { parseOfficeDraft, renderXlsxArtifact, type OfficeDraft } from './office-artifact';
+import { parseOfficeDraft, renderXlsxArtifact, officeSheets, type OfficeDraft } from './office-artifact';
 import { extractPptxText, renderPptxArtifact } from './pptx-artifact';
 import './styles.css';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type Format = 'html' | 'docx' | 'xlsx' | 'pptx';
-interface StoredState { draft?: OfficeDraft; artifact?: HostArtifact }
+
 
 definePluginRuntime({
-  'stage-artifact': async (input, services) => {
+  'stage-artifact': async (input) => {
     const draft = parseOfficeDraft(input);
-    await services.setState('thread', { draft } as unknown as JsonValue, services.context.threadId ?? undefined);
     return { staged: true, taskId: draft.taskId, title: draft.title, format: draft.format, summary: draft.summary };
   },
 });
@@ -43,7 +43,7 @@ const TASKS = [
 function App() {
   const context = usePluginContext();
   if (!context) return null;
-  if (context.surface.kind === 'ui' && context.surface.contributionType === 'card') return <ResultCard threadId={context.threadId} />;
+  if (context.surface.kind === 'ui' && context.surface.contributionType === 'card') return <ResultCard key={context.message?.itemId} context={context} renderArtifact={renderArtifact} renderPreview={(draft) => <ArtifactPreview draft={draft} />} />;
   if (context.surface.kind === 'ui' && context.surface.contributionType === 'panel') return <OfficeChangesPanel />;
   return <TaskPage />;
 }
@@ -81,20 +81,24 @@ function TaskPage() {
   const [taskType, setTaskType] = useState<(typeof TASKS)[number][0]>('summary');
   const [format, setFormat] = useState<Format>('docx');
   const [instructions, setInstructions] = useState('');
+  const [sourceText, setSourceText] = useState('');
   const [attachments, setAttachments] = useState<HostAttachment[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const task = TASKS.find(([id]) => id === taskType)!;
 
   useEffect(() => {
+    if (taskType === 'data') setFormat('xlsx');
     if (taskType === 'html' || taskType === 'docx' || taskType === 'xlsx' || taskType === 'pptx') setFormat(taskType);
   }, [taskType]);
 
   const begin = async () => {
     if (!context?.project) return setMessage('请先在 Whale 打开一个项目。');
+    if (taskType === 'summary' && !attachments.length && !sourceText.trim()) return setMessage('请先添加需要总结的材料，或在材料正文中粘贴内容。');
     setBusy(true); setMessage('正在读取材料…');
     try {
       const extracted = await Promise.all(attachments.map(extractAttachment));
+      if (taskType === 'summary' && sourceText.trim()) extracted.push({ name: '粘贴的材料正文', text: sourceText.trim() });
       const taskId = crypto.randomUUID();
       const prompt = [
         `执行办公任务：${task[1]}。`,
@@ -117,6 +121,7 @@ function TaskPage() {
     <div className="cards">{TASKS.map(([id, title, description]) => <button className={`task ${taskType === id ? 'active' : ''}`} key={id} onClick={() => setTaskType(id)}><strong>{title}</strong><span>{description}</span></button>)}</div>
     <section className="form">
       <div className="row"><label>输出格式</label><select value={format} onChange={(event) => setFormat(event.target.value as Format)}><option value="html">HTML</option><option value="docx">Word (.docx)</option><option value="xlsx">Excel (.xlsx)</option><option value="pptx">PowerPoint (.pptx)</option></select></div>
+      {taskType === 'summary' && <div><textarea aria-label="材料正文" value={sourceText} onChange={(event) => setSourceText(event.target.value)} placeholder="可在此粘贴需要总结的原文，或添加材料文件。" /></div>}
       <div><textarea aria-label="补充要求" value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="补充受众、语气、字段、结构或其他要求…" /></div>
       <div className="row"><button className="secondary" onClick={async () => setAttachments(await pickAttachments())}>添加办公材料</button><div className="files">{attachments.map((file) => <span className="file" key={file.path}>{file.name}</span>)}</div></div>
       <div><button className="primary" disabled={busy} onClick={() => void begin()}>{busy ? '正在准备…' : '开始任务'}</button></div>
@@ -125,35 +130,6 @@ function TaskPage() {
   </main>;
 }
 
-function ResultCard({ threadId }: { threadId: string | null }) {
-  const [state, setState] = useState<StoredState | null>(null);
-  const [message, setMessage] = useState('');
-  useEffect(() => {
-    if (threadId) void getState('thread', threadId).then((value) => setState(value as unknown as StoredState | null));
-  }, [threadId]);
-  usePluginEvents((event) => {
-    if (event.type === 'state.changed' && event.scope === 'thread' && event.scopeId === threadId) {
-      setState(event.value as unknown as StoredState | null);
-    }
-  });
-  const draft = state?.draft;
-  const confirm = async () => {
-    if (!threadId || !draft) return;
-    setMessage('正在生成正式文件…');
-    try {
-      const dataBase64 = await renderArtifact(draft);
-      const artifact = await createArtifact({ name: draft.title, format: draft.format, dataBase64, threadId, taskId: draft.taskId });
-      const nextState = { ...state, artifact };
-      await persistState('thread', nextState as unknown as JsonValue, threadId);
-      setState(nextState); setMessage('成果已保存到 Whale 成果库。');
-    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
-  };
-  if (!draft) return <div className="preview">正在读取办公成果预览…</div>;
-  return <article className="preview"><h3>{draft.title}</h3><p>{draft.summary}</p><ArtifactPreview draft={draft} /><div className="actions">
-    {!state?.artifact && <button className="primary" onClick={() => void confirm()}>确认并生成 {draft.format.toUpperCase()}</button>}
-    {state?.artifact && <><button className="secondary" onClick={() => void openArtifact(state.artifact!.id)}>打开成果</button><button className="secondary" onClick={() => void saveArtifactAs(state.artifact!.id)}>另存为</button></>}
-  </div>{message && <p>{message}</p>}</article>;
-}
 
 async function extractAttachment(attachment: HostAttachment): Promise<JsonValue> {
   if (attachment.kind === 'image') return { name: attachment.name, kind: 'image', note: '图片已作为视觉附件发送' };
@@ -182,7 +158,9 @@ function ArtifactPreview({ draft }: { draft: OfficeDraft }) {
   if (draft.format === 'xlsx') return <SpreadsheetPreview draft={draft} />;
   if (draft.format === 'html') return <iframe className="html-preview" title="HTML 成果预览" srcDoc={renderHtmlDocument(draft.title, draft.content)} />;
   if (draft.format === 'pptx') return <PresentationPreview draft={draft} />;
+  let orderedNumber = 0;
   return <section className="document-preview" aria-label="Word 文档预览">{parseRichText(draft.content).map((block, index) => {
+    orderedNumber = block.kind === 'number' ? orderedNumber + 1 : 0;
     const children = block.runs.map((run, runIndex) => run.code
       ? <code key={runIndex}>{run.text}</code>
       : run.bold ? <strong key={runIndex}>{run.text}</strong>
@@ -190,7 +168,7 @@ function ArtifactPreview({ draft }: { draft: OfficeDraft }) {
       : <React.Fragment key={runIndex}>{run.text}</React.Fragment>);
     if (block.kind === 'heading') return block.level === 1 ? <h2 key={index}>{children}</h2> : <h4 key={index}>{children}</h4>;
     if (block.kind === 'bullet') return <div className="preview-list-item" key={index}>• {children}</div>;
-    if (block.kind === 'number') return <div className="preview-list-item" key={index}>{index + 1}. {children}</div>;
+    if (block.kind === 'number') return <div className="preview-list-item" key={index}>{orderedNumber}. {children}</div>;
     if (block.kind === 'quote') return <blockquote key={index}>{children}</blockquote>;
     if (block.kind === 'rule') return <hr key={index} />;
     return <p key={index}>{children}</p>;
@@ -207,11 +185,15 @@ function PresentationPreview({ draft }: { draft: OfficeDraft }) {
   </section>;
 }
 
-function SpreadsheetPreview({ draft }: { draft: OfficeDraft }) {
-  const columns = draft.columns ?? [];
-  const rows = draft.rows ?? [];
+export function SpreadsheetPreview({ draft }: { draft: OfficeDraft }) {
+  const sheets = officeSheets(draft);
+  const [index, setIndex] = useState(0);
+  const sheet = sheets[index] ?? sheets[0];
+  const columns = sheet?.columns ?? [];
+  const rows = sheet?.rows ?? [];
   return <section className="sheet-preview" aria-label="Excel 表格预览">
-    <p className="sheet-meta">工作表：{draft.sheetName} · {rows.length} 行 × {columns.length} 列{rows.length > 20 ? '（预览前 20 行）' : ''}</p>
+    <p className="sheet-meta">共 {sheets.length} 张工作表 · 工作表：{sheet?.sheetName} · {rows.length} 行 × {columns.length} 列{rows.length > 20 ? '（预览前 20 行）' : ''}</p>
+    <label>查看工作表 <select aria-label="查看工作表" value={index} onChange={(event) => setIndex(Number(event.target.value))}>{sheets.map((entry, sheetIndex) => <option key={entry.sheetName} value={sheetIndex}>{entry.sheetName}</option>)}</select></label>
     <div className="sheet-scroll"><table><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
       <tbody>{rows.slice(0, 20).map((row, rowIndex) => <tr key={rowIndex}>{columns.map((column) => <td key={column}>{formatCell(row[column])}</td>)}</tr>)}</tbody>
     </table></div>

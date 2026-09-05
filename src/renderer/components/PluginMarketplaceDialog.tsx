@@ -1270,7 +1270,7 @@ function PluginDetailView({
   );
 }
 
-function PluginCredentialForm({
+export function PluginCredentialForm({
   credential,
   installed,
   busy,
@@ -1284,12 +1284,14 @@ function PluginCredentialForm({
   onConfigure: (credentialId: string, value: string | null) => Promise<void>;
 }) {
   const [value, setValue] = useState(credential.value ?? '');
-  useEffect(() => setValue(credential.value ?? ''), [credential.value]);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => { setValue(credential.value ?? ''); setRevealed(false); }, [credential.value]);
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!value.trim()) return;
     try {
       await onConfigure(credential.id, value);
+      setRevealed(false);
     } catch {
       // Parent keeps the user-facing error visible and the draft intact.
     }
@@ -1316,7 +1318,7 @@ function PluginCredentialForm({
       </div>
       <div className="plugin-credential-controls">
         <input
-          type="text"
+          type={revealed ? "text" : "password"}
           aria-label={`${credential.label} 凭据`}
           autoComplete="off"
           value={value}
@@ -1324,6 +1326,7 @@ function PluginCredentialForm({
           placeholder="输入凭据"
           onChange={(event) => setValue(event.target.value)}
         />
+        <button type="button" className="button secondary" aria-label={revealed ? "隐藏凭据" : "显示凭据"} aria-pressed={revealed} onClick={() => setRevealed(!revealed)}>{revealed ? "隐藏" : "显示"}</button>
         <button className="button primary" disabled={!installed || disabled || !value.trim()}>
           {busy ? <LoaderCircle className="spin" size={11} /> : <ShieldCheck size={11} />}
           保存

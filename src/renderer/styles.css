@@ -5216,6 +5216,13 @@ pre {
 }
 
 .scheduled-editor form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scheduled-editor-body {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
@@ -5693,3 +5700,18 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 .markdown-body p, .markdown-body ul, .markdown-body ol, .markdown-body blockquote, .markdown-body pre, .markdown-body table { margin-block: .45em; }
 .markdown-body > :first-child { margin-top: 0; }
 .markdown-body > :last-child { margin-bottom: 0; }
+
+.scheduled-editor .scheduled-editor-actions { flex: 0 0 auto; margin: 0; padding: 14px 20px; border-top: 1px solid var(--border); }
+.rename-thread-dialog { width: min(420px, calc(100vw - 48px)); padding: 20px; }
+.rename-thread-dialog h2 { margin: 0; font-size: var(--font-size-dialog); }
+.rename-thread-dialog p { color: var(--text-muted); }
+.rename-thread-dialog label { display: grid; gap: 8px; }
+.rename-thread-dialog input { padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); }
+.rename-thread-dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+.chat-file-preview { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin: 8px 0; }
+.chat-file-preview header { display: flex; justify-content: space-between; gap: 12px; overflow-wrap: anywhere; }
+.chat-file-preview pre { max-height: 360px; overflow: auto; white-space: pre-wrap; }
+
+.approval-detail, .approval-questions { max-height: 280px; overflow: auto; overscroll-behavior: contain; }
+.approval-questions pre { white-space: pre-wrap; overflow-wrap: anywhere; }

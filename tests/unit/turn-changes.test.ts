@@ -29,13 +29,14 @@ describe('turn workspace changes', () => {
     const restored = new TurnChangesStore(path.join(root, 'state'));
     await writeFile(path.join(workspace, 'hello.py'), 'print("current")');
     await expect(restored.readPreview('preview', 'hello.py')).resolves.toBe('print("current")');
+    await expect(restored.readPreview('preview', './hello.py')).resolves.toBe('print("current")');
     await expect(restored.readPreview('preview', 'empty.txt')).resolves.toBe('');
     await expect(restored.readPreview('preview', 'large.txt')).rejects.toThrow('128 KB');
     await expect(restored.readPreview('preview', 'binary.dat')).rejects.toThrow('不支持文本预览');
     await expect(restored.readPreview('preview', 'invalid.txt')).rejects.toThrow('UTF-8');
     await expect(restored.readPreview('preview', 'deleted.txt')).rejects.toThrow('文件已删除');
-    await expect(restored.readPreview('preview', '../outside.txt')).rejects.toThrow('找不到本轮文件记录');
-    await expect(restored.readPreview('unknown', 'hello.py')).rejects.toThrow('找不到本轮文件记录');
+    await expect(restored.readPreview('preview', '../outside.txt')).rejects.toThrow('只能预览当前项目内');
+    await expect(restored.readPreview('unknown', 'hello.py')).rejects.toThrow('找不到本轮任务工作目录');
 
     await writeFile(path.join(root, 'outside.txt'), 'outside');
     await unlink(path.join(workspace, 'hello.py'));

@@ -116,3 +116,18 @@ it('keeps the shared credential declaration and a disabled MCP when merging exis
   expect(merged.enabledMcpServers).toEqual([]);
   expect(merged.credentials[0]).toMatchObject({ key: 'aihub/token', env: 'AIHUB_MCP_TOKEN' });
 });
+
+it('refreshes bundled UI while preserving disabled plugins and MCP choices, once only', async () => {
+  const { refreshBundledPluginUis } = await import('../../src/main/bundled-marketplaces');
+  const dir = await mkdtemp(path.join(tmpdir(), 'whale-ui-refresh-'));
+  const policy = new ExtensionPolicyStore(dir);
+  policy.addMarketplace('whale-office', '/resources/office', null, true);
+  policy.registerPlugin('whale-office-assistant@whale-office', 'whale-office', []);
+  policy.setPluginEnabled('whale-office-assistant@whale-office', false);
+  const before = policy.snapshot();
+  const request = vi.fn().mockResolvedValue({});
+  expect(await refreshBundledPluginUis({ request }, policy)).toBe(true);
+  expect(policy.snapshot()).toEqual(before);
+  expect(request).toHaveBeenCalledWith('config/batchWrite', expect.objectContaining({ edits: [expect.objectContaining({ value: false })] }));
+  expect(await refreshBundledPluginUis({ request }, new ExtensionPolicyStore(dir))).toBe(false);
+});

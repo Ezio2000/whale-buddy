@@ -1,3 +1,4 @@
+import { RenameThreadDialog } from './RenameThreadDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { PluginMarketplaceDialog } from './PluginMarketplaceDialog';
 import { useState, type CSSProperties } from 'react';
@@ -37,7 +38,7 @@ export function Workspace() {
   const conversation = useAppStore((state) => state.conversation);
   const rightPanelOpen = useAppStore((state) => state.rightPanelOpen);
   const setRightPanel = useAppStore((state) => state.setRightPanel);
-  const renameThread = useAppStore((state) => state.renameThread);
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const forkThread = useAppStore((state) => state.forkThread);
   const archiveThread = useAppStore((state) => state.archiveThread);
   const deleteThread = useAppStore((state) => state.deleteThread);
@@ -137,11 +138,7 @@ export function Workspace() {
                     <DropdownMenu.Item
                       className="menu-item"
                       onSelect={() => {
-                        const value = window.prompt(
-                          '输入对话名称',
-                          threadDisplayTitle(selectedThread),
-                        );
-                        if (value?.trim()) void renameThread(value.trim());
+                        setRenaming({ id: selectedThread.id, title: threadDisplayTitle(selectedThread) });
                       }}
                     >
                       <Pencil size={13} /> 重命名
@@ -175,6 +172,7 @@ export function Workspace() {
       {pageOpen && <main className="workspace-page-main">
         {settingsOpen ? <SettingsDialog embedded /> : <PluginMarketplaceDialog embedded />}
       </main>}
+      {renaming && <RenameThreadDialog key={renaming.id} thread={renaming} onClose={() => setRenaming(null)} />}
       {showDetails && <DiffPanel key={selectedThreadId} turns={panelTurns} width={panelWidth} onResize={(width) => setPanelWidth(Math.max(300, Math.min(560, width)))} />}
     </div>
   );

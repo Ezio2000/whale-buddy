@@ -400,6 +400,7 @@ function TaskEditor({
             <Dialog.Close asChild><button className="icon-button" aria-label="关闭"><X size={17} /></button></Dialog.Close>
           </div>
           <form onSubmit={(event) => void submit(event)}>
+            <div className="scheduled-editor-body">
             <div className="scheduled-form-grid">
               <label className="span-2"><span>任务名称</span><input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="例如：每日整理项目进展" /></label>
               <label className="span-2"><span>项目</span><select value={draft.projectId} onChange={(event) => {
@@ -430,6 +431,7 @@ function TaskEditor({
             {widgets.length > 0 && <section className="scheduled-plugin-contexts"><div><strong>插件输入</strong><span>可选。配置会随每次任务运行发送。</span></div><div className="scheduled-plugin-widgets">{widgets.map(({ descriptor, contribution }) => <div className="scheduled-plugin-widget" key={`${descriptor.pluginId}:${contribution.id}`}><span>{descriptor.displayName}</span><PluginUiFrame descriptor={descriptor} contribution={contribution} threadId={contextId} fallback={<small>插件输入暂不可用</small>} /></div>)}</div></section>}
 
             {error && <div className="scheduled-form-error"><CircleAlert size={14} />{error}</div>}
+            </div>
             <div className="scheduled-editor-actions">
               <label className="scheduled-enabled"><input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /> 启用任务</label>
               <div><button type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={15} /> : <CheckCircle2 size={15} />} 保存</button></div>

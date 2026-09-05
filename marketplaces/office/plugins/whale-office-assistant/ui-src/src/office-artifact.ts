@@ -11,7 +11,14 @@ export interface OfficeSlide {
   notes?: string;
 }
 
+export interface OfficeSheet {
+  sheetName: string;
+  columns: string[];
+  rows: Array<Record<string, OfficeCell>>;
+}
+
 export interface OfficeDraft {
+  sheets?: OfficeSheet[];
   taskId: string;
   title: string;
   format: OfficeFormat;
@@ -43,6 +50,18 @@ export function parseOfficeDraft(value: JsonValue): OfficeDraft {
   if (format === 'pptx') return { ...base, slides: parseSlides(record.slides) };
   if (format !== 'xlsx') return base;
 
+  if (record.sheets !== undefined) {
+    if (!Array.isArray(record.sheets) || !record.sheets.length) throw new Error('Excel sheets 必须包含至少一张工作表');
+    const sheets = record.sheets.map((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('Excel 工作表格式无效');
+      if (typeof entry.sheetName !== 'string' || !entry.sheetName.trim()) throw new Error('Excel 工作表缺少名称');
+      const columns = parseColumns(entry.columns);
+      return { sheetName: normalizeSheetName(entry.sheetName), columns, rows: parseRows(entry.rows, columns) };
+    });
+    if (new Set(sheets.map((sheet) => sheet.sheetName.toLowerCase())).size !== sheets.length) throw new Error('Excel 工作表名称规范化后不能重复');
+    if (record.columns !== undefined || record.rows !== undefined) throw new Error('Excel 请仅提供 sheets，不能同时提供单表 columns/rows');
+    return { ...base, sheets };
+  }
   const columns = parseColumns(record.columns);
   const rows = parseRows(record.rows, columns);
   return {
@@ -53,16 +72,23 @@ export function parseOfficeDraft(value: JsonValue): OfficeDraft {
   };
 }
 
+export function officeSheets(draft: OfficeDraft): OfficeSheet[] {
+  return draft.sheets ?? (draft.columns && draft.rows ? [{ sheetName: draft.sheetName ?? draft.title, columns: draft.columns, rows: draft.rows }] : []);
+}
+
 export function renderXlsxArtifact(draft: OfficeDraft): Uint8Array {
-  if (draft.format !== 'xlsx' || !draft.columns?.length || !draft.rows?.length) {
+  const sheets = officeSheets(draft);
+  if (draft.format !== 'xlsx' || !sheets.length || sheets.some((sheet) => !sheet.columns.length || !sheet.rows.length)) {
     throw new Error('Excel 成果缺少有效的 columns 或 rows，无法生成文件');
   }
-  const sheet = XLSX.utils.json_to_sheet(draft.rows, { header: draft.columns });
-  sheet['!cols'] = draft.columns.map((column) => ({
-    wch: Math.min(48, Math.max(10, column.length + 2, ...draft.rows!.map((row) => String(row[column] ?? '').length + 2))),
-  }));
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, sheet, normalizeSheetName(draft.sheetName ?? draft.title));
+  for (const entry of sheets) {
+    const sheet = XLSX.utils.json_to_sheet(entry.rows, { header: entry.columns });
+    sheet['!cols'] = entry.columns.map((column) => ({
+      wch: Math.min(48, Math.max(10, column.length + 2, ...entry.rows.map((row) => String(row[column] ?? '').length + 2))),
+    }));
+    XLSX.utils.book_append_sheet(workbook, sheet, normalizeSheetName(entry.sheetName));
+  }
   return new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }));
 }
 

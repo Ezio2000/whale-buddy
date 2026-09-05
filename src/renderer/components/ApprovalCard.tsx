@@ -1,3 +1,4 @@
+import { mcpApprovalDetails } from '../state/mcp-approval';
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Check, ShieldCheck, X } from 'lucide-react';
 import { useAppStore } from '../state/store';
@@ -13,6 +14,12 @@ export function ApprovalCard({ approval, onRespond }: ApprovalCardProps) {
   const [jsonContent, setJsonContent] = useState('{}');
   const brandName = useAppStore((state) => state.branding.name);
   const kind = approvalKind(approval.method);
+  const conversation = useAppStore((state) => state.conversation);
+  const thread = approval.threadId ? conversation.threads[approval.threadId] : null;
+  const turn = approval.turnId && thread ? thread.turns[approval.turnId] : null;
+  const mcpDetails = mcpApprovalDetails(approval.params, turn ? Object.values(turn.items) : []);
+  const schema = record(approval.params.requestedSchema);
+  const hasFormFields = Object.keys(record(schema?.properties) ?? {}).length > 0;
   const questions = Array.isArray(approval.params.questions) ? approval.params.questions : [];
   const permissions = record(approval.params.permissions);
 
@@ -27,9 +34,9 @@ export function ApprovalCard({ approval, onRespond }: ApprovalCardProps) {
       case 'input':
         return `${brandName} 需要你的回答`;
       case 'mcp':
-        return 'MCP 服务请求信息';
+        return mcpDetails.title;
     }
-  }, [kind, brandName]);
+  }, [kind, brandName, mcpDetails.title]);
 
   const decline = () => {
     if (kind === 'mcp') onRespond({ action: 'decline', content: null, _meta: null });
@@ -142,11 +149,13 @@ export function ApprovalCard({ approval, onRespond }: ApprovalCardProps) {
       {kind === 'mcp' && (
         <div className="approval-questions">
           <p>{string(approval.params.message) ?? 'MCP 服务请求结构化输入。'}</p>
-          <textarea
+          <strong>{mcpDetails.title}{mcpDetails.readOnly ? ' · 只读' : ''}</strong>
+          {mcpDetails.arguments == null ? <p>服务未提供可唯一关联的工具参数，请核对服务说明；无法确认范围时请拒绝。</p> : <pre aria-label="本次工具参数">{JSON.stringify(mcpDetails.arguments, null, 2)}</pre>}
+          {hasFormFields && <label>服务请求的补充信息<textarea
             aria-label="MCP JSON 内容"
             value={jsonContent}
             onChange={(event) => setJsonContent(event.target.value)}
-          />
+          /></label>}
         </div>
       )}
 

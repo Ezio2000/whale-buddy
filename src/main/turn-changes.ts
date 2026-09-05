@@ -95,12 +95,15 @@ export class TurnChangesStore {
 
   async readPreview(turnId: string, filePath: string): Promise<string> {
     const snapshot = this.state.turns[turnId];
-    const file = snapshot?.files.find((candidate) => candidate.path === filePath);
-    if (!snapshot?.cwd || !file) throw new Error('找不到本轮文件记录');
-    if (file.kind === 'deleted') throw new Error('文件已删除，本轮未保存可预览的内容');
-    if (file.binary) throw new Error('此文件格式不支持文本预览');
+    if (!snapshot?.cwd) throw new Error('找不到本轮任务工作目录');
+    const candidatePath = path.resolve(snapshot.cwd, filePath);
+    const candidateRelative = path.relative(snapshot.cwd, candidatePath);
+    if (candidateRelative === '..' || candidateRelative.startsWith(`..${path.sep}`) || path.isAbsolute(candidateRelative)) throw new Error('只能预览当前项目内的文件');
+    const file = snapshot.files.find((candidate) => path.resolve(snapshot.cwd, candidate.path) === candidatePath);
+    if (file?.kind === 'deleted') throw new Error('文件已删除，本轮未保存可预览的内容');
+    if (file?.binary) throw new Error('此文件格式不支持文本预览');
     const root = await realpath(snapshot.cwd);
-    const resolved = await realpath(path.resolve(root, file.path));
+    const resolved = await realpath(candidatePath);
     const relative = path.relative(root, resolved);
     if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
       throw new Error('只能预览当前项目内的文件');

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { RenameThreadDialog } from './RenameThreadDialog';
 import { threadDisplayTitle } from '../../shared/display-text';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
@@ -31,7 +33,7 @@ export function Sidebar() {
   const selectThread = useAppStore((state) => state.selectThread);
   const newThread = useAppStore((state) => state.newThread);
   const removeProject = useAppStore((state) => state.removeProject);
-  const renameThread = useAppStore((state) => state.renameThread);
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const forkThread = useAppStore((state) => state.forkThread);
   const archiveThread = useAppStore((state) => state.archiveThread);
   const deleteThread = useAppStore((state) => state.deleteThread);
@@ -139,8 +141,7 @@ export function Sidebar() {
                 void selectThread(thread.id);
               }}
               onRename={() => {
-                const name = window.prompt('输入对话名称', threadDisplayTitle(thread));
-                if (name?.trim()) void renameThread(name.trim(), thread.id);
+                setRenaming({ id: thread.id, title: threadDisplayTitle(thread) });
               }}
               onFork={() => void forkThread(thread.id)}
               onArchive={() => void archiveThread(thread.id)}
@@ -192,6 +193,7 @@ export function Sidebar() {
       <div className="sidebar-footer">
         <AccountButton />
       </div>
+      {renaming && <RenameThreadDialog key={renaming.id} thread={renaming} onClose={() => setRenaming(null)} />}
     </aside>
   );
 }

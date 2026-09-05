@@ -1,3 +1,4 @@
+import { knowledgeSnippets } from './result-data';
 import { lazy, Suspense, StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -285,7 +286,7 @@ function KnowledgeCard({ toolCall }: { toolCall?: ToolCallContext }) {
       </div>
     );
   }
-  const snippets = extractSnippets(toolCall.result);
+  const snippets = knowledgeSnippets(toolCall.result);
   return (
     <div className="result-card">
       <strong>知识库检索结果 · {snippets.length}</strong>
@@ -298,7 +299,7 @@ function KnowledgeCard({ toolCall }: { toolCall?: ToolCallContext }) {
           </article>
         ))}
       </div>
-      {snippets.length === 0 && <pre>{truncate(textFrom(toolCall.result), 2_000) || '工具已完成，但没有可预览的结构化结果。'}</pre>}
+      {snippets.length === 0 && <p>没有可展示的检索片段，请调整查询词或知识库范围。</p>}
     </div>
   );
 }
@@ -333,22 +334,6 @@ function normalizeDatasets(value: unknown): Dataset[] {
       description: string(entry?.description) ?? string(entry?.summary) ?? '',
     }];
   });
-}
-
-function extractSnippets(value: unknown): Array<{ title: string; text: string; source: string }> {
-  const result: Array<{ title: string; text: string; source: string }> = [];
-  walk(value, (raw) => {
-    const entry = record(raw);
-    if (!entry) return;
-    const text = string(entry.text) ?? string(entry.content) ?? string(entry.snippet) ?? string(entry.chunk);
-    if (!text || text.length < 8) return;
-    result.push({
-      title: string(entry.title) ?? string(entry.document_name) ?? string(entry.name) ?? '',
-      text: truncate(text, 900),
-      source: string(entry.source) ?? string(entry.url) ?? string(entry.dataset_name) ?? '',
-    });
-  });
-  return result.filter((entry, index) => result.findIndex((item) => item.text === entry.text) === index);
 }
 
 function walk(value: unknown, visit: (entry: unknown) => void, depth = 0): void {
