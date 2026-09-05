@@ -131,6 +131,11 @@ function usePluginFrame(
         setReady(true);
         return;
       }
+      if (packet.type === 'plugin:scrollIntent' && surface.kind === 'ui') {
+        const deltaY = numberValue(packet.deltaY);
+        if (deltaY) iframeRef.current?.dispatchEvent(new WheelEvent('wheel', { deltaY, bubbles: true }));
+        return;
+      }
       if (packet.type === 'plugin:resize') {
         resizeHandler.current(numberValue(packet.height), optionalNumber(packet.width));
         return;

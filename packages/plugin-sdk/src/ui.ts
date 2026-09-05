@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  currentContext, onContext, onHostEvent, reportSize, request,
+  currentContext, onContext, onHostEvent, post, reportSize, request,
   type HostArtifact, type HostAttachment, type HostEvent, type JsonValue, type PluginContext, type PluginStateScope,
 } from './core';
 export type { HostArtifact, HostAttachment, HostEvent, JsonValue, MessageContext, PluginContext, PluginCredential, PluginStateScope, ToolCallContext } from './core';
@@ -11,7 +11,16 @@ export function usePluginContext(): PluginContext | null {
   useEffect(() => {
     const observer = new ResizeObserver(reportSize);
     observer.observe(document.body);
-    return () => observer.disconnect();
+    // Native wheel events do not bubble out of an iframe. Forward intent only;
+    // the browser still performs scrolling, and the host owns follow state.
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && event.deltaY) post({ type: 'plugin:scrollIntent', deltaY: event.deltaY });
+    };
+    document.addEventListener('wheel', wheel, { passive: true, capture: true });
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('wheel', wheel, true);
+    };
   }, []);
   return value;
 }

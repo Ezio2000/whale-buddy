@@ -6,13 +6,14 @@ const fixture = vi.hoisted(() => ({
   items: [{ id: 'message', type: 'agentMessage', text: 'hello' }],
   state: {} as Record<string, any>,
   height: 1000,
+  options: {} as Record<string, any>,
 }));
 vi.mock('../../src/renderer/state/store', () => ({ useAppStore: (select: (state: any) => unknown) => select(fixture.state) }));
 vi.mock('../../src/renderer/state/conversation', () => ({ itemsForThread: () => fixture.items }));
 vi.mock('../../src/renderer/components/ItemCard', () => ({ ItemCard: () => null }));
-vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: () => ({
+vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: (options: Record<string, any>) => { fixture.options = options; return {
   getTotalSize: () => fixture.height, getVirtualItems: () => [], measureElement: () => undefined,
-}) }));
+}; } }));
 
 let frames: Map<number, FrameRequestCallback>;
 let sequence = 0;
@@ -43,6 +44,37 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('conversation scroll ownership', () => {
+  it('keeps following when a card resize moves scrollTop upward without user input', () => {
+    const { container, rerender } = render(<ConversationList />);
+    const element = container.querySelector('.conversation-scroll') as HTMLElement;
+    flushFrames();
+    element.scrollTop = 420;
+    fireEvent.scroll(element);
+    expect(screen.queryByRole('button', { name: /最新内容/ })).not.toBeInTheDocument();
+    fixture.height = 1400;
+    rerender(<ConversationList />); flushFrames();
+    expect(element.scrollTop).toBe(900);
+  });
+
+  it('does not resume following when layout compensation reaches bottom while reading', () => {
+    const { container, rerender } = render(<ConversationList />);
+    const element = container.querySelector('.conversation-scroll') as HTMLElement;
+    flushFrames(); fireEvent.wheel(element, { deltaY: -100 });
+    element.scrollTop = 400; fireEvent.scroll(element);
+    element.scrollTop = 500; fireEvent.scroll(element);
+    fixture.height = 1400; rerender(<ConversationList />); flushFrames();
+    expect(element.scrollTop).toBe(500);
+    expect(screen.getByRole('button', { name: /最新内容/ })).toBeInTheDocument();
+  });
+
+  it('PageUp cancels queued follow before browser scroll events', () => {
+    const { container } = render(<ConversationList />);
+    const element = container.querySelector('.conversation-scroll') as HTMLElement;
+    fireEvent.keyDown(element, { key: 'PageUp' });
+    element.scrollTop = 200; flushFrames();
+    expect(element.scrollTop).toBe(200);
+  });
+
   it('lets an upward wheel cancel a queued bottom correction before its scroll event', () => {
     const { container, rerender } = render(<ConversationList />);
     const element = container.querySelector('.conversation-scroll') as HTMLElement;
@@ -68,6 +100,7 @@ describe('conversation scroll ownership', () => {
     rerender(<ConversationList />);
     flushFrames();
     expect(element.scrollTop).toBe(480);
+    fireEvent.wheel(element, { deltaY: 20 });
     element.scrollTop = 500;
     fireEvent.scroll(element);
     flushFrames();
@@ -93,7 +126,7 @@ describe('conversation scroll ownership', () => {
     expect(element.scrollTop).toBe(900);
   });
 
-  it('preserves movement made while older history is loading', async () => {
+  it('delegates prepend anchoring to the virtualizer without adding concurrent total growth', async () => {
     let resolve!: () => void;
     fixture.state.historyByThread = { one: { loaded: true, turnsCursor: 'older', itemsCursor: null } };
     fixture.state.loadOlderHistory = vi.fn(() => new Promise<void>((done) => { resolve = done; }));
@@ -106,7 +139,8 @@ describe('conversation scroll ownership', () => {
     fixture.height = 1400;
     await act(async () => { resolve(); });
     flushFrames();
-    expect(element.scrollTop).toBe(420);
+    expect(element.scrollTop).toBe(20);
+    expect(fixture.options).toMatchObject({ anchorTo: 'end', followOnAppend: false, scrollEndThreshold: -1 });
   });
 
   it('does not apply a pending history offset to a different thread', async () => {

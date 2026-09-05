@@ -22,6 +22,8 @@ export function ConversationList() {
   const followingRef = useRef(true);
   const followFrameRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
+  const userScrollDirectionRef = useRef(0);
+  const touchYRef = useRef<number | null>(null);
   const positioningThreadRef = useRef<string | null>(null);
   const positionedThreadRef = useRef<string | null>(null);
   const [following, setFollowing] = useState(true);
@@ -30,6 +32,7 @@ export function ConversationList() {
     positionedThreadRef.current = null;
     autoScrollingRef.current = true;
     followingRef.current = true;
+    userScrollDirectionRef.current = 0;
   }
   const items = useMemo(() => itemsForThread(conversation, threadId), [conversation, threadId]);
   const itemTurnIds = useMemo(() => {
@@ -55,6 +58,12 @@ export function ConversationList() {
     // then visibly walking through the list before reaching the latest item.
     initialOffset: () => items.length * ESTIMATED_ITEM_HEIGHT,
     overscan: 7,
+    // Preserve the visible item key on prepend, rather than adding the entire
+    // scrollHeight delta (which also includes concurrently streamed content).
+    anchorTo: 'end',
+    followOnAppend: false,
+    // Only our follow state owns bottom alignment, including after resizing.
+    scrollEndThreshold: -1,
     getItemKey: (index) => items[index]?.id ?? index,
   });
 
@@ -70,15 +79,7 @@ export function ConversationList() {
   const loadOlderPreservingPosition = useCallback(async () => {
     const element = parentRef.current;
     if (!element || !threadId || !hasOlderHistory || history?.loadingOlder) return;
-    const previousHeight = element.scrollHeight;
-    const requestThread = threadId;
     await loadOlderHistory(threadId);
-    window.requestAnimationFrame(() => {
-      const current = parentRef.current;
-      if (!current || positioningThreadRef.current !== requestThread) return;
-      // Include movement made while the history request was in flight.
-      current.scrollTop += Math.max(0, current.scrollHeight - previousHeight);
-    });
   }, [hasOlderHistory, history?.loadingOlder, loadOlderHistory, threadId]);
 
   useEffect(() => {
@@ -94,6 +95,11 @@ export function ConversationList() {
       followFrameRef.current = null;
     }
     setFollowing(false);
+  };
+
+  const noteScrollIntent = (direction: number) => {
+    userScrollDirectionRef.current = Math.sign(direction);
+    if (direction < 0) stopFollowing();
   };
 
   const totalSize = virtualizer.getTotalSize();
@@ -137,13 +143,14 @@ export function ConversationList() {
     if (autoScrollingRef.current) return;
     const previousTop = lastScrollTopRef.current;
     lastScrollTopRef.current = element.scrollTop;
-    if (element.scrollTop < previousTop) {
-      stopFollowing();
-    } else if (element.scrollTop > previousTop
+    // ResizeObserver, virtualizer anchoring and browser clamping also emit
+    // scroll events. They must never change the user's follow preference.
+    if (userScrollDirectionRef.current > 0 && element.scrollTop > previousTop
       && element.scrollHeight - element.scrollTop - element.clientHeight <= 2) {
       followingRef.current = true;
       setFollowing(true);
     }
+    userScrollDirectionRef.current = 0;
     if (
       positionedThreadRef.current === threadId
       && element.scrollTop < 100
@@ -175,8 +182,29 @@ export function ConversationList() {
 
   return (
     <div className="conversation-scroll" ref={parentRef} onScroll={onScroll}
+      tabIndex={0} aria-label="对话记录"
       onWheel={(event) => {
-        if (event.deltaY < 0 && !event.ctrlKey) stopFollowing();
+        if (!event.ctrlKey) noteScrollIntent(event.deltaY);
+      }}
+      onKeyDown={(event) => {
+        if (event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
+        if (['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey)) noteScrollIntent(-1);
+        if (['ArrowDown', 'PageDown', 'End'].includes(event.key) || (event.key === ' ' && !event.shiftKey)) noteScrollIntent(1);
+      }}
+      onPointerDown={(event) => {
+        const element = parentRef.current;
+        if (element && event.target === element && event.clientX >= element.getBoundingClientRect().right - 18) {
+          stopFollowing();
+          // Scrollbar dragging can move in either direction; reaching the
+          // actual bottom is the user's explicit choice to resume following.
+          userScrollDirectionRef.current = 1;
+        }
+      }}
+      onTouchStart={(event) => { touchYRef.current = event.touches[0]?.clientY ?? null; }}
+      onTouchMove={(event) => {
+        const y = event.touches[0]?.clientY;
+        if (y !== undefined && touchYRef.current !== null) noteScrollIntent(touchYRef.current - y);
+        touchYRef.current = y ?? null;
       }}
     >
       {history?.loadingOlder && (
@@ -238,6 +266,7 @@ export function ConversationList() {
           className="jump-to-latest"
           onClick={() => {
             followingRef.current = true;
+            userScrollDirectionRef.current = 0;
             setFollowing(true);
           }}
         >

@@ -142,6 +142,26 @@ describe('plugin host UI surfaces', () => {
     expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ context: expect.objectContaining({ turnId: 'turn-1', message: expect.objectContaining({ itemId: 'message-1' }) }) }), '*');
   });
 
+  it('relays authenticated iframe wheel intent to the conversation container', async () => {
+    const wheel = vi.fn();
+    render(<div onWheel={wheel}><PluginHostProvider><PluginUiFrame
+      descriptor={descriptor} contribution={descriptor.uiContributions[6]!} threadId="thread-1"
+    /></PluginHostProvider></div>);
+    const frame = await screen.findByTitle<HTMLIFrameElement>('Fixture Plugin · fixture-card');
+    const postMessage = vi.spyOn(frame.contentWindow!, 'postMessage');
+    fireEvent.load(frame);
+    const init = postMessage.mock.calls.find(([message]) => (message as { type?: string }).type === 'host:init')?.[0] as { nonce: string };
+    const send = (nonce: string, source: Window | null) => fireEvent(window, new MessageEvent('message', {
+      source, data: { channel: 'whale-plugin-v2', nonce, type: 'plugin:scrollIntent', deltaY: -60 },
+    }));
+    send('invalid', frame.contentWindow);
+    send(init.nonce, window);
+    expect(wheel).not.toHaveBeenCalled();
+    send(init.nonce, frame.contentWindow);
+    expect(wheel).toHaveBeenCalledTimes(1);
+    expect(wheel.mock.calls[0]![0].deltaY).toBe(-60);
+  });
+
   it('mounts plugin turn-details contributions with the selected turn context', async () => {
     render(<PluginHostProvider><DiffPanel turns={[{
       id: 'turn-1', status: 'completed', error: null, startedAt: 1, completedAt: 2, durationMs: 1_000,

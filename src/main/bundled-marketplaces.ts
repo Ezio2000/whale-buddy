@@ -96,7 +96,7 @@ export async function refreshBundledPluginUis(
   for (const [marketplace, pluginName] of [
     ['whale-office', 'whale-office-assistant'], ['whale-aihub', 'xiaojing-knowledge-base'],
   ]) {
-    const revision = pluginName === 'xiaojing-knowledge-base' ? 'v6' : 'v4';
+    const revision = pluginName === 'xiaojing-knowledge-base' ? 'v7' : 'v5';
     const migration = 'ui-audit-20260905-' + revision + ':' + pluginName;
     const source = policy.source(marketplace);
     if (policy.hasMigration(migration) || !source?.preset || !source.enabled || !source.source) continue;
