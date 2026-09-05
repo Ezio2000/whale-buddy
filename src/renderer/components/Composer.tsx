@@ -1,6 +1,6 @@
 import { confirmAction } from '../state/confirmation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, LoaderCircle, Paperclip, Pause, Puzzle, RotateCcw, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
+import { Database, ImagePlus, LoaderCircle, Paperclip, Pause, Puzzle, RotateCcw, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
 import type {
   ExplicitDynamicToolReference,
   ExplicitSkillReference,
@@ -495,16 +495,18 @@ export function Composer() {
             )}
             {selectedThreadId && composerActions.map(({ descriptor, contribution }) => (
               <button
-                className="plugin-composer-action"
+                className={contribution.id === 'knowledge-composer-action' ? 'icon-button' : 'plugin-composer-action'}
                 key={`${descriptor.pluginId}:${contribution.id}`}
                 title={`${descriptor.displayName} · ${contribution.title}`}
+                aria-label={contribution.title}
                 onClick={() => openAction({
                   pluginId: descriptor.pluginId,
                   contributionId: contribution.id,
                 })}
               >
-                <Puzzle size={14} />
-                <span>{contribution.title}</span>
+                {contribution.id === 'knowledge-composer-action'
+                  ? <Database size={16} aria-hidden="true" />
+                  : <><Puzzle size={14} /><span>{contribution.title}</span></>}
               </button>
             ))}
             {savingAttachments && <span className="composer-saving-indicator">正在保存…</span>}
