@@ -43,13 +43,13 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", Menlo, Consolas, "Courier New", monospace;
   --font-size-caption: 12px;
-  --font-size-secondary: 14px;
-  --font-size-ui: 15px;
-  --font-size-body: 16px;
-  --font-size-section: 16px;
+  --font-size-secondary: 12px;
+  --font-size-ui: 13px;
+  --font-size-body: 14px;
+  --font-size-section: 14px;
   --font-size-dialog: 18px;
   --font-size-heading: 20px;
-  --font-size-title: 26px;
+  --font-size-title: 22px;
   --font-size-hero: 30px;
   --font-size-code: 13px;
   --surface-workbench: #ffffff;
@@ -5604,14 +5604,14 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 .app-shell { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
 .app-shell.with-details { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--details-width, 360px); }
 .sidebar-brand { height: 44px; font-size: 20px; gap: 8px; }
-.sidebar-nav { padding-block: 14px 22px; border-bottom: 0; }
-.sidebar-nav button { height: 36px; gap: 10px; color: var(--text); font-weight: 400; }
+.sidebar-nav { padding-block: 10px 14px; border-bottom: 0; }
+.sidebar-nav button { height: 30px; gap: 8px; color: var(--text); font-weight: 400; }
 .sidebar-nav button svg, .project-main svg { width: 18px; height: 18px; stroke-width: 1.7; }
 .sidebar-nav .new-thread-button { justify-content: flex-start; margin: 0; background: transparent; }
-.sidebar-section-heading { height: 34px; font-size: var(--font-size-ui); color: var(--text-faint); font-weight: 400; }
-.threads-section { border-top: 0; margin-top: 18px; padding-top: 0; }
-.project-main { height: 34px; }
-.thread-main { min-height: 34px; padding-block: 6px; }
+.sidebar-section-heading { height: 28px; font-size: var(--font-size-ui); color: var(--text-faint); font-weight: 400; }
+.threads-section { border-top: 0; margin-top: 12px; padding-top: 0; }
+.project-main { height: 30px; }
+.thread-main { min-height: 30px; padding-block: 4px; }
 .thread-copy small { display: none; }
 .thread-main { position: relative; }
 .thread-main:hover .thread-copy small { display: block; position: absolute; right: 8px; top: 7px; background: var(--sidebar); padding-left: 8px; }
@@ -5622,10 +5622,10 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 .thread-heading span { display: none; }
 .thread-heading strong { font-weight: 500; }
 .virtual-list { width: min(var(--reading-width), calc(100% - 64px)); }
-.virtual-row { padding-block: 14px; }
-.virtual-row.assistant-continuation-row { padding-top: 6px; }
-.message-content { line-height: 1.65; }
-.user-message .message-content { background: var(--surface-muted); padding: 12px 20px; }
+.virtual-row { padding-block: 6px; }
+.virtual-row.assistant-continuation-row { padding-top: 2px; }
+.message-content { line-height: 1.5; }
+.user-message .message-content { background: var(--surface-muted); padding: 8px 14px; }
 .markdown-body strong { font-weight: 600; }
 .virtual-list .tool-card { background: transparent; border: 0; border-radius: 6px; }
 .virtual-list .tool-card-trigger, .virtual-list .compact-tool-card { color: var(--text-muted); padding: 6px 0; min-height: 32px; }
@@ -5635,9 +5635,9 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 .composer-area { padding: 12px 32px 12px; }
 .composer-shell { width: min(var(--reading-width), 100%); padding: 14px 14px 10px; border-color: var(--border); border-radius: 24px; box-shadow: 0 2px 8px rgb(0 0 0 / 3%), 0 12px 40px rgb(0 0 0 / 3%); }
 .composer-shell:focus-within { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
-.composer-shell textarea { min-height: 48px; padding: 2px 0; }
+.composer-shell textarea { min-height: 30px; padding: 2px 0; }
 .composer-shell textarea::placeholder { color: var(--text-faint); opacity: .65; }
-.composer-footer { padding-top: 12px; }
+.composer-footer { padding-top: 6px; }
 .composer-tools .icon-button { width: 32px; height: 32px; }
 .composer-model-indicator { font-size: var(--font-size-ui); font-weight: 400; color: var(--text); height: 32px; }
 .details-panel { background: var(--surface); }
@@ -5645,7 +5645,7 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 .app-shell:has(.workspace-page.settings-dialog) > .sidebar { display: none; }
 .app-shell:has(.workspace-page.settings-dialog) > .workspace-page-main { grid-column: 1 / -1; }
 .workspace-page.settings-dialog { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); width: 100%; height: 100%; max-height: none; background: var(--surface); }
-.workspace-page.settings-dialog > .dialog-heading { grid-column: 2; grid-row: 1; border: 0; width: min(960px, 100%); margin: 0 auto; padding: 56px 64px 32px; }
+.workspace-page.settings-dialog > .dialog-heading { grid-column: 2; grid-row: 1; border: 0; width: min(960px, 100%); margin: 0 auto; padding: 40px 64px 20px; }
 .workspace-page.settings-dialog h1 { font-weight: 500; }
 .workspace-page.settings-dialog > .settings-categories { grid-column: 1; grid-row: 1 / -1; flex-direction: column; gap: 2px; padding: 42px 8px 24px; background: var(--sidebar); border: 0; overflow: auto; }
 .workspace-page.settings-dialog .settings-categories button { padding: 8px 10px; min-height: 34px; text-align: left; color: var(--text); font-weight: 400; }
@@ -5653,9 +5653,9 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 .workspace-page.settings-dialog .settings-back { margin-bottom: 28px; }
 .settings-nav-label { padding: 8px 10px; color: var(--text-faint); }
 .workspace-page.settings-dialog > .settings-groups { grid-column: 2; grid-row: 2; padding: 0 max(32px, calc((100% - 832px) / 2)) 48px; }
-.workspace-page.settings-dialog .settings-groups > section { max-width: none; margin: 24px 0 48px; padding: 20px; border-radius: 18px; background: var(--surface); }
+.workspace-page.settings-dialog .settings-groups > section { max-width: none; margin: 16px 0 28px; padding: 20px; border-radius: 18px; background: var(--surface); }
 .workspace-page.settings-dialog .settings-groups h3 { font-size: var(--font-size-ui); font-weight: 500; margin-bottom: 16px; }
-.setting-row { min-height: 68px; gap: 24px; }
+.setting-row { min-height: 54px; padding-block: 8px; gap: 20px; }
 .setting-row strong { font-weight: 500; }
 .setting-row small { color: var(--text-muted); line-height: 1.45; }
 .settings-categories button.active, .details-tabs button.active { box-shadow: none; }
@@ -5677,10 +5677,15 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 }
 
 .workspace-page.settings-dialog .settings-groups > section { padding: 0; border: 0; border-radius: 0; }
-.workspace-page.settings-dialog .settings-groups h3 { margin-bottom: 18px; }
+.workspace-page.settings-dialog .settings-groups h3 { margin-bottom: 12px; }
 .workspace-page.settings-dialog .settings-section-body { padding: 12px 18px; border: 1px solid var(--border); border-radius: 18px; }
 .workspace-page.settings-dialog .settings-input,
 .workspace-page.settings-dialog .select-trigger { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .workspace-page.settings-dialog .settings-provider-note { background: transparent; border: 0; color: var(--text-muted); padding: 12px 0; }
 .workspace-page.settings-dialog .settings-provider-note strong { font-weight: 400; }
 .workspace-page.settings-dialog .settings-advanced > summary { background: transparent; font-weight: 400; }
+
+/* Keep paragraph rhythm compact at the default desktop text size. */
+.markdown-body p, .markdown-body ul, .markdown-body ol, .markdown-body blockquote, .markdown-body pre, .markdown-body table { margin-block: .45em; }
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
