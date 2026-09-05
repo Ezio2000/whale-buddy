@@ -3,6 +3,12 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowLeft,
+  SlidersHorizontal,
+  Shield,
+  Sun,
+  UserRound,
+  Settings,
   Check,
   ChevronDown,
   Eye,
@@ -26,6 +32,7 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
   const Description = embedded ? 'p' : Dialog.Description;
   const [category, setCategory] = useState('model');
   const categories = [['model', '模型与回答'], ['permissions', '执行权限'], ['appearance', '外观'], ['account', '账号'], ['advanced', '高级']] as const;
+  const categoryIcons = [SlidersHorizontal, Shield, Sun, UserRound, Settings];
   const open = useAppStore((state) => state.settingsOpen);
   const setOpen = useAppStore((state) => state.setSettingsOpen);
   const preferences = useAppStore((state) => state.preferences);
@@ -110,7 +117,7 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
     <SettingsSurface embedded={embedded} open={open} onOpenChange={setOpen} className="settings-dialog">
           <div className="dialog-heading">
             <div>
-              <Title>设置</Title>
+              <Title>{embedded ? categories.find(([id]) => id === category)?.[1] : '设置'}</Title>
               <Description>配置 {branding.name} 的模型服务、使用偏好与安全选项。</Description>
             </div>
             <button onClick={() => setOpen(false)} className="icon-button dialog-close-target" aria-label="关闭设置">
@@ -118,7 +125,12 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
             </button>
           </div>
           <nav className="settings-categories" aria-label="设置分类">
-            {categories.map(([id, label]) => <button key={id} aria-current={category === id ? 'page' : undefined} className={category === id ? 'active' : ''} onClick={() => setCategory(id)}>{label}</button>)}
+            {embedded && <button className="settings-back" onClick={() => setOpen(false)}><ArrowLeft size={18} />返回应用</button>}
+            {embedded && <span className="settings-nav-label">设置</span>}
+            {categories.map(([id, label], index) => {
+              const Icon = categoryIcons[index];
+              return <button key={id} aria-current={category === id ? 'page' : undefined} className={category === id ? 'active' : ''} onClick={() => setCategory(id)}><Icon size={18} />{label}</button>;
+            })}
           </nav>
           <div className="settings-groups">
             <section hidden={category !== 'model'}>

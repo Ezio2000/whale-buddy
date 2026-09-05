@@ -63,6 +63,14 @@ export function Sidebar() {
 
       <nav className="sidebar-nav">
         <button
+          className="new-thread-button"
+          disabled={!selectedProject}
+          onClick={() => { setWorkspaceView('conversation'); void newThread(); }}
+        >
+          <Plus size={16} />
+          <span>新对话</span>
+        </button>
+        <button
           className={pageActive && workspaceView === 'artifacts' ? 'active' : ''}
           onClick={() => setWorkspaceView('artifacts')}
         >
@@ -88,7 +96,7 @@ export function Sidebar() {
 
       <section className="sidebar-section project-section">
         <div className="sidebar-section-heading">
-          <span>本地项目</span>
+          <span>项目</span>
           <button className="icon-button" aria-label="打开项目" onClick={() => void openProject()}>
             <Plus size={15} />
           </button>
@@ -117,16 +125,9 @@ export function Sidebar() {
 
       <section className="sidebar-section threads-section">
         <div className="sidebar-section-heading">
-          <span>对话</span>
+          <span>最近</span>
         </div>
-        <button
-          className="new-thread-button"
-          disabled={!selectedProject}
-          onClick={() => { setWorkspaceView('conversation'); void newThread(); }}
-        >
-          <Plus size={16} />
-          <span>新对话</span>
-        </button>
+
         <div className="thread-list">
           {projectThreads.map((thread) => (
             <ThreadRow

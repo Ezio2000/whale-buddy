@@ -91,7 +91,7 @@ export function Workspace() {
       <main className="workspace-main" hidden={pageOpen}>
         <header className="workspace-header">
           <div className="window-drag-spacer" />
-          <div className="thread-heading">
+          <div className="thread-heading" title={selectedThread?.cwd ?? selectedProject?.path}>
             <strong>{selectedThread ? threadDisplayTitle(selectedThread) : selectedProject?.name || brandName}</strong>
             <span>{selectedThread?.cwd ?? selectedProject?.path ?? '打开项目开始工作'}</span>
           </div>

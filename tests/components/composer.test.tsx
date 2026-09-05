@@ -87,9 +87,9 @@ describe('Composer', () => {
     const composer = screen.getByRole('textbox');
     fireEvent.change(composer, { target: { value: '这是一条未发送的草稿' } });
     fireEvent.click(screen.getByRole('button', { name: '当前模型：whale-code-pro' }));
-    expect(screen.getByRole('heading', { name: '设置', level: 1 })).toBeVisible();
+    expect(screen.getByRole('heading', { name: '模型与回答', level: 1 })).toBeVisible();
     expect(composer).not.toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: '关闭设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回应用' }));
     expect(screen.getByRole('textbox')).toHaveValue('这是一条未发送的草稿');
     expect(screen.getByRole('textbox')).toBe(composer);
   });
