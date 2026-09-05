@@ -4,11 +4,11 @@
   --surface: #ffffff;
   --surface-raised: #ffffff;
   --surface-muted: #f4f4f4;
-  --sidebar: #f9f9f9;
+  --sidebar: #f0f0f2;
   --sidebar-hover: rgb(0 0 0 / 5%);
-  --sidebar-selected: rgb(0 0 0 / 8%);
-  --border: #ececec;
-  --border-strong: #d9d9d9;
+  --sidebar-selected: var(--selection-surface);
+  --border: #e0e0e3;
+  --border-strong: #c9c9ce;
   --text: #0d0d0d;
   --text-muted: #5d5d5d;
   --text-faint: #707070;
@@ -52,6 +52,12 @@
   --font-size-title: 22px;
   --font-size-hero: 30px;
   --font-size-code: 13px;
+  --surface-workbench: #f5f5f7;
+  --surface-detail: #f7f7f9;
+  --divider: #d5d5da;
+  --selection-surface: #e1e1e6;
+  --selection-mark: #42424a;
+  --border-soft: var(--border);
 }
 
 :root[data-theme='dark'] {
@@ -60,9 +66,9 @@
   --surface: #212121;
   --surface-raised: #2f2f2f;
   --surface-muted: #303030;
-  --sidebar: #171717;
+  --sidebar: #171719;
   --sidebar-hover: rgb(255 255 255 / 8%);
-  --sidebar-selected: rgb(255 255 255 / 10%);
+  --sidebar-selected: var(--selection-surface);
   --border: rgb(255 255 255 / 10%);
   --border-strong: rgb(255 255 255 / 16%);
   --text: #ececec;
@@ -90,6 +96,12 @@
   --inverse-bg-hover: #d9d9d0;
   --inverse-fg: #0d0d0d;
   --surface-composer: #2f2f2f;
+  --surface-workbench: #1b1b1e;
+  --surface-detail: #242427;
+  --divider: #404047;
+  --selection-surface: #34343a;
+  --selection-mark: #ddddE5;
+  --border-soft: var(--border);
 }
 
 * {
@@ -205,6 +217,7 @@ pre {
   flex-direction: column;
   background: var(--sidebar);
   overflow: hidden;
+  border-right: 1px solid var(--divider);
 }
 
 .sidebar-drag-region {
@@ -246,6 +259,8 @@ pre {
   flex: 1;
   flex-direction: column;
   padding-top: 17px;
+  margin-top: 12px;
+  border-top: 1px solid var(--divider);
 }
 
 .sidebar-section-heading {
@@ -254,7 +269,7 @@ pre {
   justify-content: space-between;
   height: 28px;
   padding: 0 10px;
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--font-size-caption);
   font-weight: 500;
 }
@@ -309,7 +324,8 @@ pre {
 }
 
 .thread-row.selected {
-  background: var(--sidebar-selected);
+  background: var(--selection-surface);
+  box-shadow: inset 3px 0 var(--selection-mark);
 }
 
 .project-main,
@@ -500,6 +516,8 @@ pre {
   flex-direction: column;
   gap: 2px;
   padding: 6px 8px 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--divider);
 }
 
 .sidebar-nav button {
@@ -522,11 +540,13 @@ pre {
 
 .sidebar-nav button.active {
   color: var(--text);
-  background: var(--sidebar-selected);
+  background: var(--selection-surface);
+  box-shadow: inset 3px 0 var(--selection-mark);
 }
 
 .sidebar-footer {
   padding: 10px 8px 12px;
+  border-top: 1px solid var(--divider);
 }
 
 .sidebar-footer > button {
@@ -628,12 +648,14 @@ pre {
 .workspace-header {
   position: relative;
   display: flex;
-  height: 56px;
+  height: 66px;
   flex: 0 0 auto;
   align-items: flex-end;
   gap: 12px;
   padding: 0 16px 10px 20px;
   -webkit-app-region: drag;
+  border-bottom: 1px solid var(--divider);
+  background: var(--surface);
 }
 
 .workspace-header .header-actions,
@@ -666,7 +688,7 @@ pre {
 }
 
 .thread-heading strong {
-  color: var(--text-muted);
+  color: var(--text);
   font-size: var(--font-size-ui);
   font-weight: 500;
 }
@@ -985,7 +1007,7 @@ pre {
   width: fit-content;
   max-width: 70%;
   padding: 8px 16px;
-  background: var(--surface-muted);
+  background: var(--selection-surface);
   border-radius: var(--radius-bubble);
 }
 
@@ -1151,8 +1173,9 @@ pre {
 
 .tool-card {
   overflow: hidden;
-  background: var(--surface-muted);
+  background: var(--surface-detail);
   border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
 
 .hook-run-card.status-failed,
@@ -1729,14 +1752,14 @@ pre {
   margin: 0 auto;
   padding: 11px 12px 9px;
   background: var(--surface-composer);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .composer-shell:focus-within {
-  border-color: color-mix(in srgb, var(--text) 10%, transparent);
+  border-color: var(--selection-mark);
   box-shadow: var(--shadow-focus);
 }
 
@@ -1874,7 +1897,7 @@ pre {
 .artifacts-main {
   min-width: 0;
   overflow: auto;
-  background: var(--bg);
+  background: var(--surface-workbench);
 }
 
 .artifacts-page {
@@ -1894,6 +1917,8 @@ pre {
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--divider);
 }
 
 .artifacts-header h1 {
@@ -2133,8 +2158,8 @@ pre {
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: var(--surface-raised);
-  border-left: 1px solid var(--border);
+  background: var(--surface-detail);
+  border-left: 1px solid var(--divider);
 }
 
 .details-header {
@@ -2144,9 +2169,10 @@ pre {
   align-items: flex-end;
   justify-content: space-between;
   padding: 0 10px 9px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--divider);
   -webkit-app-region: drag;
   min-height: 66px;
+  background: var(--surface-workbench);
 }
 
 .details-header button {
@@ -2183,8 +2209,8 @@ pre {
   gap: 5px;
   padding: 9px 11px 10px;
   flex: 0 0 auto;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--surface-detail);
+  border-bottom: 1px solid var(--divider);
 }
 
 .turn-detail-picker label {
@@ -2529,6 +2555,7 @@ pre {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: none;
+  margin-bottom: 12px;
 }
 
 .setting-row {
@@ -3093,6 +3120,7 @@ pre {
   min-height: 0;
   flex: 1 1 auto;
   overflow: hidden;
+  background: var(--surface-workbench);
 }
 
 .marketplace-footer {
@@ -3142,6 +3170,7 @@ pre {
   padding: 7px 32px 7px 0;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
+  background: var(--surface-raised);
 }
 
 .plugin-card + .plugin-card {
@@ -3149,7 +3178,7 @@ pre {
 }
 
 .plugin-card.selected {
-  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+  border-color: var(--selection-mark);
 }
 
 .plugin-card-main {
@@ -3171,7 +3200,7 @@ pre {
 }
 
 .plugin-card.selected .plugin-card-main {
-  background: color-mix(in srgb, var(--text) 8%, transparent);
+  background: var(--selection-surface);
 }
 
 .plugin-glyph {
@@ -3271,8 +3300,8 @@ pre {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface-muted) 42%, var(--surface-raised));
-  border-left: 1px solid var(--border);
+  background: var(--surface-raised);
+  border-left: 1px solid var(--divider);
 }
 
 .plugin-detail-pane > .marketplace-empty {
@@ -4814,6 +4843,7 @@ pre {
   overflow: auto;
   overscroll-behavior: contain;
   padding: 46px 32px 32px;
+  background: var(--surface-workbench);
 }
 
 .scheduled-page-header {
@@ -4825,7 +4855,9 @@ pre {
   justify-content: space-between;
   gap: 20px;
   padding: 10px 0 18px;
-  background: linear-gradient(var(--surface) 85%, transparent);
+  background: var(--surface-workbench);
+  border-bottom: 1px solid var(--divider);
+  margin-bottom: 20px;
 }
 
 .scheduled-page-title {
@@ -5342,6 +5374,7 @@ pre {
   .scheduled-page {
     padding-right: 18px;
     padding-left: 18px;
+    background: var(--surface-workbench);
   }
 
   .scheduled-layout {
@@ -5424,12 +5457,13 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
   width: 100%;
   height: 100%;
   max-height: none;
-  background: var(--surface);
+  background: var(--surface-workbench);
 }
 
 .workspace-page > .dialog-heading,
 .workspace-page > .marketplace-heading {
   padding: 46px 32px 24px;
+  background: var(--surface);
 }
 
 .workspace-page h1 {
@@ -5452,7 +5486,8 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
   gap: 6px;
   padding: 16px 20px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--divider);
+  background: var(--surface);
 }
 
 .settings-categories button {
@@ -5466,18 +5501,19 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 
 .settings-categories button.active {
   color: var(--text);
-  background: var(--surface-muted);
+  background: var(--selection-surface);
   font-weight: 600;
+  box-shadow: inset 0 -2px var(--selection-mark);
 }
 
 .workspace-page .settings-categories { padding-inline: 32px; }
 .workspace-page .settings-groups { padding: 8px 32px 32px; }
 .settings-groups > section[hidden] { display: none; }
-.settings-groups > section { max-width: 900px; padding-top: 24px; }
-.settings-groups h3 { color: var(--text); letter-spacing: 0; text-transform: none; }
+.settings-groups > section { max-width: 900px; padding-top: 24px; padding: 20px; margin-top: 16px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.settings-groups h3 { color: var(--text); letter-spacing: 0; text-transform: none; margin-bottom: 12px; }
 .setting-row { min-height: 72px; padding-block: 12px; }
 .setting-row small { line-height: 1.6; }
-.settings-groups > .connection-save-row { max-width: 900px; }
+.settings-groups > .connection-save-row { max-width: 900px; padding: 16px 0 4px; }
 .plugin-advanced-details { margin-top: 20px; border-top: 1px solid var(--border); }
 .plugin-advanced-details > summary,
 .execution-diagnostics > summary {
@@ -5508,7 +5544,7 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 }
 .file-preview-trigger code { flex: 1; min-width: 0; }
 .file-preview-trigger > svg { flex-shrink: 0; }
-.turn-file-change.selected { background: var(--surface-muted); }
+.turn-file-change.selected { background: var(--selection-surface); box-shadow: inset 3px 0 var(--selection-mark); }
 .file-content-preview { min-width: 0; }
 .file-content-preview header { padding: 16px; overflow-wrap: anywhere; border-bottom: 1px solid var(--border); }
 .file-content-preview header strong { font-size: var(--font-size-ui); }
@@ -5518,7 +5554,7 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 .execution-summary > span,
 .command-cwd { color: var(--text-muted); font-size: var(--font-size-secondary); overflow-wrap: anywhere; }
 .execution-diagnostics { margin-top: 20px; border-top: 1px solid var(--border); }
-.execution-activity-list .tool-card { margin-bottom: 8px; }
+.execution-activity-list .tool-card { margin-bottom: 8px; background: var(--surface); }
 .tool-activity-card .tool-card-trigger strong { overflow-wrap: anywhere; }
 .details-resize-handle { position: absolute; z-index: 5; top: 0; bottom: 0; left: 0; width: 5px; cursor: col-resize; touch-action: none; }
 .details-resize-handle:hover,
@@ -5540,4 +5576,25 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 
 .execution-summary strong {
   font-size: var(--font-size-section);
+}
+
+.setting-row:last-child {
+  border-bottom: 0;
+}
+
+.plugin-navigation-list button.active {
+  background: var(--selection-surface);
+  box-shadow: inset 3px 0 var(--selection-mark);
+}
+
+.details-tabs button.active {
+  background: var(--selection-surface);
+  box-shadow: inset 0 -2px var(--selection-mark);
+  color: var(--text);
+}
+
+.marketplace-tabs button.active {
+  background: var(--selection-surface);
+  box-shadow: inset 0 -2px var(--selection-mark);
+  color: var(--text);
 }
