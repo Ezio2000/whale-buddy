@@ -14,6 +14,19 @@ afterEach(async () => {
 });
 
 describe('RuntimeSettingsStore', () => {
+  it('enables real plan events before setup and on subsequent configured launches', async () => {
+    const root = await temporaryRoot();
+    const store = new RuntimeSettingsStore(root);
+    expect(store.launchConfiguration({}).configOverrides).toContain('tools.update_plan.enabled=true');
+    store.configure(customInput());
+    const persisted = await readFile(store.filePath, 'utf8');
+    for (const runtime of [store, new RuntimeSettingsStore(root)]) {
+      expect(runtime.launchConfiguration({}).configOverrides).toContain('tools.update_plan.enabled=true');
+      expect(runtime.launchConfiguration({}).configOverrides).toContain('tools.update_plan.enabled=true');
+    }
+    expect(await readFile(store.filePath, 'utf8')).toBe(persisted);
+  });
+
   it('keeps provider credentials out of public IPC settings and stores them as plaintext', async () => {
     const root = await temporaryRoot();
     const store = new RuntimeSettingsStore(root);

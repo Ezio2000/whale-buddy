@@ -194,7 +194,9 @@ export class RuntimeSettingsStore {
       }
     }
 
-    const configOverrides: string[] = [];
+    // Codex 0.152 requires an explicit opt-in for the plan tool. Apply it to
+    // every launch, including reconnects and launches before provider setup.
+    const configOverrides: string[] = ['tools.update_plan.enabled=true'];
     if (this.providerConfigured()) {
       const provider = this.settings.provider;
       const apiKey = this.settings.apiKey;

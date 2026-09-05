@@ -136,6 +136,25 @@ async function createClient(
 }
 
 describe('AppServerClient', () => {
+  it('reapplies host tool overrides on initial, manual and automatic launches', async () => {
+    const { client, children } = await createClient(() => ({
+      environment: {},
+      configOverrides: ['tools.update_plan.enabled=true'],
+    }));
+    try {
+      await client.restart();
+      const generation = client.status().generation;
+      children.at(-1)!.kill('SIGTERM');
+      await waitForStatus(client, (status) => status.phase === 'ready' && status.generation > generation);
+      expect(children).toHaveLength(3);
+      for (const child of children) {
+        expect(child.capturedArgs).toEqual(['--config', 'tools.update_plan.enabled=true', 'app-server', '--stdio']);
+      }
+    } finally {
+      await client.stop();
+    }
+  });
+
   it('performs initialize/initialized with isolated HOME and CODEX_HOME and routes events', async () => {
     const { client, children } = await createClient();
     const child = children[0];
