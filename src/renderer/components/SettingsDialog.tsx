@@ -135,6 +135,7 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
           <div className="settings-groups">
             <section hidden={category !== 'model'}>
               <h3>模型服务</h3>
+              <div className="settings-section-body">
               <p className="settings-section-intro">只需填写服务地址、模型名称和 API Key。</p>
               <div className="provider-fields">
                   <SettingRow label="服务地址" hint="由你的模型服务提供方给出，通常以 /v1 结尾。">
@@ -236,9 +237,11 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                   </details>
               </div>
 
+              </div>
             </section>
             <section hidden={category !== 'model'}>
               <h3>回答方式</h3>
+              <div className="settings-section-body">
               <p className="settings-section-intro">日常使用只需要选择回答时的思考强度。</p>
               {capabilities.supportsReasoning && (
                 <SettingRow label="思考强度" hint="越深入通常越慢，也会使用更多额度。">
@@ -349,9 +352,11 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
               </div>
                 </div>
               </details>
+              </div>
             </section>
             <section hidden={category !== 'permissions'}>
               <h3>执行权限</h3>
+              <div className="settings-section-body">
               <SettingRow label="执行模式" hint="选择常用组合；下方仍可分别调整审批与文件权限。">
                 <SelectField
                   value={executionPreset}
@@ -397,9 +402,11 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                     : '当前是自定义的高权限或无审批组合；部分需要审批的工具可能被直接拒绝。'}</span>
                 </div>
               )}
+              </div>
             </section>
             <section hidden={category !== 'appearance'}>
               <h3>外观</h3>
+              <div className="settings-section-body">
               <SettingRow label="应用名称" hint="修改侧栏、欢迎页、窗口标题和应用内文案中的显示名称。">
                 <TextField
                   ariaLabel="应用名称"
@@ -474,9 +481,11 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                   ]}
                 />
               </SettingRow>
+              </div>
             </section>
             <section hidden={category !== 'account'}>
               <h3>账号服务</h3>
+              <div className="settings-section-body">
               <SettingRow label="Casdoor 地址" hint="修改后会退出当前 Whale 账号，下次登录使用新的 OIDC 服务。">
                 <TextField ariaLabel="Casdoor Issuer" value={authIssuer} placeholder="https://identity.example.com" onChange={setAuthIssuer} />
               </SettingRow>
@@ -492,9 +501,11 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                 </button>
                 {authMessage && <span>{authMessage}</span>}
               </div>
+              </div>
             </section>
             <section hidden={category !== 'advanced'}>
               <h3>网络</h3>
+              <div className="settings-section-body">
               <SettingRow label="代理方式" hint={`设置 ${branding.name} 连接模型和工具时使用的代理。`}>
                 <SelectField
                   value={connectionDraft.proxy.mode}
@@ -544,9 +555,11 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                   </SettingRow>
                 </>
               )}
+              </div>
             </section>
             <section hidden={category !== 'advanced'}>
               <h3>本地审计</h3>
+              <div className="settings-section-body">
               <SettingRow label="操作记录" hint="身份、策略决策和关键事件只保存在本机，除非员工手动清除，否则永久保留。">
                 <span>{auditCount === null ? '正在统计…' : `${auditCount} 条任务记录`}</span>
               </SettingRow>
@@ -558,6 +571,7 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                     .catch((error) => setAuditMessage(errorMessage(error)));
                 }}>清除审计记录</button>
                 {auditMessage && <span>{auditMessage}</span>}
+              </div>
               </div>
             </section>
             {(category === 'model' || category === 'advanced') && (
