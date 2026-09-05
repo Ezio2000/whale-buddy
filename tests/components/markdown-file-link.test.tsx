@@ -12,7 +12,7 @@ it('routes relative links to the originating turn instead of renderer URLs', asy
   expect(await screen.findByText('# 正确报告')).toBeVisible();
 });
 it('shows missing file errors without opening an app-relative target', async () => {
-  window.whale = { turns: { filePreview: vi.fn().mockRejectedValue(new Error('找不到文件')) } } as unknown as typeof window.whale;
+  window.whale = { turns: { filePreview: vi.fn().mockRejectedValue(new Error("Error invoking remote method 'whale:turns:file-preview': Error: ENOENT: no such file")) } } as unknown as typeof window.whale;
   render(<MarkdownTurnContext.Provider value="turn-a"><Markdown>{'[文件](missing.md)'}</Markdown></MarkdownTurnContext.Provider>);
-  fireEvent.click(screen.getByRole('link')); expect(await screen.findByRole('alert')).toHaveTextContent('找不到文件');
+  fireEvent.click(screen.getByRole('link')); expect(await screen.findByRole('alert')).toHaveTextContent('找不到这个文件');
 });

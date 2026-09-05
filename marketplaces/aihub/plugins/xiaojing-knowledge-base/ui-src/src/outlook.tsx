@@ -79,7 +79,7 @@ function OutlookHome({ configured }: { configured: boolean }) {
   );
 }
 
-function OutlookCard({ toolCall }: { toolCall?: ToolCallContext }) {
+export function OutlookCard({ toolCall }: { toolCall?: ToolCallContext }) {
   if (!toolCall || ['inProgress', 'running', 'pending'].includes(toolCall.status)) {
     return <div className="card-loading"><span />正在读取 Outlook…</div>;
   }
@@ -132,8 +132,7 @@ function extractItems(value: unknown, tool: string): ResultItem[] {
     if (!title && !subtitle && !detail && meta.length === 0) continue;
     items.push({ title, subtitle, detail: truncate(detail, 900), meta });
   }
-  return items.filter((item, index) => items.findIndex((other) =>
-    `${other.title}|${other.subtitle}|${other.detail}` === `${item.title}|${item.subtitle}|${item.detail}`) === index);
+  return items;
 }
 
 function titleFields(tool: string): string[] {

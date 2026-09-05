@@ -103,7 +103,7 @@ export function Markdown({ children }: { children: string }) {
               setPreview({ path: filePath });
               void window.whale.turns.filePreview({ turnId, path: filePath })
                 .then((content) => setPreview((current) => current?.path === filePath ? { path: filePath, content } : current))
-                .catch((error) => setPreview((current) => current?.path === filePath ? { path: filePath, error: error instanceof Error ? error.message : String(error) } : current));
+                .catch((error) => setPreview((current) => current?.path === filePath ? { path: filePath, error: filePreviewError(error) } : current));
             } catch { setPreview({ path: href, error: '文件链接格式无效。' }); }
           }}>
             {linkChildren}
@@ -132,4 +132,11 @@ export function Markdown({ children }: { children: string }) {
     {preview && <section className="chat-file-preview" aria-label="聊天文件预览"><header><strong>{preview.path}</strong><button aria-label="关闭文件预览" onClick={() => setPreview(null)}>关闭</button></header>{preview.error ? <p role="alert">{preview.error}</p> : preview.content === undefined ? <p>正在读取文件…</p> : <pre>{preview.content}</pre>}</section>}
     </>
   );
+}
+
+function filePreviewError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('ENOENT')) return '找不到这个文件，可能已移动或删除。请检查链接或在项目中查找。';
+  if (/EACCES|EPERM/.test(message)) return '无法读取这个文件，请检查文件访问权限。';
+  return message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '');
 }
