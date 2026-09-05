@@ -1,3 +1,5 @@
+@import '../../../../../../packages/plugin-sdk/src/buttons.css';
+
 :root {
   color-scheme: light;
   --bg: #ffffff;
@@ -62,13 +64,7 @@ button { color: inherit; }
   border-radius: 8px;
   outline: none;
 }
-.selector-search button, .selector-actions button {
-  padding: 6px 10px;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius:  999px;
-  cursor: pointer;
-}
+
 .selector-help, .error, .empty { margin: 8px 1px; color: var(--muted); font-size: 10px; }
 .selector-actions {
   display: flex;
@@ -79,8 +75,8 @@ button { color: inherit; }
 }
 .selector-actions > span { color: var(--muted); font-size: 10px; }
 .selector-actions > div { display: flex; gap: 5px; }
-.selector-actions button { padding: 4px 8px; font-size: 10px; }
-.selector-actions button:disabled { opacity: .4; cursor: default; }
+.selector-actions .button { min-height: 28px; padding: 4px 8px; }
+
 .error, .card-error { color: var(--danger); }
 .dataset-list {
   display: grid;
@@ -133,14 +129,7 @@ button { color: inherit; }
 .browser-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .browser-heading strong { font-size: 18px; }
 .browser-heading p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
-.browser-heading button {
-  padding: 7px 12px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 0;
-  border-radius:  999px;
-  cursor: pointer;
-}
+
 .browser-root > input {
   padding: 9px 11px;
   color: var(--text);

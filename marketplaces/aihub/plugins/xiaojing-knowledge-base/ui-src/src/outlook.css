@@ -60,7 +60,8 @@ svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width:
 .prompts { margin-top: 20px; }
 .prompts > span { color: var(--muted); font-size: 10px; }
 .prompts > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
-.prompts p { margin: 0; padding: 8px 11px; background: var(--surface); border: 1px solid var(--line); border-radius:  999px; }
+.prompts p { margin: 0; padding: 3px 0; color: var(--muted); }
+.prompts > div { flex-direction: column; gap: 3px; }
 .tool-card { display: grid; gap: 10px; max-height: 600px; overflow: auto; }
 .tool-card > header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
 .tool-icon { width: 33px; height: 33px; margin: 0; }

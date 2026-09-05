@@ -39,7 +39,7 @@ export function AccountButton({ welcome = false }: { welcome?: boolean }) {
             <span>{auth.user.email ?? auth.user.username}</span>
           </div>
           <DropdownMenu.Separator className="menu-separator" />
-          <DropdownMenu.Item className="menu-item danger" onSelect={() => void logout()}>
+          <DropdownMenu.Item className="menu-item" onSelect={() => void logout()}>
             <LogOut size={13} /> 退出登录
           </DropdownMenu.Item>
         </DropdownMenu.Content>

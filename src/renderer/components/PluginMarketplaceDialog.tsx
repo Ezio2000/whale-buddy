@@ -1,3 +1,4 @@
+import { confirmAction } from '../state/confirmation';
 import { SettingsSurface } from './SettingsSurface';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
@@ -434,7 +435,7 @@ export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boole
     const { plugin, location } = located;
     const enabled = pluginPolicyEnabled(plugin.id, extensionPolicy.plugins);
     if (!plugin.installed &&
-      !window.confirm(
+      !await confirmAction(
         `下载“${pluginDisplayName(plugin)}”？下载后仍保持停用，需要你再次明确启用。`,
       )
     ) {
@@ -455,7 +456,7 @@ export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boole
         setHookTrust({ kind: 'plugin', located, hooks: preview.hooks, digest: preview.digest });
         return;
       }
-      if (!window.confirm(`启用“${pluginDisplayName(plugin)}”？它包含的全部 Skills 与 MCP 将恢复为默认开启。`)) return;
+      if (!await confirmAction(`启用“${pluginDisplayName(plugin)}”？它包含的全部 Skills 与 MCP 将恢复为默认开启。`, { confirmLabel: '启用插件' })) return;
     }
 
     setMutationKey(plugin.id);
@@ -479,7 +480,7 @@ export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boole
   };
 
   const uninstallPlugin = async (located: LocatedPlugin) => {
-    if (!window.confirm(`彻底卸载“${pluginDisplayName(located.plugin)}”？`)) return;
+    if (!await confirmAction(`彻底卸载“${pluginDisplayName(located.plugin)}”？`, { confirmLabel: '卸载插件', danger: true })) return;
     setMutationKey(`uninstall:${located.plugin.id}`);
     setError(null);
     try {
@@ -711,7 +712,7 @@ export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boole
   };
 
   const removeMarketplace = async (sourceEntry: ExtensionSource) => {
-    if (!window.confirm(`从 ${brandName} 移除商城源“${sourceEntry.title}”？`)) return;
+    if (!await confirmAction(`从 ${brandName} 移除商城源“${sourceEntry.title}”？`, { confirmLabel: '移除商城源', danger: true })) return;
     setMutationKey(`source:remove:${sourceEntry.name}`);
     setError(null);
     try {
@@ -979,7 +980,7 @@ function PluginBrowser({
                 </span>
               </button>
               <button
-                className={`button ${located.plugin.installed ? 'secondary' : 'primary'} plugin-card-action`}
+                className="button secondary plugin-card-action"
                 disabled={mutationKey !== null || located.plugin.availability !== 'AVAILABLE'}
                 onClick={() => onMutate(located)}
               >
@@ -1087,7 +1088,7 @@ function PluginDetailView({
       </div>
       <div className="plugin-detail-actions">
         <button
-          className={`button ${plugin.installed ? 'secondary' : 'primary'}`}
+          className={`button ${plugin.installed && pluginEnabled ? 'secondary' : 'primary'}`}
           disabled={mutationKey !== null || plugin.availability !== 'AVAILABLE'}
           onClick={onMutate}
         >
@@ -1297,7 +1298,7 @@ export function PluginCredentialForm({
     }
   };
   const clear = async () => {
-    if (!window.confirm(`清除“${credential.label}”？`)) return;
+    if (!await confirmAction(`清除“${credential.label}”？`, { confirmLabel: '清除凭据', danger: true })) return;
     try {
       await onConfigure(credential.id, null);
       setValue('');
@@ -1333,7 +1334,7 @@ export function PluginCredentialForm({
         </button>
         {credential.value && (
           <button
-            className="button secondary"
+            className="button ghost danger"
             type="button"
             disabled={!installed || disabled}
             onClick={() => void clear()}

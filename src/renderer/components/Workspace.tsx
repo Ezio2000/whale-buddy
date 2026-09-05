@@ -1,3 +1,4 @@
+import { confirmAction } from '../state/confirmation';
 import { RenameThreadDialog } from './RenameThreadDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { PluginMarketplaceDialog } from './PluginMarketplaceDialog';
@@ -152,8 +153,8 @@ export function Workspace() {
                     <DropdownMenu.Separator className="menu-separator" />
                     <DropdownMenu.Item
                       className="menu-item danger"
-                      onSelect={() => {
-                        if (window.confirm('确定永久删除这个对话吗？')) void deleteThread();
+                      onSelect={async () => {
+                        if (await confirmAction('确定永久删除这个对话吗？此操作无法撤销。', { confirmLabel: '永久删除', danger: true })) void deleteThread(selectedThread.id);
                       }}
                     >
                       <Trash2 size={13} /> 删除

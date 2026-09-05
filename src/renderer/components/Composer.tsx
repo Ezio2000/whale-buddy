@@ -1,3 +1,4 @@
+import { confirmAction } from '../state/confirmation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, LoaderCircle, Paperclip, Pause, Puzzle, RotateCcw, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
 import type {
@@ -523,21 +524,21 @@ export function Composer() {
             )}
             {activeTurn ? (
               <div className="turn-control-buttons">
-                <button className="send-button pause-button" aria-label="暂停当前任务" title="暂停，可稍后继续" onClick={() => void pause()}>
+                <button className="send-button secondary pause-button" aria-label="暂停当前任务" title="暂停，可稍后继续" onClick={() => void pause()}>
                   <Pause size={14} fill="currentColor" />
                 </button>
-                <button className="send-button stop-button" aria-label="取消当前回合" title="取消" onClick={() => void interrupt()}>
+                <button className="send-button secondary stop-button" aria-label="取消当前回合" title="取消" onClick={() => void interrupt()}>
                   <Square size={13} fill="currentColor" />
                 </button>
               </div>
             ) : resumableTask?.threadId === selectedThreadId ? (
               <button
-                className="send-button resume-button"
+                className="send-button primary resume-button"
                 aria-label="继续任务"
                 title="继续任务"
-                onClick={() => {
+                onClick={async () => {
                   const needsConfirmation = resumableTask.status !== 'paused';
-                  if (!needsConfirmation || window.confirm(
+                  if (!needsConfirmation || await confirmAction(
                     resumableTask.status === 'failed'
                       ? '确认在新回合中重试失败任务？'
                       : '确认在新回合中继续异常中断的任务？',
@@ -548,7 +549,7 @@ export function Composer() {
               </button>
             ) : (
               <button
-                className="send-button"
+                className="send-button primary"
                 aria-label="发送"
                 disabled={!selectedThreadId || (!text.trim() && attachments.length === 0)}
                 onClick={() => void submit()}

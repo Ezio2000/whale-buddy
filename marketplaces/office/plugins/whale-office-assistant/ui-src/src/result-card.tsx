@@ -43,7 +43,7 @@ export function ResultCard({ context, renderArtifact, renderPreview }: {
   };
   if (!draft) return <div className="preview">{invalid || '本次调用尚无可用预览。'}</div>;
   return <article className="preview"><h3>{draft.title}</h3><p>{draft.summary}</p>{renderPreview(draft)}<div className="actions">
-    {!artifact && <button className="primary" disabled={busy || !taskId || context?.message?.status !== 'completed'} onClick={() => void confirm()}>确认并生成 {draft.format.toUpperCase()}</button>}
-    {artifact && <><button className="secondary" onClick={() => void openArtifact(artifact.id)}>打开成果</button><button className="secondary" onClick={() => void saveArtifactAs(artifact.id)}>另存为</button></>}
+    {!artifact && <button className="button primary" disabled={busy || !taskId || context?.message?.status !== 'completed'} onClick={() => void confirm()}>确认并生成 {draft.format.toUpperCase()}</button>}
+    {artifact && <><button className="button secondary" onClick={() => void openArtifact(artifact.id)}>打开成果</button><button className="button secondary" onClick={() => void saveArtifactAs(artifact.id)}>另存为</button></>}
   </div>{message && <p>{message}</p>}</article>;
 }

@@ -129,7 +129,7 @@ export function Markdown({ children }: { children: string }) {
     >
       {children}
     </ReactMarkdown>
-    {preview && <section className="chat-file-preview" aria-label="聊天文件预览"><header><strong>{preview.path}</strong><button aria-label="关闭文件预览" onClick={() => setPreview(null)}>关闭</button></header>{preview.error ? <p role="alert">{preview.error}</p> : preview.content === undefined ? <p>正在读取文件…</p> : <pre>{preview.content}</pre>}</section>}
+    {preview && <section className="chat-file-preview" aria-label="聊天文件预览"><header><strong>{preview.path}</strong><button className="button ghost" aria-label="关闭文件预览" onClick={() => setPreview(null)}>关闭</button></header>{preview.error ? <p role="alert">{preview.error}</p> : preview.content === undefined ? <p>正在读取文件…</p> : <pre>{preview.content}</pre>}</section>}
     </>
   );
 }

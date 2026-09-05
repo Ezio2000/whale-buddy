@@ -160,7 +160,7 @@ export function ApprovalCard({ approval, onRespond }: ApprovalCardProps) {
       )}
 
       <div className="approval-actions">
-        <button className="button ghost danger" onClick={decline}>
+        <button className="button secondary" onClick={decline}>
           <X size={14} /> 拒绝
         </button>
         {(kind === 'command' || kind === 'file' || kind === 'permissions') && (

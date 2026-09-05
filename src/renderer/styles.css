@@ -1,3 +1,5 @@
+@import '../../packages/plugin-sdk/src/buttons.css';
+
 :root {
   color-scheme: light;
   --bg: #ffffff;
@@ -36,9 +38,9 @@
   --radius-full: 999px;
   --shadow-sm: 0 4px 16px rgb(0 0 0 / 6%);
   --shadow-focus: 0 6px 20px rgb(0 0 0 / 10%);
-  --inverse-bg: #0d0d0d;
-  --inverse-bg-hover: #2c2c2c;
-  --inverse-fg: #ffffff;
+  --inverse-bg: var(--control-primary-bg);
+  --inverse-bg-hover: var(--control-primary-hover);
+  --inverse-fg: var(--control-primary-fg);
   --surface-composer: #ffffff;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", Menlo, Consolas, "Courier New", monospace;
@@ -55,7 +57,7 @@
   --surface-workbench: #ffffff;
   --surface-detail: #fafafa;
   --divider: #ededed;
-  --selection-surface: #ededed;
+  --selection-surface: var(--control-selected);
   --selection-mark: #42424a;
   --border-soft: var(--border);
 }
@@ -92,14 +94,14 @@
   --shadow: 0 8px 28px rgb(0 0 0 / 45%);
   --shadow-sm: 0 4px 16px rgb(0 0 0 / 30%);
   --shadow-focus: 0 6px 20px rgb(0 0 0 / 45%);
-  --inverse-bg: #ffffff;
-  --inverse-bg-hover: #d9d9d0;
-  --inverse-fg: #0d0d0d;
+  --inverse-bg: var(--control-primary-bg);
+  --inverse-bg-hover: var(--control-primary-hover);
+  --inverse-fg: var(--control-primary-fg);
   --surface-composer: #2f2f2f;
   --surface-workbench: #1b1b1e;
   --surface-detail: #242427;
   --divider: #404047;
-  --selection-surface: #34343a;
+  --selection-surface: var(--control-selected);
   --selection-mark: #ddddE5;
   --border-soft: var(--border);
 }
@@ -1610,47 +1612,6 @@ pre {
   resize: vertical;
 }
 
-.button {
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 13px;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-ui);
-  font-weight: 500;
-}
-
-.button.primary {
-  color: var(--inverse-fg);
-  background: var(--inverse-bg);
-}
-
-.button.primary:not(:disabled):hover {
-  background: var(--inverse-bg-hover);
-}
-
-.button.secondary {
-  color: var(--text);
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-}
-
-.button.ghost {
-  color: var(--text-muted);
-  background: transparent;
-}
-
-.button.ghost:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-}
-
-.button.danger {
-  color: var(--danger);
-}
-
 .button.large {
   min-height: 40px;
   padding: 0 16px;
@@ -1836,17 +1797,8 @@ pre {
   height: 32px;
   padding: 0;
   place-items: center;
-  color: var(--inverse-fg);
-  background: var(--inverse-bg);
+  border: 1px solid transparent;
   border-radius: var(--radius-full);
-}
-
-.send-button:not(:disabled):hover {
-  background: var(--inverse-bg-hover);
-}
-
-.stop-button {
-  background: var(--danger);
 }
 
 .composer-submit-controls,
@@ -1888,14 +1840,6 @@ pre {
 
 .turn-control-buttons {
   gap: 6px;
-}
-
-.pause-button {
-  background: var(--warning, #b7791f);
-}
-
-.resume-button {
-  background: var(--success, #2f855a);
 }
 
 .artifacts-main {
@@ -2704,16 +2648,16 @@ pre {
 }
 
 .reasoning-effort-picker button {
-  color: var(--text-muted);
-  background: var(--surface-muted);
-  border-color: var(--border);
+  color: var(--control-fg);
+  background: var(--control-bg);
+  border-color: var(--control-border);
   cursor: pointer;
 }
 
 .reasoning-effort-picker button.selected {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  color: var(--control-fg);
+  background: var(--control-selected);
+  border-color: var(--control-selected-border);
 }
 
 .reasoning-effort-picker button:disabled {
@@ -4818,23 +4762,6 @@ pre {
   background: var(--danger-soft);
 }
 
-.primary-button {
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 13px;
-  color: var(--inverse-fg);
-  background: var(--inverse-bg);
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-}
-
-.primary-button:not(:disabled):hover {
-  background: var(--inverse-bg-hover);
-}
-
 .scheduled-tasks-main {
   min-width: 0;
   min-height: 0;
@@ -4907,7 +4834,7 @@ pre {
   font-size: var(--font-size-body);
 }
 
-.scheduled-empty .primary-button {
+.scheduled-empty .button.primary {
   margin-top: 8px;
 }
 
@@ -5048,28 +4975,9 @@ pre {
   border-top: 1px solid var(--border);
 }
 
-.scheduled-card-actions button,
-.history-thread-button {
-  display: inline-flex;
-  height: 28px;
-  align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  color: var(--text-muted);
-  background: transparent;
-  border-radius: 6px;
-  font-size: var(--font-size-ui);
-}
-
-.scheduled-card-actions button:not(:disabled):hover,
-.history-thread-button:hover {
-  color: var(--text);
-  background: var(--surface-raised);
-}
-
-.scheduled-card-actions button.danger:not(:disabled):hover {
-  color: var(--danger);
-  background: var(--danger-soft);
+.scheduled-card-actions .button {
+  min-height: 28px;
+  padding: 3px 9px;
 }
 
 .scheduled-run-badge {
@@ -5140,13 +5048,7 @@ pre {
   white-space: nowrap;
 }
 
-.history-thread-button {
-  width: calc(100% - 20px);
-  justify-content: center;
-  margin: 10px;
-  color: var(--accent);
-  background: var(--accent-soft);
-}
+.history-thread-button { width: calc(100% - 20px); margin: 10px; }
 
 .scheduled-history-list {
   max-height: calc(100vh - 210px);
@@ -5352,21 +5254,6 @@ pre {
 .scheduled-editor-actions > div {
   display: flex;
   gap: 8px;
-}
-
-.scheduled-editor-actions button {
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 13px;
-  background: var(--surface-muted);
-  border-radius: var(--radius-sm);
-}
-
-.scheduled-editor-actions button.primary-button {
-  color: var(--inverse-fg);
-  background: var(--inverse-bg);
 }
 
 .scheduled-enabled {
@@ -5715,3 +5602,10 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 
 .approval-detail, .approval-questions { max-height: 280px; overflow: auto; overscroll-behavior: contain; }
 .approval-questions pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Confirmations sit above page dialogs and keep the action row visible. */
+.confirmation-overlay { z-index: 300; }
+.confirmation-dialog { z-index: 301; width: min(440px, calc(100vw - 40px)); max-height: calc(100vh - 40px); display: flex; flex-direction: column; gap: 16px; padding: 24px; }
+.confirmation-dialog h2 { margin: 0; font-size: 18px; }
+.confirmation-dialog p { min-height: 0; overflow: auto; margin: 0; color: var(--text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.confirmation-dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }

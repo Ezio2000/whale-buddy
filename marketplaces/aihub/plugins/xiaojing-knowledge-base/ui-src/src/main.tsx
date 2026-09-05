@@ -157,7 +157,7 @@ function KnowledgeSelector({ threadId }: { threadId: string | null }) {
           placeholder="搜索知识库"
           onChange={(event) => setQuery(event.target.value)}
         />
-        <button disabled={loading} onClick={() => void refresh()}>{loading ? '读取中' : '刷新'}</button>
+        <button className="button secondary" disabled={loading} onClick={() => void refresh()}>{loading ? '读取中' : '刷新'}</button>
       </header>
       <p className="selector-help">默认不选择；勾选后只搜索已选知识库。</p>
       <div className="selector-actions">
@@ -167,13 +167,13 @@ function KnowledgeSelector({ threadId }: { threadId: string | null }) {
           {selectedIds.length ? `已选择 ${selectedIds.length} 个` : '未选择'}
         </span>
         <div>
-          <button
+          <button className="button secondary"
             disabled={loading || datasets.length === 0 || selectedIds.length === datasets.length}
             onClick={() => setSelectedIds(datasets.map((dataset) => dataset.id))}
           >
             全选
           </button>
-          <button disabled={selectedIds.length === 0} onClick={() => setSelectedIds([])}>清空</button>
+          <button className="button secondary" disabled={selectedIds.length === 0} onClick={() => setSelectedIds([])}>清空</button>
         </div>
       </div>
       {error && <p className="error">{error}</p>}
@@ -231,7 +231,7 @@ function KnowledgeBrowser({ title, description }: { title: string; description: 
           <strong>{title}</strong>
           <p>{description}</p>
         </div>
-        <button disabled={loading} onClick={() => void refresh()}>{loading ? '读取中' : '刷新'}</button>
+        <button className="button secondary" disabled={loading} onClick={() => void refresh()}>{loading ? '读取中' : '刷新'}</button>
       </header>
       <input value={query} placeholder="筛选知识库" onChange={(event) => setQuery(event.target.value)} />
       <div className="browser-summary">{datasets.length ? `共 ${datasets.length} 个知识库` : '尚未读取知识库'}</div>

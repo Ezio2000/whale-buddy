@@ -1,3 +1,4 @@
+import { confirmAction } from '../state/confirmation';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   CalendarClock,
@@ -141,7 +142,7 @@ export function ScheduledTasksPage() {
   };
 
   const remove = async (task: ScheduledTask) => {
-    if (!window.confirm(`删除定时任务“${task.name}”？固定对话线程会保留。`)) return;
+    if (!await confirmAction(`删除定时任务“${task.name}”？固定对话线程会保留。`, { confirmLabel: '删除任务', danger: true })) return;
     try {
       await window.whale.schedules.remove(task.id);
       setTasks((current) => current.filter((entry) => entry.id !== task.id));
@@ -172,7 +173,7 @@ export function ScheduledTasksPage() {
           <div className="scheduled-page-title"><CalendarClock size={21} /><h1>定时任务</h1></div>
           <p>只在 AI小鲸打开时执行；关闭或休眠期间错过的任务不会补跑。</p>
         </div>
-        {tasks.length > 0 && <button className="primary-button" onClick={openNew}><Plus size={15} /> 新建任务</button>}
+        {tasks.length > 0 && <button className="button primary" onClick={openNew}><Plus size={15} /> 新建任务</button>}
       </header>
 
       {loading ? (
@@ -182,7 +183,7 @@ export function ScheduledTasksPage() {
           <CalendarClock size={32} />
           <strong>还没有定时任务</strong>
           <span>按固定时间让 AI小鲸在指定项目和专属对话中执行任务。</span>
-          <button className="primary-button" onClick={openNew}><Plus size={15} /> 新建任务</button>
+          <button className="button primary" onClick={openNew}><Plus size={15} /> 新建任务</button>
         </div>
       ) : (
         <div className="scheduled-layout">
@@ -286,11 +287,11 @@ function TaskCard({
         </div>
       </div>
       <div className="scheduled-card-actions">
-        <button onClick={onRun} disabled={!runtimeReady || Boolean(activeRun)}><Play size={14} /> 立即运行</button>
-        <button onClick={onEdit}><Pencil size={14} /> 编辑</button>
-        <button onClick={onHistory}><History size={14} /> 记录</button>
-        {task.threadId && <button onClick={onOpenThread}>打开对话</button>}
-        <button className="danger" onClick={onDelete} disabled={Boolean(activeRun)} aria-label="删除任务"><Trash2 size={14} /></button>
+        <button className="button secondary" onClick={onRun} disabled={!runtimeReady || Boolean(activeRun)}><Play size={14} /> 立即运行</button>
+        <button className="button ghost" onClick={onEdit}><Pencil size={14} /> 编辑</button>
+        <button className="button ghost" onClick={onHistory}><History size={14} /> 记录</button>
+        {task.threadId && <button className="button ghost" onClick={onOpenThread}>打开对话</button>}
+        <button className="button ghost danger" onClick={onDelete} disabled={Boolean(activeRun)} aria-label="删除任务"><Trash2 size={14} /></button>
       </div>
     </article>
   );
@@ -314,7 +315,7 @@ function RunHistory({
         <div><strong>运行记录</strong><span>{task.name}</span></div>
         <button className="icon-button" onClick={onClose} aria-label="关闭运行记录"><X size={16} /></button>
       </header>
-      {task.threadId && <button className="history-thread-button" onClick={onOpenThread}>打开固定对话</button>}
+      {task.threadId && <button className="button secondary history-thread-button" onClick={onOpenThread}>打开固定对话</button>}
       <div className="scheduled-history-list">
         {runs.length === 0 ? <div className="scheduled-history-empty">尚未运行</div> : runs.map((run) => (
           <div className="scheduled-run" key={run.id}>
@@ -434,7 +435,7 @@ function TaskEditor({
             </div>
             <div className="scheduled-editor-actions">
               <label className="scheduled-enabled"><input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /> 启用任务</label>
-              <div><button type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={15} /> : <CheckCircle2 size={15} />} 保存</button></div>
+              <div><button className="button secondary" type="button" onClick={onClose}>取消</button><button className="button primary" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={15} /> : <CheckCircle2 size={15} />} 保存</button></div>
             </div>
           </form>
         </Dialog.Content>

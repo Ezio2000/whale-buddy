@@ -70,7 +70,7 @@ function OfficeChangesPanel() {
     {artifacts.length ? <div className="office-change-list">{artifacts.map((artifact) => <article className="office-change" key={artifact.id}>
       <span className={`office-format ${artifact.format}`}>{artifact.format.toUpperCase()}</span>
       <div><strong>{artifact.name}</strong><small>{formatBytes(artifact.size)} · {new Date(artifact.createdAt).toLocaleString()}</small><code title={artifact.sha256}>{artifact.sha256.slice(0, 16)}…</code></div>
-      <div className="office-change-actions"><button className="secondary" onClick={() => void openArtifact(artifact.id)}>打开</button><button className="secondary" onClick={() => void saveArtifactAs(artifact.id)}>另存为</button></div>
+      <div className="office-change-actions"><button className="button secondary" onClick={() => void openArtifact(artifact.id)}>打开</button><button className="button secondary" onClick={() => void saveArtifactAs(artifact.id)}>另存为</button></div>
     </article>)}</div> : <div className="office-change-empty"><strong>本轮尚未生成办公成果</strong><span>在成果预览中点击“确认并生成”后会显示在这里。</span></div>}
     {message && <p className="message">{message}</p>}
   </main>;
@@ -123,8 +123,8 @@ function TaskPage() {
       <div className="row"><label>输出格式</label><select value={format} onChange={(event) => setFormat(event.target.value as Format)}><option value="html">HTML</option><option value="docx">Word (.docx)</option><option value="xlsx">Excel (.xlsx)</option><option value="pptx">PowerPoint (.pptx)</option></select></div>
       {taskType === 'summary' && <div><textarea aria-label="材料正文" value={sourceText} onChange={(event) => setSourceText(event.target.value)} placeholder="可在此粘贴需要总结的原文，或添加材料文件。" /></div>}
       <div><textarea aria-label="补充要求" value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="补充受众、语气、字段、结构或其他要求…" /></div>
-      <div className="row"><button className="secondary" onClick={async () => setAttachments(await pickAttachments())}>添加办公材料</button><div className="files">{attachments.map((file) => <span className="file" key={file.path}>{file.name}</span>)}</div></div>
-      <div><button className="primary" disabled={busy} onClick={() => void begin()}>{busy ? '正在准备…' : '开始任务'}</button></div>
+      <div className="row"><button className="button secondary" onClick={async () => setAttachments(await pickAttachments())}>添加办公材料</button><div className="files">{attachments.map((file) => <span className="file" key={file.path}>{file.name}</span>)}</div></div>
+      <div><button className="button primary" disabled={busy} onClick={() => void begin()}>{busy ? '正在准备…' : '开始任务'}</button></div>
       {message && <div className="message">{message}</div>}
     </section>
   </main>;

@@ -1,3 +1,4 @@
+import { confirmAction } from './confirmation';
 import { userVisibleText } from '../../shared/display-text';
 import { create } from 'zustand';
 import type {
@@ -792,8 +793,8 @@ async function executeCommand(
     case 'archive':
       return get().archiveThread();
     case 'delete':
-      if (!window.confirm('确定永久删除当前线程吗？此操作无法撤销。')) return;
-      return get().deleteThread();
+      if (!threadId || !await confirmAction('确定永久删除当前线程吗？此操作无法撤销。', { confirmLabel: '永久删除', danger: true })) return;
+      return get().deleteThread(threadId);
     case 'model':
     case 'permissions':
       set({ settingsOpen: true });

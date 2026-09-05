@@ -1,3 +1,4 @@
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { useEffect } from 'react';
 import { AlertCircle, RotateCcw, Settings2, X } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
@@ -62,10 +63,10 @@ export function App() {
         <div className="reconnect-banner">
           <AlertCircle size={14} />
           <span>{runtime.message ?? `${brandName} 服务连接中断，正在恢复…`}</span>
-          <button onClick={() => setSettingsOpen(true)}>
+          <button className="button secondary" onClick={() => setSettingsOpen(true)}>
             <Settings2 size={13} /> 连接设置
           </button>
-          <button onClick={() => void window.whale.runtime.restart()}>
+          <button className="button secondary" onClick={() => void window.whale.runtime.restart()}>
             <RotateCcw size={13} /> 重试
           </button>
         </div>
@@ -79,6 +80,7 @@ export function App() {
         </div>
       )}
       {!providerConfigured && <SettingsDialog />}
+      <ConfirmDialog />
       <CommandPalette />
       <PluginActionDialog />
     </>

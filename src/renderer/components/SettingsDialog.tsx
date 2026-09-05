@@ -1,3 +1,4 @@
+import { confirmAction } from '../state/confirmation';
 import { SettingsSurface } from './SettingsSurface';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useState } from 'react';
@@ -490,7 +491,7 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                 <TextField ariaLabel="Casdoor Issuer" value={authIssuer} placeholder="https://identity.example.com" onChange={setAuthIssuer} />
               </SettingRow>
               <div className="settings-actions">
-                <button className="button secondary" disabled={savingAuth || !authIssuer.trim()} onClick={() => {
+                <button className="button primary" disabled={savingAuth || !authIssuer.trim()} onClick={() => {
                   setSavingAuth(true); setAuthMessage(null);
                   void window.whale.auth.configure({ issuer: authIssuer.trim() })
                     .then((settings) => { setAuthIssuer(settings.issuer); setAuthMessage('Casdoor 地址已保存，请重新登录。'); })
@@ -564,8 +565,8 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
                 <span>{auditCount === null ? '正在统计…' : `${auditCount} 条任务记录`}</span>
               </SettingRow>
               <div className="settings-actions">
-                <button className="button secondary" onClick={() => {
-                  if (!window.confirm('确认永久清除全部本地审计记录？此操作无法撤销。')) return;
+                <button className="button secondary danger" onClick={async () => {
+                  if (!await confirmAction('确认永久清除全部本地审计记录？此操作无法撤销。', { confirmLabel: '永久清除', danger: true })) return;
                   void window.whale.audit.clear()
                     .then(() => { setAuditCount(0); setAuditMessage('本地审计记录已清除。'); })
                     .catch((error) => setAuditMessage(errorMessage(error)));

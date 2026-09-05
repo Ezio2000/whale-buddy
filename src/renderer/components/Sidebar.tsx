@@ -1,3 +1,4 @@
+import { confirmAction } from '../state/confirmation';
 import { useState } from 'react';
 import { RenameThreadDialog } from './RenameThreadDialog';
 import { threadDisplayTitle } from '../../shared/display-text';
@@ -145,8 +146,8 @@ export function Sidebar() {
               }}
               onFork={() => void forkThread(thread.id)}
               onArchive={() => void archiveThread(thread.id)}
-              onDelete={() => {
-                if (window.confirm('确定永久删除这个对话吗？此操作无法撤销。'))
+              onDelete={async () => {
+                if (await confirmAction('确定永久删除这个对话吗？此操作无法撤销。', { confirmLabel: '永久删除', danger: true }))
                   void deleteThread(thread.id);
               }}
             />
