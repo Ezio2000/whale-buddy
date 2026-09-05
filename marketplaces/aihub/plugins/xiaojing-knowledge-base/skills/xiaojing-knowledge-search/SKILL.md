@@ -10,14 +10,14 @@ description: 使用小鲸知识库（AI小鲸、AIHub、广汽知识库）查询
 ## 识别与调用
 
 - “小鲸”“AI小鲸”“AIHub”“广汽知识库”均指向本插件的知识库能力。
-- 可调用工具为 `gac_kb_list_datasets` 和 `gac_kb_search`；宿主可能为工具名添加 `mcp__xiaojing_knowledge_base__` 等命名空间前缀。
+- 可调用工具为 `gac_kb_list_datasets`、`gac_kb_search` 和 `gac_kb_search_scoped`；宿主可能为工具名添加 `mcp__xiaojing_knowledge_base__` 等命名空间前缀。
 - 工具已经直接提供给模型时，直接调用相应工具。不要使用 `list_mcp_resources` 或 `list_mcp_resource_templates` 判断这些工具是否存在；它们只枚举 MCP Resource，不枚举 MCP Tool。
-- 如果两个知识库工具均不可调用，简洁说明“小鲸知识库插件或其 MCP 当前未启用”，请用户在 Whale 插件商城中启用该插件及 MCP。不要改写 `config.toml`、添加独立 MCP、索取 API Key，或要求用户执行终端命令。
+- 如果知识库工具均不可调用，简洁说明“小鲸知识库插件或其 MCP 当前未启用”，请用户在 Whale 插件商城中启用该插件及 MCP。不要改写 `config.toml`、添加独立 MCP、索取 API Key，或要求用户执行终端命令。
 
 ## 选择工具
 
 - 用户要求列出可访问知识库、查看检索范围，或问题的知识库范围不明确时，先调用 `gac_kb_list_datasets`。
-- 用户提出具体问题时，调用 `gac_kb_search`。将问题整理为简洁检索词，保留制度名、系统名、车型、部门、地区、时间和版本等关键限定。
+- 用户已选择或指定知识库时，调用 `gac_kb_search_scoped`，必须传入明确的 `dataset_ids`；不要回退为全库搜索。尚未选库时先列出可用库并请用户选择。只有用户明确要求搜索全部授权库时才用 `gac_kb_search`。将问题整理为简洁检索词，保留制度名、系统名、车型、部门、地区、时间和版本等关键限定。
 - 仅在用户指定知识库或首轮结果过宽时传入明确的 `dataset_ids`；不要猜测数据集 ID。
 - 一般每个知识库取 5–10 条结果。用户需要图片、截图、图表或视觉证据时启用图片返回；明确只需文字或希望降低延迟时可关闭图片返回。
 - 首轮结果不足时，使用正式名称、同义词或更窄的子问题重试。不要原样重复同一查询，也不要无限重试。

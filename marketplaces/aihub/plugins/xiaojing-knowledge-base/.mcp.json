@@ -3,7 +3,6 @@
     "xiaojing-knowledge-base": {
       "url": "https://kb-console.gac-international.com/mcp",
       "bearer_token_env_var": "AIHUB_MCP_TOKEN",
-      "enabled_tools": ["gac_kb_list_datasets", "gac_kb_search"],
       "startup_timeout_sec": 20,
       "tool_timeout_sec": 60
     }

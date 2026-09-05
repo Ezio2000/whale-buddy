@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   getState,
@@ -10,6 +10,8 @@ import {
 } from '@whale-buddy/plugin-sdk/ui';
 import { definePluginRuntime } from '@whale-buddy/plugin-sdk/runtime';
 import './styles.css';
+
+const OutlookApp = lazy(() => import('./outlook'));
 
 interface Dataset {
   id: string;
@@ -44,7 +46,7 @@ definePluginRuntime({
         dataset_ids: datasets.map((dataset) => dataset.id),
         datasets: datasets.map(({ id, name }) => ({ id, name })),
       },
-      explicitTools: [{ server: 'xiaojing-knowledge-base', name: 'gac_kb_search' }],
+      explicitTools: [{ server: 'xiaojing-knowledge-base', name: 'gac_kb_search_scoped' }],
     });
     return { selected: datasets.length };
   },
@@ -63,6 +65,9 @@ function App() {
   const context = usePluginContext();
   if (!context) return <div className="loading-line">正在连接 Whale…</div>;
   if (context.surface.kind === 'runtime') return null;
+  if (context.surface.contributionId.startsWith('outlook-')) {
+    return <Suspense fallback={<div>正在加载 Outlook…</div>}><OutlookApp /></Suspense>;
+  }
   switch (`${context.surface.contributionType}:${context.surface.placement}`) {
     case 'action:composerToolbar':
       return <KnowledgeSelector threadId={context.threadId} />;

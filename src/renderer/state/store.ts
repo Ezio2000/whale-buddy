@@ -155,7 +155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   historyByThread: {},
   approvals: [],
   preferences: readPreferences(),
-  rightPanelOpen: true,
+  rightPanelOpen: false,
   settingsOpen: false,
   pluginMarketplaceOpen: false,
   commandPaletteOpen: false,
@@ -277,7 +277,6 @@ export const useAppStore = create<AppState>((set, get) => ({
             threadId,
             snapshot,
           ),
-          rightPanelOpen: true,
         }));
       }
       return;
@@ -304,12 +303,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const revealsDetails = event.message.method === 'turn/plan/updated'
-      || event.message.method === 'turn/diff/updated';
     set((state) => ({
       conversation: reduceConversation(state.conversation, event),
       approvals: pruneApprovalsForEvent(state.approvals, event),
-      ...(revealsDetails ? { rightPanelOpen: true } : {}),
     }));
     const params = record(event.message.params);
     switch (event.message.method) {

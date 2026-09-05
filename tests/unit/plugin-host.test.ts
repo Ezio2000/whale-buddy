@@ -99,26 +99,24 @@ describe('plugin host v2 manifest', () => {
     });
   });
 
-  it('reads v2 credential declarations shared by both Xiaojing plugins', () => {
+  it('reads one credential and both surfaces from the unified AIHub plugin', () => {
     const marketplaceRoot = path.resolve('marketplaces/aihub/plugins');
     const knowledge = readPluginCredentials(pluginResponse(path.join(marketplaceRoot, 'xiaojing-knowledge-base'), 'xiaojing-knowledge-base', 'xiaojing-knowledge-base'));
-    const outlook = readPluginCredentials(pluginResponse(path.join(marketplaceRoot, 'xiaojing-outlook'), 'xiaojing-outlook', 'xiaojing-outlook'));
     expect(knowledge).toHaveLength(1);
-    expect(outlook).toHaveLength(1);
     const descriptor = readPluginDescriptor(pluginResponse(
       path.join(marketplaceRoot, 'xiaojing-knowledge-base'),
       'xiaojing-knowledge-base',
       'xiaojing-knowledge-base',
     ));
     expect(descriptor?.uiContributions.map((entry) => entry.type)).toEqual([
-      'page', 'action', 'action', 'action', 'card',
+      'page', 'action', 'action', 'action', 'card', 'page', 'action', 'card',
     ]);
     expect(descriptor?.webMcp?.tools.map((tool) => tool.name)).toEqual([
       'xiaojing_list_knowledge_bases',
       'xiaojing_set_knowledge_scope',
       'xiaojing_clear_knowledge_scope',
     ]);
-    expect(outlook[0]).toMatchObject({ key: knowledge[0].key, env: knowledge[0].env, scope: 'marketplace', mcpServers: ['xiaojing-outlook'] });
+    expect(knowledge[0]).toMatchObject({ key: 'aihub/token', env: 'AIHUB_MCP_TOKEN', scope: 'marketplace', mcpServers: ['xiaojing-knowledge-base'] });
   });
 });
 

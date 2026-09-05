@@ -28,6 +28,7 @@ interface StoredMarketplaceSource {
 
 interface StoredExtensionPolicy {
   version: 2;
+  migrations?: string[];
   marketplaces: StoredMarketplaceSource[];
   plugins: ExtensionPluginPolicy[];
   enabledSkillPaths: string[];
@@ -50,6 +51,13 @@ export class ExtensionPolicyStore {
     this.state = this.load();
     // Persist the sanitized state so retired presets cannot reappear on a
     // later launch even when an older Whale Buddy version wrote them here.
+    this.persist();
+  }
+
+  hasMigration(name: string): boolean { return this.state.migrations?.includes(name) ?? false; }
+
+  markMigration(name: string): void {
+    this.state.migrations = [...new Set([...(this.state.migrations ?? []), name])];
     this.persist();
   }
 
@@ -339,6 +347,7 @@ export class ExtensionPolicyStore {
       }
       return {
         version: 2,
+        migrations: Array.isArray(parsed.migrations) ? parsed.migrations.filter((name) => typeof name === 'string') : [],
         marketplaces: parsed.marketplaces.filter(
           (marketplace) => !isRetiredPresetSourceName(marketplace.name),
         ),

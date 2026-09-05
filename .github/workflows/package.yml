@@ -90,7 +90,6 @@ jobs:
           test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/office/plugins/whale-office-assistant/ui/index.html"
           test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/aihub/.agents/plugins/marketplace.json"
           test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/aihub/plugins/xiaojing-knowledge-base/ui/index.html"
-          test -f "out/Whale Buddy-darwin-arm64/Whale Buddy.app/Contents/Resources/aihub/plugins/xiaojing-outlook/ui/index.html"
 
       - name: Verify macOS ad-hoc signature
         run: |
@@ -199,7 +198,6 @@ jobs:
           if (-not (Test-Path "$office/plugins/whale-office-assistant/ui/index.html")) { throw "Missing office plugin UI" }
           if (-not (Test-Path "$aihub/.agents/plugins/marketplace.json")) { throw "Missing AIHub marketplace" }
           if (-not (Test-Path "$aihub/plugins/xiaojing-knowledge-base/ui/index.html")) { throw "Missing knowledge base plugin UI" }
-          if (-not (Test-Path "$aihub/plugins/xiaojing-outlook/ui/index.html")) { throw "Missing Outlook plugin UI" }
 
       - uses: actions/upload-artifact@v4
         with:

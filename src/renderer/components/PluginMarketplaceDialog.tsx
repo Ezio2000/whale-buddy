@@ -76,6 +76,7 @@ type ContributionDialogState =
     }
   | {
       kind: 'mcp';
+      pluginId: string | null;
       name: string;
       enabled: boolean;
       path: string;
@@ -183,6 +184,17 @@ export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boole
     },
     [selectedProject?.path],
   );
+
+  // Keep an open preview tied to the latest runtime catalog, not its click-time snapshot.
+  useEffect(() => {
+    setCapabilityDetail((current) => {
+      if (current?.kind !== 'mcp') return current;
+      const server = mcp.data.find((entry) => entry.name === current.name && entry.pluginId === current.pluginId);
+      return { ...current, tools: Object.entries(server?.tools ?? {}).flatMap(([key, tool]) => tool ? [{
+        name: tool.name || key, description: tool.description || tool.title || '此工具没有提供说明。',
+      }] : []) };
+    });
+  }, [mcp]);
 
   const loadMcp = useCallback(async () => {
     const response = await window.whale.mcp.list({});
@@ -364,6 +376,7 @@ export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boole
     }] : []);
     const initial: ContributionDialogState = {
       kind: 'mcp',
+      pluginId: server.pluginId,
       name: server.name,
       enabled,
       path: '正在读取 MCP 配置…',
@@ -377,7 +390,7 @@ export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boole
     try {
       const contributions = await window.whale.plugins.contributions(location);
       const declared = contributions.mcp?.servers.find((entry) => entry.name === server.name);
-      setCapabilityDetail((current) => current?.kind === 'mcp' && current.name === server.name
+      setCapabilityDetail((current) => current?.kind === 'mcp' && current.name === server.name && current.pluginId === server.pluginId
         ? {
             ...current,
             path: contributions.mcp?.path ?? '路径不可用',

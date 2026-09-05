@@ -1,25 +1,26 @@
 {
   "name": "xiaojing-knowledge-base",
-  "version": "0.3.2+codex.20260902062223",
-  "description": "\u641c\u7d22\u5f53\u524d\u7528\u6237\u83b7\u6388\u6743\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
+  "version": "0.4.0",
+  "description": "统一使用小鲸知识库和 Outlook，查询内部资料、日历、通讯录与邮件。",
   "author": {
-    "name": "AI\u5c0f\u9cb8"
+    "name": "AI小鲸"
   },
   "interface": {
-    "displayName": "\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
-    "shortDescription": "\u5217\u51fa\u5e76\u641c\u7d22\u83b7\u6388\u6743\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
-    "longDescription": "\u901a\u8fc7 AIHub MCP \u5217\u51fa\u5f53\u524d\u8d26\u53f7\u53ef\u8bbf\u95ee\u7684\u6570\u636e\u96c6\uff0c\u5e76\u6309\u5173\u952e\u8bcd\u68c0\u7d22\u77e5\u8bc6\u5e93\u6587\u672c\u548c\u56fe\u7247\u5185\u5bb9\u3002",
-    "developerName": "AI\u5c0f\u9cb8",
+    "displayName": "小鲸 AIHub",
+    "shortDescription": "知识库与 Outlook，共用一个连接。",
+    "longDescription": "一次配置 AIHub，即可检索授权知识库和使用 Outlook。邮箱能力取决于账号开通状态，知识库可独立使用。发送邮件前生成预览并等待确认。",
+    "developerName": "AI小鲸",
     "category": "Productivity",
     "capabilities": [
       "MCP",
       "Knowledge Base",
-      "Search"
+      "Outlook",
+      "Mail"
     ],
     "brandColor": "#347B78",
     "defaultPrompt": [
-      "\u5217\u51fa\u6211\u80fd\u8bbf\u95ee\u7684\u5e7f\u6c7d\u77e5\u8bc6\u5e93\u3002",
-      "\u5728\u77e5\u8bc6\u5e93\u4e2d\u641c\u7d22\u76f8\u5173\u5236\u5ea6\u3002"
+      "列出我能访问的广汽知识库。",
+      "在知识库中搜索相关制度。"
     ]
   },
   "skills": "./skills/",
@@ -32,7 +33,7 @@
         "type": "page",
         "placement": "navigation",
         "entry": "./ui/index.html",
-        "title": "\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
+        "title": "小鲸知识库",
         "order": 100
       },
       {
@@ -40,11 +41,11 @@
         "type": "action",
         "placement": "commandPalette",
         "entry": "./ui/index.html",
-        "title": "\u6d4f\u89c8\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
-        "description": "\u8bfb\u53d6\u5e76\u6d4f\u89c8\u5f53\u524d\u8d26\u53f7\u83b7\u6388\u6743\u7684\u77e5\u8bc6\u5e93\u3002",
+        "title": "浏览小鲸知识库",
+        "description": "读取并浏览当前账号获授权的知识库。",
         "keywords": [
-          "\u77e5\u8bc6\u5e93",
-          "\u5c0f\u9cb8",
+          "知识库",
+          "小鲸",
           "AIHub",
           "dataset"
         ],
@@ -55,7 +56,7 @@
         "type": "action",
         "placement": "threadToolbar",
         "entry": "./ui/index.html",
-        "title": "\u7ebf\u7a0b\u77e5\u8bc6\u5e93",
+        "title": "线程知识库",
         "order": 100
       },
       {
@@ -63,7 +64,7 @@
         "type": "action",
         "placement": "composerToolbar",
         "entry": "./ui/index.html",
-        "title": "\u9009\u62e9\u77e5\u8bc6\u5e93",
+        "title": "选择知识库",
         "order": 100
       },
       {
@@ -71,7 +72,7 @@
         "type": "card",
         "placement": "message",
         "entry": "./ui/index.html",
-        "title": "\u5c0f\u9cb8\u77e5\u8bc6\u5e93\u7ed3\u679c",
+        "title": "小鲸知识库结果",
         "match": {
           "itemTypes": [
             "mcpToolCall"
@@ -79,10 +80,61 @@
           "server": "xiaojing-knowledge-base",
           "tools": [
             "gac_kb_list_datasets",
-            "gac_kb_search"
+            "gac_kb_search",
+            "gac_kb_search_scoped"
           ]
         },
         "order": 100
+      },
+      {
+        "id": "outlook-navigation",
+        "type": "page",
+        "placement": "navigation",
+        "entry": "./ui/index.html",
+        "title": "Outlook",
+        "order": 110
+      },
+      {
+        "id": "outlook-command",
+        "type": "action",
+        "placement": "commandPalette",
+        "entry": "./ui/index.html",
+        "title": "打开 Outlook 助手",
+        "description": "查看日历、联系人、邮件及安全发送能力。",
+        "keywords": [
+          "Outlook",
+          "日历",
+          "联系人",
+          "邮件"
+        ],
+        "order": 110
+      },
+      {
+        "id": "outlook-message-card",
+        "type": "card",
+        "placement": "message",
+        "entry": "./ui/index.html",
+        "title": "Outlook 结果",
+        "match": {
+          "itemTypes": [
+            "mcpToolCall"
+          ],
+          "server": "xiaojing-knowledge-base",
+          "tools": [
+            "outlook_calendar_search",
+            "outlook_directory_search",
+            "outlook_contact_search",
+            "outlook_mail_search",
+            "outlook_mail_get",
+            "outlook_mail_send_preview",
+            "outlook_mail_reply_preview",
+            "outlook_mail_send",
+            "outlook_mail_action_cancel",
+            "outlook_mail_history",
+            "outlook_mail_history_get"
+          ]
+        },
+        "order": 110
       }
     ],
     "webMcp": {
@@ -91,8 +143,8 @@
         {
           "id": "list-knowledge-bases",
           "name": "xiaojing_list_knowledge_bases",
-          "title": "\u5217\u51fa\u5c0f\u9cb8\u77e5\u8bc6\u5e93",
-          "description": "\u5217\u51fa\u5f53\u524d\u8d26\u53f7\u6709\u6743\u8bbf\u95ee\u7684\u5c0f\u9cb8\u77e5\u8bc6\u5e93\u3002",
+          "title": "列出小鲸知识库",
+          "description": "列出当前账号有权访问的小鲸知识库。",
           "scope": "global",
           "inputSchema": {
             "type": "object",
@@ -107,8 +159,8 @@
         {
           "id": "set-knowledge-scope",
           "name": "xiaojing_set_knowledge_scope",
-          "title": "\u8bbe\u7f6e\u7ebf\u7a0b\u77e5\u8bc6\u5e93\u8303\u56f4",
-          "description": "\u4e3a\u5f53\u524d\u7ebf\u7a0b\u9009\u62e9\u540e\u7eed\u77e5\u8bc6\u68c0\u7d22\u4f7f\u7528\u7684\u77e5\u8bc6\u5e93\u3002",
+          "title": "设置线程知识库范围",
+          "description": "为当前线程选择后续知识检索使用的知识库。",
           "scope": "thread",
           "inputSchema": {
             "type": "object",
@@ -146,8 +198,8 @@
         {
           "id": "clear-knowledge-scope",
           "name": "xiaojing_clear_knowledge_scope",
-          "title": "\u6e05\u9664\u7ebf\u7a0b\u77e5\u8bc6\u5e93\u8303\u56f4",
-          "description": "\u6e05\u9664\u5f53\u524d\u7ebf\u7a0b\u5df2\u9009\u62e9\u7684\u77e5\u8bc6\u5e93\u8303\u56f4\u3002",
+          "title": "清除线程知识库范围",
+          "description": "清除当前线程已选择的知识库范围。",
           "scope": "thread",
           "inputSchema": {
             "type": "object",
@@ -167,7 +219,7 @@
         "key": "aihub/token",
         "credentialType": "bearerToken",
         "label": "AIHub MCP API Key",
-        "description": "\u4ece AIHub \u521b\u5efa\u7684 MCP API Key\uff0c\u5e94\u4ee5 aihub_mcp_ \u5f00\u5934\uff1b\u540c\u4e00\u5546\u57ce\u7684 Outlook \u63d2\u4ef6\u53ef\u5171\u4eab\u3002",
+        "description": "知识库与 Outlook 共用的 AIHub MCP API Key。",
         "env": "AIHUB_MCP_TOKEN",
         "required": true,
         "scope": "marketplace",
@@ -191,7 +243,7 @@
           "principal": "webMcp:set-knowledge-scope",
           "server": "xiaojing-knowledge-base",
           "tools": [
-            "gac_kb_search"
+            "gac_kb_search_scoped"
           ]
         }
       ]

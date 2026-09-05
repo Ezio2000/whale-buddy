@@ -1,11 +1,10 @@
-import { StrictMode } from 'react';
 import type { ReactNode } from 'react';
-import { createRoot } from 'react-dom/client';
 import {
   usePluginContext,
   type ToolCallContext,
 } from '@whale-buddy/plugin-sdk/ui';
-import './styles.css';
+import './outlook.css';
+import { outlookResultError } from './outlook-result';
 
 interface ResultItem {
   title: string;
@@ -21,7 +20,7 @@ const capabilities = [
   { icon: 'shield', title: '安全发送', description: '先生成不可变预览，再由你明确确认发送。' },
 ] as const;
 
-function App() {
+export default function OutlookApp() {
   const context = usePluginContext();
   if (!context) return <div className="loading"><span />正在连接 Whale…</div>;
   if (context.surface.kind === 'runtime') return null;
@@ -39,10 +38,11 @@ function OutlookHome({ configured }: { configured: boolean }) {
           <p>把日历、联系人和邮件放进一条安全、可确认的工作流。</p>
         </div>
         <div className={`status ${configured ? 'ready' : ''}`}>
-          <span />{configured ? 'AIHub 已连接' : '等待配置 API Key'}
+          <span />{configured ? '凭据已配置' : '等待配置 API Key'}
         </div>
       </section>
 
+      <p>日历、个人联系人和邮件需要账号开通 Outlook。邮箱不可用时，仍可使用知识库；各项操作会分别报告结果。</p>
       <section className="capability-grid">
         {capabilities.map((item) => (
           <article key={item.title}>
@@ -82,8 +82,9 @@ function OutlookCard({ toolCall }: { toolCall?: ToolCallContext }) {
   if (!toolCall || ['inProgress', 'running', 'pending'].includes(toolCall.status)) {
     return <div className="card-loading"><span />正在读取 Outlook…</div>;
   }
-  if (toolCall.error) {
-    return <div className="card-error"><strong>Outlook 调用失败</strong><p>{textFrom(toolCall.error)}</p></div>;
+  const error = toolCall.error ? textFrom(toolCall.error) : outlookResultError(toolCall.result);
+  if (error) {
+    return <div className="card-error"><strong>Outlook 调用失败</strong><p>{error}</p>{/邮箱|mailbox/i.test(error) && <p>请检查当前账号是否已开通对应邮箱能力。知识库不受此错误影响。</p>}</div>;
   }
 
   const tone = toolTone(toolCall.tool);
@@ -241,7 +242,3 @@ function string(value: unknown): string | null {
 function truncate(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }
-
-const root = document.getElementById('root');
-if (!root) throw new Error('Missing #root');
-createRoot(root).render(<StrictMode><App /></StrictMode>);

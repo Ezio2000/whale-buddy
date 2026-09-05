@@ -120,9 +120,9 @@ export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
               <Title>{embedded ? categories.find(([id]) => id === category)?.[1] : '设置'}</Title>
               <Description>配置 {branding.name} 的模型服务、使用偏好与安全选项。</Description>
             </div>
-            <button onClick={() => setOpen(false)} className="icon-button dialog-close-target" aria-label="关闭设置">
+            {!embedded && <button onClick={() => setOpen(false)} className="icon-button dialog-close-target" aria-label="关闭设置">
               <X size={16} />
-            </button>
+            </button>}
           </div>
           <nav className="settings-categories" aria-label="设置分类">
             {embedded && <button className="settings-back" onClick={() => setOpen(false)}><ArrowLeft size={18} />返回应用</button>}

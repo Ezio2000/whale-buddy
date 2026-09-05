@@ -777,3 +777,24 @@ describe('PluginMarketplaceDialog', () => {
     });
   });
 });
+
+describe('live MCP tool preview', () => {
+  it('updates an already open preview after refresh without reopening it', async () => {
+    render(<PluginMarketplaceDialog />);
+    const tabs = within(screen.getByRole('navigation', { name: '插件商城分类' }));
+    fireEvent.click(tabs.getByRole('button', { name: /^MCP/ }));
+    fireEvent.click(await screen.findByRole('button', { name: '查看 fixture-mcp 详情' }));
+    expect(await screen.findByText('inspect_fixture')).toBeInTheDocument();
+    const old = await window.whale.mcp.list({});
+    vi.mocked(window.whale.mcp.list).mockResolvedValue({ ...old, data: old.data.map((server) => ({
+      ...server, tools: { ...server.tools, new_scoped_search: { name: 'new_scoped_search', description: 'New server tool', inputSchema: { type: 'object' } } },
+    })) });
+    fireEvent.click(screen.getByRole('button', { name: '全部刷新' }));
+    expect(await screen.findByText('new_scoped_search')).toBeInTheDocument();
+    expect(screen.getByText('工具预览 · 2')).toBeInTheDocument();
+    vi.mocked(window.whale.mcp.list).mockResolvedValue({ ...old, data: old.data.map((server) => ({ ...server, tools: {} })) });
+    fireEvent.click(screen.getByRole('button', { name: '全部刷新' }));
+    await waitFor(() => expect(screen.queryByText('new_scoped_search')).not.toBeInTheDocument());
+    expect(screen.getByText('工具预览 · 0')).toBeInTheDocument();
+  });
+});

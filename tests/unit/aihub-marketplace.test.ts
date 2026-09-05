@@ -1,78 +1,39 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-describe('bundled AIHub marketplace', () => {
-  it('publishes knowledge base and Outlook as separate plugins', async () => {
-    const root = path.resolve('marketplaces/aihub');
-    const manifest = JSON.parse(
-      await readFile(path.join(root, '.agents/plugins/marketplace.json'), 'utf8'),
-    ) as {
-      name: string;
-      interface: { displayName: string };
-      plugins: Array<{ name: string; policy: { installation: string; authentication: string } }>;
-    };
-
-    expect(manifest).toMatchObject({
-      name: 'whale-aihub',
-      interface: { displayName: 'Whale AIHub' },
-    });
-    expect(manifest.plugins).toEqual([
-      expect.objectContaining({
-        name: 'xiaojing-knowledge-base',
-        policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
-      }),
-      expect.objectContaining({
-        name: 'xiaojing-outlook',
-        policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
-      }),
-    ]);
+const root = path.resolve('marketplaces/aihub');
+const pluginRoot = path.join(root, 'plugins/xiaojing-knowledge-base');
+const json = async (file: string) => JSON.parse(await readFile(file, 'utf8'));
+describe('unified AIHub marketplace', () => {
+  it('publishes one plugin with one unrestricted connection and the existing credential key', async () => {
+    const catalog = await json(path.join(root, '.agents/plugins/marketplace.json'));
+    expect(catalog.plugins.map((p: { name: string }) => p.name)).toEqual(['xiaojing-knowledge-base']);
+    const manifest = await json(path.join(pluginRoot, '.codex-plugin/plugin.json'));
+    expect(manifest.interface.displayName).toBe('小鲸 AIHub');
+    expect(manifest.whale.credentials).toHaveLength(1);
+    expect(manifest.whale.credentials[0]).toMatchObject({ key: 'aihub/token', env: 'AIHUB_MCP_TOKEN', usedBy: { mcpServers: ['xiaojing-knowledge-base'] } });
+    const mcp = await json(path.join(pluginRoot, '.mcp.json'));
+    expect(Object.keys(mcp.mcpServers)).toEqual(['xiaojing-knowledge-base']);
+    expect(mcp.mcpServers['xiaojing-knowledge-base'].enabled_tools).toBeUndefined();
+    expect(mcp.mcpServers['xiaojing-knowledge-base'].disabled_tools).toBeUndefined();
   });
-
-  it('shares one AIHub credential and keeps MCP servers isolated', async () => {
-    const pluginsRoot = path.resolve('marketplaces/aihub/plugins');
-    const manifests = await Promise.all(['xiaojing-knowledge-base', 'xiaojing-outlook'].map(async (name) => JSON.parse(
-      await readFile(path.join(pluginsRoot, name, '.codex-plugin/plugin.json'), 'utf8'),
-    ) as { whale: { credentials: Array<{ key: string; env: string; usedBy: { mcpServers: string[] } }> } }));
-
-    expect(manifests.map((manifest) => manifest.whale.credentials[0].key)).toEqual([
-      'aihub/token', 'aihub/token',
-    ]);
-    expect(manifests.map((manifest) => manifest.whale.credentials[0].env)).toEqual([
-      'AIHUB_MCP_TOKEN', 'AIHUB_MCP_TOKEN',
-    ]);
-    expect(manifests.map((manifest) => manifest.whale.credentials[0].usedBy.mcpServers)).toEqual([
-      ['xiaojing-knowledge-base'], ['xiaojing-outlook'],
-    ]);
+  it('routes both pages and result cards through the same plugin and server', async () => {
+    const manifest = await json(path.join(pluginRoot, '.codex-plugin/plugin.json'));
+    const ui = manifest.whale.uiContributions;
+    expect(ui.filter((x: { type: string }) => x.type === 'page').map((x: { id: string }) => x.id)).toEqual(['knowledge-navigation', 'outlook-navigation']);
+    for (const card of ui.filter((x: { type: string }) => x.type === 'card')) {
+      expect(card.match.server).toBe('xiaojing-knowledge-base');
+      expect(card.entry).toBe('./ui/index.html');
+    }
+    expect(ui.find((x: { id: string }) => x.id === 'knowledge-message-card').match.tools).toContain('gac_kb_search_scoped');
+    expect(ui.find((x: { id: string }) => x.id === 'outlook-message-card').match.tools).toContain('outlook_mail_action_cancel');
+    expect(manifest.whale.permissions.mcp.find((x: { principal: string }) => x.principal === 'webMcp:set-knowledge-scope').tools).toEqual(['gac_kb_search_scoped']);
   });
-
-  it('declares Outlook navigation, command, and message-card surfaces', async () => {
-    const manifest = JSON.parse(await readFile(path.resolve(
-      'marketplaces/aihub/plugins/xiaojing-outlook/.codex-plugin/plugin.json',
-    ), 'utf8')) as {
-      whale: {
-        uiContributions: Array<{
-          id: string;
-          type: string;
-          placement: string;
-          match?: { server: string; tools: string[] };
-        }>;
-      };
-    };
-
-    expect(manifest.whale.uiContributions.map(({ type, placement }) => ({ type, placement }))).toEqual([
-      { type: 'page', placement: 'navigation' },
-      { type: 'action', placement: 'commandPalette' },
-      { type: 'card', placement: 'message' },
-    ]);
-    expect(manifest.whale.uiContributions[2].match).toMatchObject({
-      server: 'xiaojing-outlook',
-      tools: expect.arrayContaining([
-        'outlook_calendar_search',
-        'outlook_mail_search',
-        'outlook_mail_send_preview',
-        'outlook_mail_send',
-      ]),
-    });
+  it('preserves email confirmation and injects explicitly scoped search', async () => {
+    expect(await readFile(path.join(pluginRoot, 'ui-src/src/main.tsx'), 'utf8')).toContain("name: 'gac_kb_search_scoped'");
+    const skill = await readFile(path.join(pluginRoot, 'skills/outlook-assistant/SKILL.md'), 'utf8');
+    expect(skill).toContain('`xiaojing-knowledge-base` MCP');
+    expect(skill).toContain('explicitly approve that exact preview');
+    expect(skill).toContain('outlook_mail_action_cancel');
   });
 });

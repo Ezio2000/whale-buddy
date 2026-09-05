@@ -5,7 +5,7 @@ description: Query the current user's Outlook calendar, enterprise directory, pe
 
 # Outlook 助手
 
-Use the `xiaojing-outlook` MCP server for Outlook work. It only operates on the authenticated current user; do not invent support for another mailbox or identity.
+Use the `xiaojing-knowledge-base` MCP server for Outlook work. It only operates on the authenticated current user; do not invent support for another mailbox or identity.
 
 ## Choose the narrowest tool
 

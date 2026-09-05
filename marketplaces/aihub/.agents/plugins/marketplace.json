@@ -15,18 +15,6 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Productivity"
-    },
-    {
-      "name": "xiaojing-outlook",
-      "source": {
-        "source": "local",
-        "path": "./plugins/xiaojing-outlook"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
     }
   ]
 }
