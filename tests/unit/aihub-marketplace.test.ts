@@ -17,10 +17,10 @@ describe('unified AIHub marketplace', () => {
     expect(mcp.mcpServers['xiaojing-knowledge-base'].enabled_tools).toBeUndefined();
     expect(mcp.mcpServers['xiaojing-knowledge-base'].disabled_tools).toBeUndefined();
   });
-  it('keeps Outlook navigation and both result cards in the unified plugin', async () => {
+  it('omits sidebar pages while preserving both result cards in the unified plugin', async () => {
     const manifest = await json(path.join(pluginRoot, '.codex-plugin/plugin.json'));
     const ui = manifest.whale.uiContributions;
-    expect(ui.filter((x: { type: string }) => x.type === 'page').map((x: { id: string }) => x.id)).toEqual(['outlook-navigation']);
+    expect(ui.filter((x: { type: string }) => x.type === 'page').map((x: { id: string }) => x.id)).toEqual([]);
     for (const card of ui.filter((x: { type: string }) => x.type === 'card')) {
       expect(card.match.server).toBe('xiaojing-knowledge-base');
       expect(card.entry).toBe('./ui/index.html');

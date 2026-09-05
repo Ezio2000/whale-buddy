@@ -109,7 +109,7 @@ describe('plugin host v2 manifest', () => {
       'xiaojing-knowledge-base',
     ));
     expect(descriptor?.uiContributions.map((entry) => entry.type)).toEqual([
-      'action', 'action', 'action', 'card', 'page', 'action', 'card',
+      'action', 'action', 'action', 'card', 'action', 'card',
     ]);
     expect(descriptor?.webMcp?.tools.map((tool) => tool.name)).toEqual([
       'xiaojing_list_knowledge_bases',

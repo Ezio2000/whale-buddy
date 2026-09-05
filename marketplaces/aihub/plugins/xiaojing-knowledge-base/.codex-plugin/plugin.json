@@ -1,6 +1,6 @@
 {
   "name": "xiaojing-knowledge-base",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "统一使用小鲸知识库和 Outlook，查询内部资料、日历、通讯录与邮件。",
   "author": {
     "name": "AI小鲸"
@@ -77,14 +77,6 @@
           ]
         },
         "order": 100
-      },
-      {
-        "id": "outlook-navigation",
-        "type": "page",
-        "placement": "navigation",
-        "entry": "./ui/index.html",
-        "title": "Outlook",
-        "order": 110
       },
       {
         "id": "outlook-command",
