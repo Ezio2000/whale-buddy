@@ -1,6 +1,6 @@
 {
   "name": "xiaojing-knowledge-base",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "统一使用小鲸知识库和 Outlook，查询内部资料、日历、通讯录与邮件。",
   "author": {
     "name": "AI小鲸"
@@ -41,14 +41,6 @@
           "AIHub",
           "dataset"
         ],
-        "order": 100
-      },
-      {
-        "id": "knowledge-thread-action",
-        "type": "action",
-        "placement": "threadToolbar",
-        "entry": "./ui/index.html",
-        "title": "线程知识库",
         "order": 100
       },
       {

@@ -284,7 +284,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     if (event.kind === 'serverRequest') {
-      if (event.message.method === 'item/tool/call') return;
+      if (event.message.method === 'item/tool/call') {
+        set((state) => ({ conversation: reduceConversation(state.conversation, event) }));
+        return;
+      }
       const params = record(event.message.params) ?? {};
       const approval: PendingApproval = {
         id: event.message.id,

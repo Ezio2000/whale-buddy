@@ -1,6 +1,6 @@
 {
   "name": "whale-office-assistant",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "总结办公文件、起草材料、整理数据并生成 HTML、Word、Excel 和 PowerPoint 成果。",
   "author": {
     "name": "Whale Buddy"
@@ -22,14 +22,6 @@
   "whale": {
     "apiVersion": 2,
     "uiContributions": [
-      {
-        "id": "office-home",
-        "type": "page",
-        "placement": "navigation",
-        "entry": "./ui/index.html",
-        "title": "办公任务",
-        "order": 20
-      },
       {
         "id": "office-command",
         "type": "action",

@@ -201,7 +201,7 @@ function PluginMessageItem({
         <ToolElapsed item={item} status={status} />
       </header>
       <div className="plugin-message-card-content">
-        <PluginUiFrame
+        {isRunningStatus(status) ? <p role="status">正在运行 {contribution.title}…</p> : <PluginUiFrame
           descriptor={descriptor}
           contribution={contribution}
           threadId={threadId}
@@ -210,7 +210,7 @@ function PluginMessageItem({
           {...(item.type === 'mcpToolCall' ? { toolCall: pluginToolContext(item, status) } : {})}
           className="plugin-message-frame"
           fallback={<p className="plugin-ui-fallback">插件消息卡片不可用，原始消息仍保留在会话记录中。</p>}
-        />
+        />}
       </div>
     </article>
   );
@@ -616,7 +616,7 @@ function ToolElapsed({ item, status }: { item: ItemView; status: string }) {
   return (
     <span className={`status-badge status-${running ? 'inprogress' : status.toLocaleLowerCase()}`}>
       {running && <span className="spinner-dot" />}
-      {running ? '等待中' : statusLabel(status)}
+      {running ? item.type === 'dynamicToolCall' ? '运行中' : '等待中' : statusLabel(status)}
       {durationLabel && ` · ${durationLabel}`}
     </span>
   );

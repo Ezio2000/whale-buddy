@@ -187,7 +187,7 @@ describe('plugin host UI surfaces', () => {
     expect(window.whale.artifacts.create).not.toHaveBeenCalledWith(expect.objectContaining({ pluginId: 'spoofed-plugin' }));
   });
 
-  it('infers a WebMCP plugin for dynamic tool results without a plugin id', async () => {
+  it('shows WebMCP progress before mounting its completed result without a plugin id', async () => {
     vi.mocked(window.whale.plugins.descriptors).mockResolvedValue([{
       ...descriptor,
       uiContributions: [...descriptor.uiContributions, {
@@ -195,7 +195,12 @@ describe('plugin host UI surfaces', () => {
         title: 'Fixture Dynamic Result', itemTypes: ['dynamicToolCall'], server: null, tools: [], order: 5,
       }],
     }]);
-    render(<PluginHostProvider><ItemCard item={{
+    const { rerender } = render(<PluginHostProvider><ItemCard item={{
+      id: 'message-2', type: 'dynamicToolCall', tool: 'fixture_action', status: 'inProgress',
+    }} approvals={[]} onRespondApproval={() => undefined} /></PluginHostProvider>);
+    expect(await screen.findByText('正在运行 Fixture Dynamic Result…')).toBeInTheDocument();
+    expect(screen.queryByTitle('Fixture Plugin · fixture-dynamic-card')).not.toBeInTheDocument();
+    rerender(<PluginHostProvider><ItemCard item={{
       id: 'message-2', type: 'dynamicToolCall', tool: 'fixture_action', status: 'completed', result: { answer: 42 },
     }} approvals={[]} onRespondApproval={() => undefined} /></PluginHostProvider>);
     expect(await screen.findByTitle<HTMLIFrameElement>('Fixture Plugin · fixture-dynamic-card')).toBeInTheDocument();

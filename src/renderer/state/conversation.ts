@@ -63,7 +63,7 @@ export function reduceConversation(
   previous: ConversationState,
   event: WhaleEvent,
 ): ConversationState {
-  if (event.kind !== 'notification') return previous;
+  if (event.kind !== 'notification' && !(event.kind === 'serverRequest' && event.message.method === 'item/tool/call')) return previous;
   if (event.generation < previous.generation) return previous;
   if (event.generation === previous.generation && event.sequence <= previous.lastSequence) return previous;
 
@@ -121,6 +121,23 @@ export function reduceConversation(
   const turnId = string(params?.turnId) ?? string(record(params?.turn)?.id);
   if (!turnId) return state;
   const turn = ensureTurn(thread, turnId);
+
+  // Dynamic tools may request host execution before any item/started notification.
+  // Use the protocol callId so later authoritative events update this same card.
+  if (method === 'item/tool/call') {
+    const callId = string(params?.callId);
+    const tool = string(params?.tool);
+    if (callId && tool) {
+      const current = turn.items[callId];
+      if (!current || current.status === 'inProgress') upsertItem(turn, {
+        id: callId, type: 'dynamicToolCall', tool,
+        namespace: params?.namespace ?? null, arguments: params?.arguments,
+        status: 'inProgress',
+        whaleStartedAtMs: nullableNumber(current?.whaleStartedAtMs) ?? Date.now(),
+      });
+    }
+    return state;
+  }
 
   if (method === 'hook/started' || method === 'hook/completed') {
     const run = record(params?.run);

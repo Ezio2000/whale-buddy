@@ -13,6 +13,30 @@ function notification(sequence: number, method: string, params: unknown): WhaleE
 }
 
 describe('conversation reducer', () => {
+  it('shows a WebMCP request immediately and merges completion into the same call', () => {
+    const request: WhaleEvent = { kind: 'serverRequest', generation: 1, sequence: 1,
+      message: { id: 7, method: 'item/tool/call', params: {
+        threadId: 'thread-1', turnId: 'turn-1', callId: 'call-1',
+        tool: 'office_stage', arguments: { title: 'Demo' }, namespace: null,
+      } } };
+    let state = reduceConversation(emptyConversationState(), request);
+    expect(itemsForThread(state, 'thread-1')).toEqual([expect.objectContaining({
+      id: 'call-1', type: 'dynamicToolCall', status: 'inProgress', tool: 'office_stage',
+      whaleStartedAtMs: expect.any(Number),
+    })]);
+    const startedAt = itemsForThread(state, 'thread-1')[0].whaleStartedAtMs;
+    state = reduceConversation(state, notification(2, 'item/completed', {
+      threadId: 'thread-1', turnId: 'turn-1', item: {
+        id: 'call-1', type: 'dynamicToolCall', tool: 'office_stage', status: 'completed', result: { ok: true },
+      },
+    }));
+    expect(itemsForThread(state, 'thread-1')).toEqual([expect.objectContaining({
+      id: 'call-1', status: 'completed', whaleStartedAtMs: startedAt, result: { ok: true },
+    })]);
+    state = reduceConversation(state, { ...request, sequence: 3 });
+    expect(itemsForThread(state, 'thread-1')[0].status).toBe('completed');
+  });
+
   it('adds and updates one lightweight card for a plugin Stop command Hook', () => {
     let state = reduceConversation(emptyConversationState(), notification(1, 'turn/started', {
       threadId: 'thread-1', turn: { id: 'turn-1', status: 'inProgress', items: [] },
