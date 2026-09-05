@@ -933,17 +933,21 @@ pre {
   flex: 1;
   overflow: auto;
   overscroll-behavior: contain;
+  /* Virtualizer owns size compensation; native anchoring would apply it twice. */
+  overflow-anchor: none;
 }
 
 .history-loading-row {
-  position: sticky;
+  position: absolute;
   z-index: 3;
   top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   width: max-content;
   align-items: center;
   gap: 6px;
-  margin: 8px auto;
+  margin: 0;
   padding: 5px 9px;
   color: var(--text-muted);
   background: var(--surface-raised);

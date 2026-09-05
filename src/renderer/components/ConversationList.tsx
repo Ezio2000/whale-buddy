@@ -19,6 +19,9 @@ export function ConversationList() {
   const brandName = useAppStore((state) => state.branding.name);
   const parentRef = useRef<HTMLDivElement>(null);
   const autoScrollingRef = useRef(false);
+  const followingRef = useRef(true);
+  const followFrameRef = useRef<number | null>(null);
+  const lastScrollTopRef = useRef(0);
   const positioningThreadRef = useRef<string | null>(null);
   const positionedThreadRef = useRef<string | null>(null);
   const [following, setFollowing] = useState(true);
@@ -26,6 +29,7 @@ export function ConversationList() {
     positioningThreadRef.current = threadId;
     positionedThreadRef.current = null;
     autoScrollingRef.current = true;
+    followingRef.current = true;
   }
   const items = useMemo(() => itemsForThread(conversation, threadId), [conversation, threadId]);
   const itemTurnIds = useMemo(() => {
@@ -67,12 +71,13 @@ export function ConversationList() {
     const element = parentRef.current;
     if (!element || !threadId || !hasOlderHistory || history?.loadingOlder) return;
     const previousHeight = element.scrollHeight;
-    const previousTop = element.scrollTop;
+    const requestThread = threadId;
     await loadOlderHistory(threadId);
     window.requestAnimationFrame(() => {
       const current = parentRef.current;
-      if (!current) return;
-      current.scrollTop = previousTop + Math.max(0, current.scrollHeight - previousHeight);
+      if (!current || positioningThreadRef.current !== requestThread) return;
+      // Include movement made while the history request was in flight.
+      current.scrollTop += Math.max(0, current.scrollHeight - previousHeight);
     });
   }, [hasOlderHistory, history?.loadingOlder, loadOlderHistory, threadId]);
 
@@ -80,29 +85,42 @@ export function ConversationList() {
     setFollowing(true);
   }, [threadId]);
 
-  useLayoutEffect(() => {
-    if (following && items.length > 0) {
-      autoScrollingRef.current = true;
-      virtualizer.scrollToEnd();
-      const element = parentRef.current;
-      if (element) element.scrollTop = element.scrollHeight;
-      let settleFrame = 0;
-      const frame = window.requestAnimationFrame(() => {
-        const current = parentRef.current;
-        if (current) current.scrollTop = current.scrollHeight;
-        settleFrame = window.requestAnimationFrame(() => {
-          positionedThreadRef.current = threadId;
-          autoScrollingRef.current = false;
-        });
-      });
-      return () => {
-        window.cancelAnimationFrame(frame);
-        if (settleFrame) window.cancelAnimationFrame(settleFrame);
-        autoScrollingRef.current = false;
-      };
+  const stopFollowing = () => {
+    positionedThreadRef.current = threadId;
+    followingRef.current = false;
+    autoScrollingRef.current = false;
+    if (followFrameRef.current !== null) {
+      window.cancelAnimationFrame(followFrameRef.current);
+      followFrameRef.current = null;
     }
-    return undefined;
-  }, [contentSignature, following, items.length, virtualizer]);
+    setFollowing(false);
+  };
+
+  const totalSize = virtualizer.getTotalSize();
+  useLayoutEffect(() => {
+    if (!followingRef.current || !following || items.length === 0) return;
+    autoScrollingRef.current = true;
+    const positionAtEnd = () => {
+      const element = parentRef.current;
+      if (!element || !followingRef.current) return;
+      element.scrollTop = element.scrollHeight;
+      lastScrollTopRef.current = element.scrollTop;
+    };
+    // A single owner for bottom positioning. Virtualizer scrollToEnd also
+    // reconciles over subsequent frames and can fight an intervening wheel.
+    positionAtEnd();
+    followFrameRef.current = window.requestAnimationFrame(() => {
+      followFrameRef.current = null;
+      positionAtEnd();
+      positionedThreadRef.current = threadId;
+      autoScrollingRef.current = false;
+    });
+    return () => {
+      if (followFrameRef.current !== null) window.cancelAnimationFrame(followFrameRef.current);
+      followFrameRef.current = null;
+      autoScrollingRef.current = false;
+    };
+  }, [contentSignature, following, items.length, threadId, totalSize]);
 
   useEffect(() => {
     const element = parentRef.current;
@@ -117,7 +135,15 @@ export function ConversationList() {
     // their intermediate offsets as user input cancels the bottom anchor and
     // leaves a long conversation visibly stranded halfway through history.
     if (autoScrollingRef.current) return;
-    setFollowing(element.scrollHeight - element.scrollTop - element.clientHeight < 80);
+    const previousTop = lastScrollTopRef.current;
+    lastScrollTopRef.current = element.scrollTop;
+    if (element.scrollTop < previousTop) {
+      stopFollowing();
+    } else if (element.scrollTop > previousTop
+      && element.scrollHeight - element.scrollTop - element.clientHeight <= 2) {
+      followingRef.current = true;
+      setFollowing(true);
+    }
     if (
       positionedThreadRef.current === threadId
       && element.scrollTop < 100
@@ -148,7 +174,11 @@ export function ConversationList() {
   }
 
   return (
-    <div className="conversation-scroll" ref={parentRef} onScroll={onScroll}>
+    <div className="conversation-scroll" ref={parentRef} onScroll={onScroll}
+      onWheel={(event) => {
+        if (event.deltaY < 0 && !event.ctrlKey) stopFollowing();
+      }}
+    >
       {history?.loadingOlder && (
         <div className="history-loading-row"><span className="spinner-dot" /> 正在加载更早记录…</div>
       )}
@@ -207,12 +237,8 @@ export function ConversationList() {
         <button
           className="jump-to-latest"
           onClick={() => {
+            followingRef.current = true;
             setFollowing(true);
-            virtualizer.scrollToIndex(items.length - 1, { align: 'end' });
-            window.requestAnimationFrame(() => {
-              const element = parentRef.current;
-              if (element) element.scrollTop = element.scrollHeight;
-            });
           }}
         >
           <ArrowDown size={14} /> 最新内容
