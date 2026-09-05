@@ -22,6 +22,7 @@ import {
   configWriteSchema,
   fileSearchSchema,
   historySchema,
+  turnFilePreviewSchema,
   hookListSchema,
   hookSetEnabledSchema,
   interruptSchema,
@@ -737,6 +738,9 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       itemsNextCursor: stringValue(items?.nextCursor),
     };
   });
+  handle(IPC.turnFilePreview, turnFilePreviewSchema, ({ turnId, path: filePath }) =>
+    turnChanges.readPreview(turnId, filePath),
+  );
   handle(IPC.threadsCompact, threadIdSchema, ({ threadId }) =>
     appServer.request('thread/compact/start', { threadId }),
   );

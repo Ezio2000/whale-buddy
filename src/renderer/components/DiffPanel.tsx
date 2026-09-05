@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Diff, Hunk, parseDiff } from 'react-diff-view';
-import { Braces, Columns2, File, FileDiff, FileOutput, ListChecks, Rows3, X } from 'lucide-react';
+import { Braces, Columns2, File, FileDiff, FileOutput, Info, ListChecks, Rows3, X } from 'lucide-react';
+import { userVisibleText } from '../../shared/display-text';
+import { ItemCard } from './ItemCard';
 import { useAppStore } from '../state/store';
 import type { TurnView } from '../state/conversation';
 import { PluginUiFrame } from '../plugin-ui/PluginUiFrame';
@@ -11,7 +13,8 @@ import 'react-diff-view/style/index.css';
 type CoreDetailTab = 'changes' | 'plan' | 'execution';
 type DetailTab = CoreDetailTab | `plugin:${string}:${string}`;
 
-export function DiffPanel({ turns }: { turns: TurnView[] }) {
+export function DiffPanel({ turns, width = 360, onResize }: { turns: TurnView[]; width?: number; onResize?: (width: number) => void }) {
+  const drag = useRef<{ x: number; width: number } | null>(null);
   const latestTurnId = turns.at(-1)?.id ?? null;
   const threadId = useAppStore((state) => state.selectedThreadId);
   const { descriptors } = usePluginHost();
@@ -26,12 +29,15 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
   const [tab, setTab] = useState<DetailTab>('execution');
   const [viewType, setViewType] = useState<'unified' | 'split'>('unified');
   const close = useAppStore((state) => state.setRightPanel);
+  const [previewFile, setPreviewFile] = useState<TurnView['fileChanges'][number] | null>(null);
   const [infoFile, setInfoFile] = useState<TurnView['fileChanges'][number] | null>(null);
   const selectedPluginPanel = pluginPanels.find(({ descriptor, contribution }) =>
     tab === pluginPanelKey(descriptor.pluginId, contribution.id)) ?? null;
 
   useEffect(() => {
     setSelectedTurnId(latestTurnId);
+    setPreviewFile(null);
+    setInfoFile(null);
   }, [latestTurnId]);
   useEffect(() => {
     if (tab.startsWith('plugin:') && !selectedPluginPanel) setTab('execution');
@@ -39,10 +45,25 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
 
   return (
     <aside className="details-panel">
+      {onResize && <div className="details-resize-handle" role="separator" tabIndex={0}
+        aria-label="调整详情面板宽度" aria-orientation="vertical" aria-valuemin={300} aria-valuemax={560} aria-valuenow={width}
+        onPointerDown={(event) => {
+          drag.current = { x: event.clientX, width };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => { if (drag.current) onResize(drag.current.width + drag.current.x - event.clientX); }}
+        onPointerUp={(event) => { drag.current = null; event.currentTarget.releasePointerCapture(event.pointerId); }}
+        onLostPointerCapture={() => { drag.current = null; }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault(); onResize(width + (event.key === 'ArrowLeft' ? 20 : -20));
+          }
+        }}
+      />}
       <div className="details-header">
         <div className="details-tabs" role="tablist">
           <button className={tab === 'changes' ? 'active' : ''} onClick={() => setTab('changes')}>
-            <FileDiff size={14} /> Changes
+            <FileDiff size={14} /> 变更
           </button>
           <button className={tab === 'plan' ? 'active' : ''} onClick={() => setTab('plan')}>
             <ListChecks size={14} /> 计划
@@ -69,6 +90,7 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
           onChange={(event) => {
             setSelectedTurnId(event.target.value);
             setInfoFile(null);
+            setPreviewFile(null);
           }}
           disabled={turns.length === 0}
         >
@@ -102,9 +124,10 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
             </div>}
           </div>
           {turn?.fileChanges.length
-            ? <FileChangeSummary files={turn.fileChanges} onOpenInfo={setInfoFile} />
+            ? <FileChangeSummary files={turn.fileChanges} selectedPath={previewFile?.path} onPreview={setPreviewFile} onOpenInfo={setInfoFile} />
             : null}
-          {turn?.diff ? <RenderedDiff diff={turn.diff} viewType={viewType} /> : null}
+          {turn && previewFile ? <FilePreview key={`${turn.id}:${previewFile.path}`} turn={turn} file={previewFile} viewType={viewType} />
+            : turn?.diff ? <RenderedDiff diff={turn.diff} viewType={viewType} /> : null}
           {!turn?.fileChanges.length && !turn?.diff ? <EmptyDetail /> : null}
         </div>
       )}
@@ -130,36 +153,25 @@ export function DiffPanel({ turns }: { turns: TurnView[] }) {
       )}
       {tab === 'execution' && (
         <div className="details-body execution-details">
-          <dl>
-            <div>
-              <dt>回合 ID</dt>
-              <dd>{turn?.id ?? '—'}</dd>
-            </div>
-            <div>
-              <dt>状态</dt>
-              <dd>{turn ? statusLabel(turn.status) : '—'}</dd>
-            </div>
-            <div>
-              <dt>耗时</dt>
-              <dd>{turn?.durationMs == null ? '—' : `${(turn.durationMs / 1_000).toFixed(1)} 秒`}</dd>
-            </div>
-            <div>
-              <dt>活动项</dt>
-              <dd>{turn?.itemOrder.length ?? 0}</dd>
-            </div>
-            <div>
-              <dt>提交人</dt>
-              <dd>{turn?.operation?.identity?.displayName ?? '未关联登录身份'}</dd>
-            </div>
-            <div>
-              <dt>操作 ID</dt>
-              <dd>{turn?.operation?.operationId ?? '—'}</dd>
-            </div>
-            <div>
-              <dt>策略记录</dt>
-              <dd>{turn?.operation?.decisions.length ?? 0}</dd>
-            </div>
-          </dl>
+          <div className="execution-summary">
+            <strong>{turn ? statusLabel(turn.status) : '暂无执行记录'}</strong>
+            {turn?.durationMs != null && turn.durationMs > 0 && <span>{(turn.durationMs / 1_000).toFixed(1)} 秒</span>}
+          </div>
+          <div className="execution-activity-list">
+            {turn?.itemOrder.map((id) => turn.items[id]).filter((item) => item && !['userMessage', 'agentMessage', 'reasoning', 'plan'].includes(item.type)).map((item) => (
+              <ItemCard key={item.id} item={item} approvals={[]} onRespondApproval={() => undefined} />
+            ))}
+          </div>
+          <details className="execution-diagnostics">
+            <summary>诊断信息</summary>
+            <dl>
+              <div><dt>回合 ID</dt><dd>{turn?.id ?? '—'}</dd></div>
+              <div><dt>活动项</dt><dd>{turn?.itemOrder.length ?? 0}</dd></div>
+              <div><dt>提交人</dt><dd>{turn?.operation?.identity?.displayName ?? '未关联登录身份'}</dd></div>
+              <div><dt>操作 ID</dt><dd>{turn?.operation?.operationId ?? '—'}</dd></div>
+              <div><dt>策略记录</dt><dd>{turn?.operation?.decisions.length ?? 0}</dd></div>
+            </dl>
+          </details>
           {turn?.error != null && <pre className="json-output error-output">{JSON.stringify(turn.error, null, 2)}</pre>}
         </div>
       )}
@@ -198,20 +210,27 @@ function panelMatchesTurn(pluginId: string, toolNames: string[], turn: TurnView 
 function FileChangeSummary({
   files,
   onOpenInfo,
+  onPreview,
+  selectedPath,
 }: {
   files: TurnView['fileChanges'];
+  selectedPath?: string;
+  onPreview(file: TurnView['fileChanges'][number]): void;
   onOpenInfo(file: TurnView['fileChanges'][number]): void;
 }) {
   return (
     <section className="turn-file-changes" aria-label="本轮文件变更">
       {files.map((file) => (
-        <button className="turn-file-change" key={`${file.kind}:${file.path}`} onClick={() => onOpenInfo(file)}>
+        <div className={`turn-file-change ${selectedPath === file.path ? 'selected' : ''}`} key={`${file.kind}:${file.path}`}>
+        <button className="file-preview-trigger" onClick={() => onPreview(file)}>
           <File size={14} />
           <code title={file.path}>{file.path}</code>
           {file.binary && <span className="file-kind-badge">二进制</span>}
           <span className={`file-change-kind kind-${file.kind}`}>{fileChangeLabel(file.kind)}</span>
           <small>{file.size === null ? '—' : formatBytes(file.size)}</small>
         </button>
+        <button className="icon-button" aria-label={`${file.path} 文件属性`} onClick={() => onOpenInfo(file)}><Info size={14} /></button>
+        </div>
       ))}
     </section>
   );
@@ -227,7 +246,7 @@ function turnOptionLabel(turn: TurnView, index: number): string {
   const prompt = turn.itemOrder
     .map((itemId) => turn.items[itemId])
     .find((item) => item?.type === 'userMessage');
-  const title = userMessageText(prompt).replace(/<whale_plugin_context>[\s\S]*$/u, '').trim();
+  const title = userVisibleText(userMessageText(prompt));
   const summary = title.length > 28 ? `${title.slice(0, 28)}…` : title;
   return `第 ${index + 1} 轮${summary ? ` · ${summary}` : ''}`;
 }
@@ -255,14 +274,55 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
-function RenderedDiff({ diff, viewType }: { diff: string; viewType: 'unified' | 'split' }) {
+function FilePreview({ turn, file, viewType }: {
+  turn: TurnView;
+  file: TurnView['fileChanges'][number];
+  viewType: 'unified' | 'split';
+}) {
+  const matchingDiff = useMemo(() => {
+    try {
+      return parseDiff(turn.diff).some((entry) => matchesPath(entry, file.path) && entry.hunks.length > 0);
+    } catch { return false; }
+  }, [turn.diff, file.path]);
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (matchingDiff) return;
+    let cancelled = false;
+    setContent(null);
+    setError(null);
+    if (file.binary || file.kind === 'deleted') {
+      setError(file.binary ? '此文件格式不支持文本预览' : '文件已删除，本轮未保存可预览的内容');
+      return;
+    }
+    void window.whale.turns.filePreview({ turnId: turn.id, path: file.path })
+      .then((text) => { if (!cancelled) setContent(text); })
+      .catch((reason: unknown) => { if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason)); });
+    return () => { cancelled = true; };
+  }, [turn.id, file.path, file.binary, file.kind, matchingDiff]);
+  if (matchingDiff) return <RenderedDiff diff={turn.diff} viewType={viewType} filePath={file.path} />;
+  return <section className="file-content-preview" aria-label={`${file.path} 预览`}>
+    <header><strong>{file.path}</strong><p>当前文件内容 · 本轮未记录 diff，内容可能已被后续修改。</p></header>
+    {error ? <p role="status" className="empty-detail">{error}</p>
+      : content === null ? <p role="status">正在读取文件…</p>
+        : content === '' ? <p className="empty-detail">空文件</p>
+          : <pre><code>{content}</code></pre>}
+  </section>;
+}
+
+function matchesPath(file: { oldPath?: string; newPath?: string }, filePath: string): boolean {
+  const normalized = filePath.replace(/\\/g, '/');
+  return [file.oldPath, file.newPath].some((candidate) => candidate?.replace(/\\/g, '/') === normalized);
+}
+
+function RenderedDiff({ diff, viewType, filePath }: { diff: string; viewType: 'unified' | 'split'; filePath?: string }) {
   const files = useMemo(() => {
     try {
-      return parseDiff(diff);
+      return parseDiff(diff).filter((file) => !filePath || matchesPath(file, filePath));
     } catch {
       return [];
     }
-  }, [diff]);
+  }, [diff, filePath]);
   if (!files.length) return <pre className="raw-diff">{diff}</pre>;
   return (
     <div className="react-diff-shell">

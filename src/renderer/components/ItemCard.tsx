@@ -1,3 +1,5 @@
+import { activityTitle, commandText } from '../state/activity';
+import { userVisibleText } from '../../shared/display-text';
 import { useEffect, useRef, useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import {
@@ -220,12 +222,7 @@ function UserMessage({ item }: { item: ItemView }) {
     .map((entry) => (record(entry)?.type === 'text' ? string(record(entry)?.text) : null))
     .filter(Boolean)
     .join('\n');
-  const text = rawText
-    .replace(/\n?<whale_brand_identity>\n[\s\S]*?\n<\/whale_brand_identity>\n?/g, '')
-    .replace(/\n?<whale_file_attachments>\n[\s\S]*?\n<\/whale_file_attachments>\n?/g, '')
-    .replace(/\n?<whale_explicit_tools>\n[\s\S]*?\n<\/whale_explicit_tools>\n?/g, '')
-    .replace(/\n?<whale_plugin_context>\n[\s\S]*?\n<\/whale_plugin_context>\n?/g, '')
-    .trim();
+  const text = userVisibleText(rawText);
   const attachments = content.filter((entry) => record(entry)?.type !== 'text');
   return (
     <article className="message user-message">
@@ -337,13 +334,21 @@ function PlanItem({ item }: { item: ItemView }) {
 
 function CommandItem({ item }: { item: ItemView }) {
   const status = string(item.status) ?? 'inProgress';
+  const command = commandText(item);
+  const output = string(item.aggregatedOutput) ?? string(item.output);
   return (
     <ToolActivityCard
       item={item}
       icon={<TerminalSquare size={15} />}
       iconTone="charcoal"
-      title="命令执行"
+      title={activityTitle(item)}
       status={status}
+      detail={command || output || typeof item.exitCode === 'number' ? <>
+        {command && <section className="tool-detail-section"><small>命令</small><pre className="terminal-output">{command}</pre></section>}
+        {typeof item.cwd === 'string' && <p className="command-cwd">目录：{item.cwd}</p>}
+        {output && <section className="tool-detail-section"><small>输出</small><pre className="terminal-output">{output}</pre></section>}
+        {typeof item.exitCode === 'number' && <p className={item.exitCode === 0 ? 'command-cwd' : 'error-output'}>退出码：{item.exitCode}</p>}
+      </> : undefined}
     />
   );
 }
@@ -605,14 +610,14 @@ function ToolElapsed({ item, status }: { item: ItemView; status: string }) {
   const duration = explicitDuration ?? (
     startedAt === null ? null : Math.max(0, (protocolRunning ? now : completedAt ?? now) - startedAt)
   );
-  const durationLabel = duration === null
-    ? running ? '计时中' : '耗时未记录'
+  const durationLabel = duration === null || !Number.isFinite(duration) || duration <= 0
+    ? running ? '计时中' : null
     : formatDuration(duration);
   return (
     <span className={`status-badge status-${running ? 'inprogress' : status.toLocaleLowerCase()}`}>
       {running && <span className="spinner-dot" />}
       {running ? '等待中' : statusLabel(status)}
-      {` · ${durationLabel}`}
+      {durationLabel && ` · ${durationLabel}`}
     </span>
   );
 }

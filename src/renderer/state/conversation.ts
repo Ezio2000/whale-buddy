@@ -1,3 +1,4 @@
+import { userVisibleText } from '../../shared/display-text';
 import type { HistoryPage, OperationRecord, TurnChangesSnapshot, WhaleEvent } from '../../shared/types';
 
 export interface ItemView {
@@ -84,7 +85,7 @@ export function reduceConversation(
 
   if (method === 'thread/name/updated') {
     const threadId = string(params?.threadId);
-    if (threadId && state.threads[threadId]) state.threads[threadId].name = nullableString(params?.name);
+    if (threadId && state.threads[threadId]) state.threads[threadId].name = userVisibleText(nullableString(params?.name)) || null;
     return state;
   }
 
@@ -405,8 +406,8 @@ function upsertThread(state: ConversationState, raw: Record<string, unknown>): T
   const id = string(raw.id);
   if (!id) throw new Error('thread 缺少 id');
   const thread = ensureThread(state, id);
-  thread.name = nullableString(raw.name);
-  thread.preview = string(raw.preview) ?? thread.preview;
+  thread.name = userVisibleText(nullableString(raw.name)) || null;
+  thread.preview = userVisibleText(string(raw.preview) ?? thread.preview);
   thread.cwd = string(raw.cwd) ?? thread.cwd;
   thread.status = raw.status ?? thread.status;
   if (Array.isArray(raw.turns)) {

@@ -1,3 +1,4 @@
+import { threadDisplayTitle } from '../../shared/display-text';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Archive,
@@ -37,8 +38,11 @@ export function Sidebar() {
   const openSettings = useAppStore((state) => state.setSettingsOpen);
   const openPluginMarketplace = useAppStore((state) => state.setPluginMarketplaceOpen);
   const brandName = useAppStore((state) => state.branding.name);
+  const settingsOpen = useAppStore((state) => state.settingsOpen);
+  const pluginMarketplaceOpen = useAppStore((state) => state.pluginMarketplaceOpen);
   const workspaceView = useAppStore((state) => state.workspaceView);
   const setWorkspaceView = useAppStore((state) => state.setWorkspaceView);
+  const pageActive = !settingsOpen && !pluginMarketplaceOpen;
   const { activeNavigation, descriptors, selectNavigation } = usePluginHost();
   const navigationPages = descriptors.flatMap((descriptor) => descriptor.uiContributions
     .filter((contribution) => contribution.type === 'page' && contribution.placement === 'navigation')
@@ -59,24 +63,24 @@ export function Sidebar() {
 
       <nav className="sidebar-nav">
         <button
-          className={workspaceView === 'artifacts' ? 'active' : ''}
+          className={pageActive && workspaceView === 'artifacts' ? 'active' : ''}
           onClick={() => setWorkspaceView('artifacts')}
         >
           <FileArchive size={15} />
           <span>成果库</span>
         </button>
         <button
-          className={workspaceView === 'schedules' ? 'active' : ''}
+          className={pageActive && workspaceView === 'schedules' ? 'active' : ''}
           onClick={() => setWorkspaceView('schedules')}
         >
           <CalendarClock size={15} />
           <span>定时任务</span>
         </button>
-        <button onClick={() => openPluginMarketplace(true)}>
+        <button className={pluginMarketplaceOpen ? 'active' : ''} onClick={() => openPluginMarketplace(true)}>
           <PackageOpen size={15} />
           <span>插件商城</span>
         </button>
-        <button onClick={() => openSettings(true)}>
+        <button className={settingsOpen ? 'active' : ''} onClick={() => openSettings(true)}>
           <Settings size={15} />
           <span>设置</span>
         </button>
@@ -113,42 +117,42 @@ export function Sidebar() {
 
       <section className="sidebar-section threads-section">
         <div className="sidebar-section-heading">
-          <span>线程</span>
+          <span>对话</span>
         </div>
         <button
           className="new-thread-button"
           disabled={!selectedProject}
-          onClick={() => void newThread()}
+          onClick={() => { setWorkspaceView('conversation'); void newThread(); }}
         >
           <Plus size={16} />
-          <span>新线程</span>
+          <span>新对话</span>
         </button>
         <div className="thread-list">
           {projectThreads.map((thread) => (
             <ThreadRow
               key={thread.id}
               thread={thread}
-              selected={thread.id === selectedThreadId}
+              selected={pageActive && workspaceView === 'conversation' && thread.id === selectedThreadId}
               onSelect={() => {
                 setWorkspaceView('conversation');
                 void selectThread(thread.id);
               }}
               onRename={() => {
-                const name = window.prompt('输入线程名称', thread.name ?? thread.preview);
+                const name = window.prompt('输入对话名称', threadDisplayTitle(thread));
                 if (name?.trim()) void renameThread(name.trim(), thread.id);
               }}
               onFork={() => void forkThread(thread.id)}
               onArchive={() => void archiveThread(thread.id)}
               onDelete={() => {
-                if (window.confirm('确定永久删除这个线程吗？此操作无法撤销。'))
+                if (window.confirm('确定永久删除这个对话吗？此操作无法撤销。'))
                   void deleteThread(thread.id);
               }}
             />
           ))}
           {selectedProject && projectThreads.length === 0 && (
             <div className="empty-thread-list">
-              <span>这个项目还没有线程</span>
-              <button onClick={() => void newThread()}>新建线程</button>
+              <span>这个项目还没有对话</span>
+              <button onClick={() => { setWorkspaceView('conversation'); void newThread(); }}>新建对话</button>
             </div>
           )}
         </div>
@@ -159,7 +163,7 @@ export function Sidebar() {
           <div className="sidebar-section-heading"><span>插件页面</span></div>
           <div className="plugin-navigation-list">
             {navigationPages.map(({ descriptor, contribution }) => {
-              const active = workspaceView === 'plugin'
+              const active = pageActive && workspaceView === 'plugin'
                 && activeNavigation?.pluginId === descriptor.pluginId
                 && activeNavigation.contributionId === contribution.id;
               return (
@@ -249,13 +253,13 @@ function ThreadRow({
       <button className="thread-main" onClick={onSelect}>
         <span className={`thread-status-dot ${active ? 'active' : ''}`} />
         <span className="thread-copy">
-          <strong>{thread.name || thread.preview || '未命名线程'}</strong>
+          <strong>{threadDisplayTitle(thread)}</strong>
           <small>{relativeTime(thread.updatedAt)}</small>
         </span>
       </button>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button className="row-more" aria-label="线程操作">
+          <button className="row-more" aria-label="对话操作">
             <MoreHorizontal size={14} />
           </button>
         </DropdownMenu.Trigger>

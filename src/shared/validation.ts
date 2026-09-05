@@ -7,6 +7,10 @@ import {
 import type { JsonValue } from './types';
 
 export const idSchema = z.string().min(1).max(256);
+export const turnFilePreviewSchema = z.object({
+  turnId: idSchema,
+  path: z.string().min(1).max(16_384),
+}).strict();
 export const requestIdSchema = z.union([z.string().min(1), z.number().int().nonnegative()]);
 
 export const authSettingsSchema = z.object({

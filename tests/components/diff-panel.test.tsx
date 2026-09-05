@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { WhaleApi } from '../../src/shared/types';
 import { DiffPanel } from '../../src/renderer/components/DiffPanel';
 import type { TurnView } from '../../src/renderer/state/conversation';
 
@@ -51,12 +52,51 @@ const turn: TurnView = {
 };
 
 describe('DiffPanel', () => {
+  it('opens the selected file diff, keeping file properties as a secondary action', () => {
+    const filePreview = vi.fn();
+    window.whale = { turns: { filePreview } } as unknown as WhaleApi;
+    render(<DiffPanel turns={[turn]} />);
+    fireEvent.click(screen.getByRole('button', { name: '变更' }));
+    fireEvent.click(screen.getByRole('button', { name: /src\/a.ts 修改/ }));
+    expect(screen.getByText('export const value = 2;')).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(filePreview).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'src/a.ts 文件属性' }));
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(screen.getByText('文件大小')).toBeVisible();
+  });
+
+  it('labels fallback content as current and reports read failures', async () => {
+    const filePreview = vi.fn().mockResolvedValueOnce('print("current")').mockRejectedValueOnce(new Error('文件已不存在'));
+    window.whale = { turns: { filePreview } } as unknown as WhaleApi;
+    const second = { ...turn.fileChanges[0], path: 'missing.py' };
+    render(<DiffPanel turns={[{ ...turn, diff: '', fileChanges: [...turn.fileChanges, second] }]} />);
+    fireEvent.click(screen.getByRole('button', { name: '变更' }));
+    fireEvent.click(screen.getByRole('button', { name: /src\/a.ts 修改/ }));
+    expect(await screen.findByText('print("current")')).toBeVisible();
+    expect(screen.getByText(/当前文件内容/)).toBeVisible();
+    expect(filePreview).toHaveBeenCalledWith({ turnId: 'turn-1', path: 'src/a.ts' });
+    fireEvent.click(screen.getByRole('button', { name: /missing.py 修改/ }));
+    expect(await screen.findByText('文件已不存在')).toBeVisible();
+    expect(screen.queryByText('print("current")')).not.toBeInTheDocument();
+  });
+
+  it('removes internal context from the turn picker', () => {
+    render(<DiffPanel turns={[{ ...turn, itemOrder: ['user'], items: { user: {
+      id: 'user', type: 'userMessage', content: [{ type: 'text', text: '写代码 <whale_brand_identity> 内部提示词' }],
+    } } }]} />);
+    expect(screen.getByRole('option')).toHaveTextContent('第 1 轮 · 写代码');
+    expect(screen.queryByText(/whale_brand/)).not.toBeInTheDocument();
+  });
+
   it('renders unified/split controls and plan status', () => {
     render(<DiffPanel turns={[turn]} />);
     expect(screen.getByRole('combobox', { name: '对话轮次' })).toHaveValue('turn-1');
+    expect(screen.getByText('Alice')).not.toBeVisible();
+    fireEvent.click(screen.getByText('诊断信息'));
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('operation-1')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Changes/ }));
+    fireEvent.click(screen.getByRole('button', { name: /变更/ }));
     expect(screen.getAllByText('src/a.ts')).toHaveLength(2);
     expect(screen.getByText('修改')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '分栏视图' }));

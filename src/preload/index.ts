@@ -14,6 +14,7 @@ import {
   clipboardAttachmentSchema,
   fileSearchSchema,
   historySchema,
+  turnFilePreviewSchema,
   hookListSchema,
   hookSetEnabledSchema,
   idSchema,
@@ -94,6 +95,7 @@ const api: WhaleApi = {
     compact: (threadId) => invoke(IPC.threadsCompact, threadIdSchema.parse({ threadId })),
   },
   turns: {
+    filePreview: (input) => invoke(IPC.turnFilePreview, turnFilePreviewSchema.parse(input)),
     start: (input) => invoke(IPC.turnsStart, startTurnSchema.parse(input)),
     steer: (input) => invoke(IPC.turnsSteer, steerTurnSchema.parse(input)),
     interrupt: (threadId, turnId) =>

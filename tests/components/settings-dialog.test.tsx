@@ -14,6 +14,20 @@ afterEach(() => {
 });
 
 describe('SettingsDialog model capabilities', () => {
+  it('uses a workspace page and preserves drafts across settings categories', () => {
+    useAppStore.setState({ settingsOpen: true });
+    render(<SettingsDialog embedded />);
+    expect(screen.getByRole('heading', { name: '设置', level: 1 })).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Casdoor Issuer')).not.toBeVisible();
+    fireEvent.change(screen.getByLabelText('模型服务地址'), { target: { value: 'https://draft.example/v1' } });
+    fireEvent.click(screen.getByRole('button', { name: '账号' }));
+    expect(screen.getByLabelText('Casdoor Issuer')).toBeVisible();
+    expect(screen.getByLabelText('模型服务地址')).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '模型与回答' }));
+    expect(screen.getByLabelText('模型服务地址')).toHaveValue('https://draft.example/v1');
+  });
+
   it('shows, edits, and saves capabilities for the configured model', async () => {
     const applyRuntimeSettings = vi.fn(async (
       input: RuntimeConnectionSettingsInput,

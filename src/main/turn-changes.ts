@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { open, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { TurnChangesSnapshot, TurnFileChange } from '../shared/types';
 
@@ -91,6 +91,44 @@ export class TurnChangesStore {
       if (snapshot) snapshots.push(structuredClone(snapshot));
     }
     return snapshots;
+  }
+
+  async readPreview(turnId: string, filePath: string): Promise<string> {
+    const snapshot = this.state.turns[turnId];
+    const file = snapshot?.files.find((candidate) => candidate.path === filePath);
+    if (!snapshot?.cwd || !file) throw new Error('找不到本轮文件记录');
+    if (file.kind === 'deleted') throw new Error('文件已删除，本轮未保存可预览的内容');
+    if (file.binary) throw new Error('此文件格式不支持文本预览');
+    const root = await realpath(snapshot.cwd);
+    const resolved = await realpath(path.resolve(root, file.path));
+    const relative = path.relative(root, resolved);
+    if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error('只能预览当前项目内的文件');
+    }
+    const handle = await open(resolved, 'r');
+    try {
+      const metadata = await handle.stat();
+      const limit = 128 * 1_024;
+      if (!metadata.isFile()) throw new Error('此路径不是普通文件');
+      if (metadata.size > limit) throw new Error('文件超过 128 KB，无法在面板中预览');
+      const buffer = Buffer.alloc(limit + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length);
+        if (!bytesRead) break;
+        length += bytesRead;
+      }
+      if (length > limit) throw new Error('文件超过 128 KB，无法在面板中预览');
+      const content = buffer.subarray(0, length);
+      if (content.includes(0)) throw new Error('此文件格式不支持文本预览');
+      try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(content);
+      } catch {
+        throw new Error('文件不是 UTF-8 文本，无法预览');
+      }
+    } finally {
+      await handle.close();
+    }
   }
 
   private save(snapshot: TurnChangesSnapshot): void {

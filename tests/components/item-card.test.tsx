@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { ItemCard } from '../../src/renderer/components/ItemCard';
 
 describe('ItemCard', () => {
+  it('does not present missing or zero execution timing as a measured duration', () => {
+    const { rerender } = render(<ItemCard item={{ id: 'zero', type: 'commandExecution', status: 'completed', durationMs: 0 }} approvals={[]} onRespondApproval={() => undefined} />);
+    expect(screen.getByText('完成')).toBeVisible();
+    expect(screen.queryByText(/0 ms/)).not.toBeInTheDocument();
+    rerender(<ItemCard item={{ id: 'missing', type: 'commandExecution', status: 'completed' }} approvals={[]} onRespondApproval={() => undefined} />);
+    expect(screen.getByText('完成')).toBeVisible();
+    expect(screen.queryByText(/耗时未记录/)).not.toBeInTheDocument();
+  });
   it('renders plugin Hook progress and expandable output', () => {
     render(
       <ItemCard
@@ -34,7 +42,7 @@ describe('ItemCard', () => {
       />,
     );
 
-    expect(screen.getByText('命令执行')).toBeInTheDocument();
+    expect(screen.getByText('运行 pwd')).toBeInTheDocument();
     expect(screen.getByText(/等待中/)).toBeInTheDocument();
   });
 
@@ -64,10 +72,14 @@ describe('ItemCard', () => {
         onRespondApproval={() => undefined}
       />,
     );
-    expect(screen.getByText('命令执行')).toBeInTheDocument();
+    expect(screen.getByText('运行 pnpm test')).toBeInTheDocument();
     expect(screen.getByText('完成 · 1.2 s')).toBeInTheDocument();
     expect(screen.queryByText('pnpm test')).not.toBeInTheDocument();
     expect(screen.queryByText('42 tests passed')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /运行 pnpm test/ }));
+    expect(screen.getByText('pnpm test')).toBeVisible();
+    expect(screen.getByText('42 tests passed')).toBeVisible();
+    expect(screen.getByText('退出码：0')).toBeVisible();
   });
 
   it('keeps fenced code blocks structurally valid and loads Shiki highlighting', async () => {

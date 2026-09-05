@@ -1,4 +1,4 @@
-import { Download, ExternalLink, FileArchive, LoaderCircle, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, FileArchive, LoaderCircle, RefreshCw, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ArtifactRecord } from '../../shared/types';
 import { useAppStore } from '../state/store';
@@ -6,6 +6,10 @@ import { useAppStore } from '../state/store';
 export function ArtifactsPage() {
   const [artifacts, setArtifacts] = useState<ArtifactRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const newThread = useAppStore((state) => state.newThread);
+  const openProject = useAppStore((state) => state.openProject);
+  const projectId = useAppStore((state) => state.selectedProjectId);
+  const setWorkspaceView = useAppStore((state) => state.setWorkspaceView);
   const setNotice = useAppStore((state) => state.setNotice);
   const load = async () => {
     setLoading(true);
@@ -22,13 +26,17 @@ export function ArtifactsPage() {
 
   return <div className="artifacts-page">
     <header className="artifacts-header">
-      <div><h1><FileArchive size={22} /> 成果库</h1><p>员工确认生成的 HTML、Word 和 Excel 成果永久保存在本机。</p></div>
+      <div><h1><FileArchive size={22} /> 成果库</h1><p>在对话中生成并确认的文档、表格、演示文稿和网页保存在这里。</p></div>
       <button className="button secondary" disabled={loading} onClick={() => void load()}>
         {loading ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />} 刷新
       </button>
     </header>
     {loading && artifacts.length === 0 ? <div className="artifacts-empty"><LoaderCircle className="spin" /> 正在读取成果…</div>
-      : artifacts.length === 0 ? <div className="artifacts-empty"><FileArchive size={30} /><strong>还没有成果</strong><span>从办公任务生成并确认后，文件会出现在这里。</span></div>
+      : artifacts.length === 0 ? <div className="artifacts-empty"><FileArchive size={30} /><strong>还没有成果</strong><span>开始一个任务，生成并保存你的第一份成果。</span><button className="button primary" onClick={async () => {
+        if (!projectId) { await openProject(); if (!useAppStore.getState().selectedProjectId) return; }
+        setWorkspaceView('conversation');
+        await newThread();
+      }}><Plus size={14} /> 开始任务</button></div>
         : <div className="artifact-grid">{artifacts.map((artifact) => <article className="artifact-card" key={artifact.id}>
           <div className={`artifact-format ${artifact.format}`}>{artifact.format.toUpperCase()}</div>
           <div className="artifact-copy"><strong>{artifact.name}</strong><span>{formatBytes(artifact.size)} · {new Date(artifact.createdAt).toLocaleString()}</span><code title={artifact.sha256}>{artifact.sha256.slice(0, 16)}…</code></div>

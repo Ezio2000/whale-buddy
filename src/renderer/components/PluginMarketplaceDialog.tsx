@@ -1,3 +1,4 @@
+import { SettingsSurface } from './SettingsSurface';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   AlertCircle,
@@ -103,7 +104,9 @@ type HookTrustRequest =
   | { kind: 'plugin'; located: LocatedPlugin; hooks: PluginHookPreviewItem[]; digest: string }
   | { kind: 'hook'; hook: PluginHookMetadata; preview: PluginHookPreviewItem | null };
 
-export function PluginMarketplaceDialog() {
+export function PluginMarketplaceDialog({ embedded = false }: { embedded?: boolean }) {
+  const Title = embedded ? 'h1' : Dialog.Title;
+  const Description = embedded ? 'p' : Dialog.Description;
   const open = useAppStore((state) => state.pluginMarketplaceOpen);
   const setOpen = useAppStore((state) => state.setPluginMarketplaceOpen);
   const brandName = useAppStore((state) => state.branding.name);
@@ -728,21 +731,18 @@ export function PluginMarketplaceDialog() {
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content className="dialog-content marketplace-dialog">
+    <SettingsSurface embedded={embedded} open={open} onOpenChange={setOpen} className="marketplace-dialog">
           <div className="marketplace-heading">
             <div className="marketplace-title">
               <span className="marketplace-title-icon"><PackageOpen size={19} /></span>
               <div>
-                <Dialog.Title>插件商城</Dialog.Title>
-                <Dialog.Description>内置办公插件商城来源；插件仍由员工确认下载和启用，其他来源也可手动添加。</Dialog.Description>
+                <Title>插件商城</Title>
+                <Description>为你的工作添加工具与能力。选择插件查看用途，再下载和配置。</Description>
               </div>
             </div>
-            <Dialog.Close className="icon-button dialog-close-target" aria-label="关闭插件商城">
+            <button onClick={() => setOpen(false)} className="icon-button dialog-close-target" aria-label="关闭插件商城">
               <X size={16} />
-            </Dialog.Close>
+            </button>
           </div>
 
           <div className="marketplace-toolbar">
@@ -877,9 +877,7 @@ export function PluginMarketplaceDialog() {
             onCancel={() => setHookTrust(null)}
             onApprove={() => void approveHookTrust()}
           />
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    </SettingsSurface>
   );
 }
 
@@ -1071,7 +1069,7 @@ function PluginDetailView({
       <div className="plugin-detail-badges">
         {plugin.installed && <span className="positive"><Check size={11} /> 已安装</span>}
         {pluginEnabled && <span><ShieldCheck size={11} /> 已启用</span>}
-        {missingRequiredCredential && <span className="warning"><KeyRound size={11} /> 缺少凭据</span>}
+        {plugin.installed && missingRequiredCredential && <span className="warning"><KeyRound size={11} /> 缺少凭据</span>}
         {plugin.version && <span>v{plugin.version}</span>}
       </div>
       <div className="plugin-detail-actions">
@@ -1095,7 +1093,7 @@ function PluginDetailView({
       {loading && <div className="detail-loading"><LoaderCircle className="spin" size={15} /> 正在读取清单…</div>}
       {detail && (
         <>
-          {credentials.length > 0 && (
+          {plugin.installed && credentials.length > 0 && (
             <DetailSection icon={<KeyRound size={13} />} title={`凭据 · ${credentials.length}`}>
               <div className="plugin-credential-list">
                 {credentials.map((credential) => (
@@ -1111,6 +1109,9 @@ function PluginDetailView({
               </div>
             </DetailSection>
           )}
+          {!plugin.installed && <p className="plugin-enable-hint">下载后可配置账号并启用插件。</p>}
+          <details className="plugin-advanced-details">
+          <summary>包含的能力与高级管理</summary>
           <DetailSection icon={<Sparkles size={13} />} title={`Skills · ${detail.skills.length}`}>
             {detail.skills.length ? detail.skills.map((skill) => {
               const effective = effectiveSkills.find((candidate) =>
@@ -1185,7 +1186,7 @@ function PluginDetailView({
             }) : <p className="manifest-empty">此插件不包含 MCP 服务</p>}
           </DetailSection>
           {uiContributions.length > 0 && (
-            <DetailSection icon={<PanelsTopLeft size={13} />} title={`UI 贡献 · ${uiContributions.length}`}>
+            <DetailSection icon={<PanelsTopLeft size={13} />} title={`界面扩展 · ${uiContributions.length}`}>
               {uiContributions.map((contribution) => (
                 <div className="plugin-ui-contribution" key={contribution.id}>
                   <strong>{pluginUiContributionLabel(contribution)}</strong>
@@ -1208,6 +1209,7 @@ function PluginDetailView({
               ))}
             </DetailSection>
           )}
+          </details>
           {(detail.hooks.length > 0 || hookPreview.errors.length > 0) && (
             <DetailSection icon={<ShieldAlert size={13} />} title={`Stop Hooks · ${detail.hooks.length}`}>
               {hookPreview.errors.length > 0 && (

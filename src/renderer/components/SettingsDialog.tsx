@@ -1,3 +1,4 @@
+import { SettingsSurface } from './SettingsSurface';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useState } from 'react';
 import {
@@ -20,7 +21,11 @@ import type {
 import { useAppStore, type Preferences } from '../state/store';
 import { BrandMark } from './BrandMark';
 
-export function SettingsDialog() {
+export function SettingsDialog({ embedded = false }: { embedded?: boolean }) {
+  const Title = embedded ? 'h1' : Dialog.Title;
+  const Description = embedded ? 'p' : Dialog.Description;
+  const [category, setCategory] = useState('model');
+  const categories = [['model', '模型与回答'], ['permissions', '执行权限'], ['appearance', '外观'], ['account', '账号'], ['advanced', '高级']] as const;
   const open = useAppStore((state) => state.settingsOpen);
   const setOpen = useAppStore((state) => state.setSettingsOpen);
   const preferences = useAppStore((state) => state.preferences);
@@ -93,7 +98,7 @@ export function SettingsDialog() {
       const saved = await applyRuntimeSettings(connectionDraft);
       setConnectionDraft(draftFromSettings(saved));
       setShowApiKey(false);
-      setConnectionMessage('设置已生效，sidecar 已重启。');
+      setConnectionMessage('设置已生效，模型服务已重新连接。');
     } catch (error) {
       setConnectionMessage(errorMessage(error));
     } finally {
@@ -102,106 +107,21 @@ export function SettingsDialog() {
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content className="dialog-content settings-dialog">
+    <SettingsSurface embedded={embedded} open={open} onOpenChange={setOpen} className="settings-dialog">
           <div className="dialog-heading">
             <div>
-              <Dialog.Title>设置</Dialog.Title>
-              <Dialog.Description>配置 {branding.name} 的模型服务、使用偏好与安全选项。</Dialog.Description>
+              <Title>设置</Title>
+              <Description>配置 {branding.name} 的模型服务、使用偏好与安全选项。</Description>
             </div>
-            <Dialog.Close className="icon-button dialog-close-target" aria-label="关闭">
+            <button onClick={() => setOpen(false)} className="icon-button dialog-close-target" aria-label="关闭设置">
               <X size={16} />
-            </Dialog.Close>
+            </button>
           </div>
+          <nav className="settings-categories" aria-label="设置分类">
+            {categories.map(([id, label]) => <button key={id} aria-current={category === id ? 'page' : undefined} className={category === id ? 'active' : ''} onClick={() => setCategory(id)}>{label}</button>)}
+          </nav>
           <div className="settings-groups">
-            <section>
-              <h3>Whale 身份</h3>
-              <SettingRow label="Casdoor 地址" hint="修改后会退出当前 Whale 账号，下次登录使用新的 OIDC 服务。">
-                <TextField ariaLabel="Casdoor Issuer" value={authIssuer} placeholder="https://identity.example.com" onChange={setAuthIssuer} />
-              </SettingRow>
-              <div className="settings-actions">
-                <button className="button secondary" disabled={savingAuth || !authIssuer.trim()} onClick={() => {
-                  setSavingAuth(true); setAuthMessage(null);
-                  void window.whale.auth.configure({ issuer: authIssuer.trim() })
-                    .then((settings) => { setAuthIssuer(settings.issuer); setAuthMessage('Casdoor 地址已保存，请重新登录。'); })
-                    .catch((error) => setAuthMessage(errorMessage(error)))
-                    .finally(() => setSavingAuth(false));
-                }}>
-                  {savingAuth ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />} 保存身份服务
-                </button>
-                {authMessage && <span>{authMessage}</span>}
-              </div>
-            </section>
-            <section>
-              <h3>本地审计</h3>
-              <SettingRow label="操作记录" hint="身份、策略决策和关键事件只保存在本机，除非员工手动清除，否则永久保留。">
-                <span>{auditCount === null ? '正在统计…' : `${auditCount} 条任务记录`}</span>
-              </SettingRow>
-              <div className="settings-actions">
-                <button className="button secondary" onClick={() => {
-                  if (!window.confirm('确认永久清除全部本地审计记录？此操作无法撤销。')) return;
-                  void window.whale.audit.clear()
-                    .then(() => { setAuditCount(0); setAuditMessage('本地审计记录已清除。'); })
-                    .catch((error) => setAuditMessage(errorMessage(error)));
-                }}>清除审计记录</button>
-                {auditMessage && <span>{auditMessage}</span>}
-              </div>
-            </section>
-            <section>
-              <h3>网络</h3>
-              <SettingRow label="代理方式" hint={`仅作用于 ${branding.name} 自己启动的 sidecar。`}>
-                <SelectField
-                  value={connectionDraft.proxy.mode}
-                  onChange={(mode) =>
-                    setConnectionDraft((draft) => ({
-                      ...draft,
-                      proxy: {
-                        ...draft.proxy,
-                        mode: mode as RuntimeConnectionSettingsInput['proxy']['mode'],
-                      },
-                    }))
-                  }
-                  options={[
-                    { value: 'inherit', label: '继承启动环境' },
-                    { value: 'custom', label: '自定义代理' },
-                    { value: 'off', label: '不使用代理' },
-                  ]}
-                />
-              </SettingRow>
-              {connectionDraft.proxy.mode === 'custom' && (
-                <>
-                  <SettingRow label="代理地址" hint="支持 HTTP、HTTPS、SOCKS5；请勿在 URL 内嵌账号密码。">
-                    <TextField
-                      ariaLabel="Whale 代理地址"
-                      value={connectionDraft.proxy.url}
-                      placeholder="http://127.0.0.1:7890"
-                      onChange={(url) =>
-                        setConnectionDraft((draft) => ({
-                          ...draft,
-                          proxy: { ...draft.proxy, url },
-                        }))
-                      }
-                    />
-                  </SettingRow>
-                  <SettingRow label="不走代理" hint="使用逗号分隔域名或 IP。">
-                    <TextField
-                      ariaLabel="代理绕过列表"
-                      value={connectionDraft.proxy.noProxy}
-                      placeholder="localhost,127.0.0.1,::1"
-                      onChange={(noProxy) =>
-                        setConnectionDraft((draft) => ({
-                          ...draft,
-                          proxy: { ...draft.proxy, noProxy },
-                        }))
-                      }
-                    />
-                  </SettingRow>
-                </>
-              )}
-            </section>
-            <section>
+            <section hidden={category !== 'model'}>
               <h3>模型服务</h3>
               <p className="settings-section-intro">只需填写服务地址、模型名称和 API Key。</p>
               <div className="provider-fields">
@@ -303,19 +223,9 @@ export function SettingsDialog() {
                     </div>
                   </details>
               </div>
-              <div className="connection-save-row">
-                <div className="connection-message" role="status">{connectionMessage}</div>
-                <button
-                  className="button primary"
-                  disabled={saving}
-                  onClick={() => void saveConnection()}
-                >
-                  {saving ? <LoaderCircle className="spin" size={13} /> : <Save size={13} />}
-                  保存并重连
-                </button>
-              </div>
+
             </section>
-            <section>
+            <section hidden={category !== 'model'}>
               <h3>回答方式</h3>
               <p className="settings-section-intro">日常使用只需要选择回答时的思考强度。</p>
               {capabilities.supportsReasoning && (
@@ -428,7 +338,7 @@ export function SettingsDialog() {
                 </div>
               </details>
             </section>
-            <section>
+            <section hidden={category !== 'permissions'}>
               <h3>执行权限</h3>
               <SettingRow label="执行模式" hint="选择常用组合；下方仍可分别调整审批与文件权限。">
                 <SelectField
@@ -476,7 +386,7 @@ export function SettingsDialog() {
                 </div>
               )}
             </section>
-            <section>
+            <section hidden={category !== 'appearance'}>
               <h3>外观</h3>
               <SettingRow label="应用名称" hint="修改侧栏、欢迎页、窗口标题和应用内文案中的显示名称。">
                 <TextField
@@ -553,10 +463,106 @@ export function SettingsDialog() {
                 />
               </SettingRow>
             </section>
+            <section hidden={category !== 'account'}>
+              <h3>账号服务</h3>
+              <SettingRow label="Casdoor 地址" hint="修改后会退出当前 Whale 账号，下次登录使用新的 OIDC 服务。">
+                <TextField ariaLabel="Casdoor Issuer" value={authIssuer} placeholder="https://identity.example.com" onChange={setAuthIssuer} />
+              </SettingRow>
+              <div className="settings-actions">
+                <button className="button secondary" disabled={savingAuth || !authIssuer.trim()} onClick={() => {
+                  setSavingAuth(true); setAuthMessage(null);
+                  void window.whale.auth.configure({ issuer: authIssuer.trim() })
+                    .then((settings) => { setAuthIssuer(settings.issuer); setAuthMessage('Casdoor 地址已保存，请重新登录。'); })
+                    .catch((error) => setAuthMessage(errorMessage(error)))
+                    .finally(() => setSavingAuth(false));
+                }}>
+                  {savingAuth ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />} 保存身份服务
+                </button>
+                {authMessage && <span>{authMessage}</span>}
+              </div>
+            </section>
+            <section hidden={category !== 'advanced'}>
+              <h3>网络</h3>
+              <SettingRow label="代理方式" hint={`设置 ${branding.name} 连接模型和工具时使用的代理。`}>
+                <SelectField
+                  value={connectionDraft.proxy.mode}
+                  onChange={(mode) =>
+                    setConnectionDraft((draft) => ({
+                      ...draft,
+                      proxy: {
+                        ...draft.proxy,
+                        mode: mode as RuntimeConnectionSettingsInput['proxy']['mode'],
+                      },
+                    }))
+                  }
+                  options={[
+                    { value: 'inherit', label: '继承启动环境' },
+                    { value: 'custom', label: '自定义代理' },
+                    { value: 'off', label: '不使用代理' },
+                  ]}
+                />
+              </SettingRow>
+              {connectionDraft.proxy.mode === 'custom' && (
+                <>
+                  <SettingRow label="代理地址" hint="支持 HTTP、HTTPS、SOCKS5；请勿在 URL 内嵌账号密码。">
+                    <TextField
+                      ariaLabel="Whale 代理地址"
+                      value={connectionDraft.proxy.url}
+                      placeholder="http://127.0.0.1:7890"
+                      onChange={(url) =>
+                        setConnectionDraft((draft) => ({
+                          ...draft,
+                          proxy: { ...draft.proxy, url },
+                        }))
+                      }
+                    />
+                  </SettingRow>
+                  <SettingRow label="不走代理" hint="使用逗号分隔域名或 IP。">
+                    <TextField
+                      ariaLabel="代理绕过列表"
+                      value={connectionDraft.proxy.noProxy}
+                      placeholder="localhost,127.0.0.1,::1"
+                      onChange={(noProxy) =>
+                        setConnectionDraft((draft) => ({
+                          ...draft,
+                          proxy: { ...draft.proxy, noProxy },
+                        }))
+                      }
+                    />
+                  </SettingRow>
+                </>
+              )}
+            </section>
+            <section hidden={category !== 'advanced'}>
+              <h3>本地审计</h3>
+              <SettingRow label="操作记录" hint="身份、策略决策和关键事件只保存在本机，除非员工手动清除，否则永久保留。">
+                <span>{auditCount === null ? '正在统计…' : `${auditCount} 条任务记录`}</span>
+              </SettingRow>
+              <div className="settings-actions">
+                <button className="button secondary" onClick={() => {
+                  if (!window.confirm('确认永久清除全部本地审计记录？此操作无法撤销。')) return;
+                  void window.whale.audit.clear()
+                    .then(() => { setAuditCount(0); setAuditMessage('本地审计记录已清除。'); })
+                    .catch((error) => setAuditMessage(errorMessage(error)));
+                }}>清除审计记录</button>
+                {auditMessage && <span>{auditMessage}</span>}
+              </div>
+            </section>
+            {(category === 'model' || category === 'advanced') && (
+              <div className="connection-save-row">
+                <div className="connection-message" role="status">{connectionMessage}</div>
+                <button
+                  className="button primary"
+                  disabled={saving}
+                  onClick={() => void saveConnection()}
+                >
+                  {saving ? <LoaderCircle className="spin" size={13} /> : <Save size={13} />}
+                  保存并重连
+                </button>
+              </div>
+            )}
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    </SettingsSurface>
   );
 }
 

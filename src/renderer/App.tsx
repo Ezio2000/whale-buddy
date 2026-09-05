@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { AlertCircle, RotateCcw, Settings2, X } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
-import { PluginMarketplaceDialog } from './components/PluginMarketplaceDialog';
 import { SettingsDialog } from './components/SettingsDialog';
 import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
@@ -79,8 +78,7 @@ export function App() {
           </button>
         </div>
       )}
-      <SettingsDialog />
-      <PluginMarketplaceDialog />
+      {!providerConfigured && <SettingsDialog />}
       <CommandPalette />
       <PluginActionDialog />
     </>

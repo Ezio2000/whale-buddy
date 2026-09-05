@@ -1,3 +1,7 @@
+import { SettingsDialog } from './SettingsDialog';
+import { PluginMarketplaceDialog } from './PluginMarketplaceDialog';
+import { useState, type CSSProperties } from 'react';
+import { threadDisplayTitle } from '../../shared/display-text';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Archive,
@@ -20,6 +24,9 @@ import { ScheduledTasksPage } from './ScheduledTasksPage';
 import { ArtifactsPage } from './ArtifactsPage';
 
 export function Workspace() {
+  const [panelWidth, setPanelWidth] = useState(360);
+  const settingsOpen = useAppStore((state) => state.settingsOpen);
+  const pluginMarketplaceOpen = useAppStore((state) => state.pluginMarketplaceOpen);
   const selectedThreadId = useAppStore((state) => state.selectedThreadId);
   const selectedThread = useAppStore((state) =>
     state.threads.find((thread) => thread.id === state.selectedThreadId),
@@ -48,9 +55,10 @@ export function Workspace() {
     const turn = threadView.turns[turnId];
     return turn ? [turn] : [];
   }) ?? [];
-  const showDetails = rightPanelOpen && Boolean(selectedThreadId);
+  const pageOpen = settingsOpen || pluginMarketplaceOpen;
+  const showDetails = !pageOpen && rightPanelOpen && Boolean(selectedThreadId);
 
-  if (workspaceView === 'schedules') {
+  if (!pageOpen && workspaceView === 'schedules') {
     return (
       <div className="app-shell scheduled-tasks-shell">
         <Sidebar />
@@ -59,7 +67,7 @@ export function Workspace() {
     );
   }
 
-  if (workspaceView === 'artifacts') {
+  if (!pageOpen && workspaceView === 'artifacts') {
     return (
       <div className="app-shell artifacts-shell">
         <Sidebar />
@@ -68,7 +76,7 @@ export function Workspace() {
     );
   }
 
-  if (workspaceView === 'plugin') {
+  if (!pageOpen && workspaceView === 'plugin') {
     return (
       <div className="app-shell plugin-navigation-shell">
         <Sidebar />
@@ -78,13 +86,13 @@ export function Workspace() {
   }
 
   return (
-    <div className={`app-shell ${showDetails ? 'with-details' : ''}`}>
+    <div className={`app-shell ${showDetails ? 'with-details' : ''}`} style={{ '--details-width': `${panelWidth}px` } as CSSProperties}>
       <Sidebar />
-      <main className="workspace-main">
+      <main className="workspace-main" hidden={pageOpen}>
         <header className="workspace-header">
           <div className="window-drag-spacer" />
           <div className="thread-heading">
-            <strong>{selectedThread?.name || selectedThread?.preview || selectedProject?.name || brandName}</strong>
+            <strong>{selectedThread ? threadDisplayTitle(selectedThread) : selectedProject?.name || brandName}</strong>
             <span>{selectedThread?.cwd ?? selectedProject?.path ?? '打开项目开始工作'}</span>
           </div>
           <div className="header-actions">
@@ -120,7 +128,7 @@ export function Workspace() {
             {selectedThread && (
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
-                  <button className="icon-button" aria-label="线程操作">
+                  <button className="icon-button" aria-label="对话操作">
                     <MoreHorizontal size={17} />
                   </button>
                 </DropdownMenu.Trigger>
@@ -130,8 +138,8 @@ export function Workspace() {
                       className="menu-item"
                       onSelect={() => {
                         const value = window.prompt(
-                          '输入线程名称',
-                          selectedThread.name ?? selectedThread.preview,
+                          '输入对话名称',
+                          threadDisplayTitle(selectedThread),
                         );
                         if (value?.trim()) void renameThread(value.trim());
                       }}
@@ -148,7 +156,7 @@ export function Workspace() {
                     <DropdownMenu.Item
                       className="menu-item danger"
                       onSelect={() => {
-                        if (window.confirm('确定永久删除这个线程吗？')) void deleteThread();
+                        if (window.confirm('确定永久删除这个对话吗？')) void deleteThread();
                       }}
                     >
                       <Trash2 size={13} /> 删除
@@ -164,7 +172,10 @@ export function Workspace() {
           <Composer />
         </div>
       </main>
-      {showDetails && <DiffPanel key={selectedThreadId} turns={panelTurns} />}
+      {pageOpen && <main className="workspace-page-main">
+        {settingsOpen ? <SettingsDialog embedded /> : <PluginMarketplaceDialog embedded />}
+      </main>}
+      {showDetails && <DiffPanel key={selectedThreadId} turns={panelTurns} width={panelWidth} onResize={(width) => setPanelWidth(Math.max(300, Math.min(560, width)))} />}
     </div>
   );
 }

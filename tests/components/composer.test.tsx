@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Composer } from '../../src/renderer/components/Composer';
+import { Workspace } from '../../src/renderer/components/Workspace';
 import { useAppStore } from '../../src/renderer/state/store';
 import type { WhaleApi } from '../../src/shared/types';
 
@@ -80,6 +81,19 @@ afterEach(() => {
 });
 
 describe('Composer', () => {
+  it('preserves the draft when opening model settings and returning to the conversation', () => {
+    useAppStore.setState((state) => ({ preferences: { ...state.preferences, model: 'whale-code-pro' }, rightPanelOpen: false }));
+    render(<Workspace />);
+    const composer = screen.getByRole('textbox');
+    fireEvent.change(composer, { target: { value: '这是一条未发送的草稿' } });
+    fireEvent.click(screen.getByRole('button', { name: '当前模型：whale-code-pro' }));
+    expect(screen.getByRole('heading', { name: '设置', level: 1 })).toBeVisible();
+    expect(composer).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '关闭设置' }));
+    expect(screen.getByRole('textbox')).toHaveValue('这是一条未发送的草稿');
+    expect(screen.getByRole('textbox')).toBe(composer);
+  });
+
   it('shows the current model beside the composer controls', () => {
     useAppStore.setState((state) => ({
       preferences: { ...state.preferences, model: 'whale-code-pro' },

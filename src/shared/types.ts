@@ -517,6 +517,7 @@ export interface WhaleApi {
     compact(threadId: string): Promise<unknown>;
   };
   turns: {
+    filePreview(input: { turnId: string; path: string }): Promise<string>;
     start(input: StartTurnInput): Promise<unknown>;
     steer(input: StartTurnInput & { turnId: string }): Promise<unknown>;
     interrupt(threadId: string, turnId: string): Promise<unknown>;

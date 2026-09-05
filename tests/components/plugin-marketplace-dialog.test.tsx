@@ -413,7 +413,8 @@ describe('PluginMarketplaceDialog', () => {
     expect(screen.queryByRole('button', { name: /fixture-(skill|mcp).*详情/ })).not.toBeInTheDocument();
     expect(screen.queryByText('inspect_fixture')).not.toBeInTheDocument();
     expect(screen.queryByText('插件内不应展开的 Skill 详情')).not.toBeInTheDocument();
-    expect(screen.getByText('UI 贡献 · 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('包含的能力与高级管理'));
+    expect(screen.getByText('界面扩展 · 2')).toBeInTheDocument();
     expect(screen.getByText('提问框组件')).toBeInTheDocument();
     expect(screen.getByText('显示在消息输入区')).toBeInTheDocument();
     expect(screen.getByText('消息卡片 · Fixture result')).toBeInTheDocument();

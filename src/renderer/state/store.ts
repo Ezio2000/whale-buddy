@@ -1,3 +1,4 @@
+import { userVisibleText } from '../../shared/display-text';
 import { create } from 'zustand';
 import type {
   HistoryPage,
@@ -763,11 +764,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setRightPanel: (rightPanelOpen) => set({ rightPanelOpen }),
-  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
-  setPluginMarketplaceOpen: (pluginMarketplaceOpen) => set({ pluginMarketplaceOpen }),
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen, ...(settingsOpen ? { pluginMarketplaceOpen: false } : {}) }),
+  setPluginMarketplaceOpen: (pluginMarketplaceOpen) => set({ pluginMarketplaceOpen, ...(pluginMarketplaceOpen ? { settingsOpen: false } : {}) }),
   setCommandPaletteOpen: (commandPaletteOpen) => set({ commandPaletteOpen }),
   setNotice: (notice) => set({ notice }),
-  setWorkspaceView: (workspaceView) => set({ workspaceView }),
+  setWorkspaceView: (workspaceView) => set({ workspaceView, settingsOpen: false, pluginMarketplaceOpen: false }),
 }));
 
 async function executeCommand(
@@ -884,8 +885,8 @@ function extractThreads(value: unknown): ThreadSummary[] {
         ...item,
         id,
         cwd,
-        preview: string(item.preview) ?? '',
-        name: nullableString(item.name),
+        preview: userVisibleText(string(item.preview)),
+        name: userVisibleText(nullableString(item.name)) || null,
         createdAt: number(item.createdAt) ?? 0,
         updatedAt: number(item.updatedAt) ?? 0,
         status: item.status,

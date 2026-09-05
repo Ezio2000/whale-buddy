@@ -23,6 +23,7 @@ export const IPC = {
   threadsRename: 'whale:threads:rename',
   threadsArchive: 'whale:threads:archive',
   threadsDelete: 'whale:threads:delete',
+  turnFilePreview: 'whale:turns:file-preview',
   threadsReadHistory: 'whale:threads:read-history',
   threadsCompact: 'whale:threads:compact',
   turnsStart: 'whale:turns:start',

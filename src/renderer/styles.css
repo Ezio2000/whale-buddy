@@ -11,7 +11,7 @@
   --border-strong: #d9d9d9;
   --text: #0d0d0d;
   --text-muted: #5d5d5d;
-  --text-faint: #8f8f8f;
+  --text-faint: #707070;
   --accent: #0d0d0d;
   --accent-hover: #2f2f2f;
   --accent-soft: #ececec;
@@ -57,7 +57,7 @@
   --border-strong: rgb(255 255 255 / 16%);
   --text: #ececec;
   --text-muted: #b4b4b4;
-  --text-faint: #8f8f8f;
+  --text-faint: #a3a3a3;
   --accent: #ececec;
   --accent-hover: #ffffff;
   --accent-soft: #2f2f2f;
@@ -182,7 +182,7 @@ pre {
 }
 
 .app-shell.with-details {
-  grid-template-columns: 260px minmax(480px, 1fr) minmax(340px, 420px);
+  grid-template-columns: 260px minmax(0, 1fr) var(--details-width, 360px);
 }
 
 .sidebar {
@@ -297,7 +297,6 @@ pre {
   background: var(--sidebar-hover);
 }
 
-.project-row.selected,
 .thread-row.selected {
   background: var(--sidebar-selected);
 }
@@ -417,7 +416,7 @@ pre {
 
 .thread-copy strong {
   font-size: 13.5px;
-  font-weight: 570;
+  font-weight: 400;
 }
 
 .thread-copy small {
@@ -732,7 +731,7 @@ pre {
 
 .turn-file-change {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: 38px;
@@ -1866,9 +1865,9 @@ pre {
 }
 
 .artifacts-page {
-  width: min(980px, calc(100% - 48px));
-  margin: 0 auto;
-  padding: 48px 0;
+  width: 100%;
+  margin: 0;
+  padding: 46px 32px 32px;
 }
 
 .artifacts-header,
@@ -2115,6 +2114,7 @@ pre {
 }
 
 .details-panel {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -2508,7 +2508,7 @@ pre {
 .settings-groups h3 {
   margin: 0 0 6px;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2531,17 +2531,17 @@ pre {
 }
 
 .setting-row strong {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .setting-row small {
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .setting-row > span {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -2557,7 +2557,7 @@ pre {
   min-width: 0;
   flex: 1;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .select-trigger {
@@ -2572,7 +2572,7 @@ pre {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   outline: 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .native-select-field {
@@ -2608,7 +2608,7 @@ pre {
   border-radius: var(--radius-sm);
   outline: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .settings-input:focus {
@@ -2640,7 +2640,7 @@ pre {
   background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -2716,7 +2716,7 @@ pre {
 .settings-section-intro {
   margin: -2px 0 4px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -2736,7 +2736,7 @@ pre {
   background: var(--surface-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 620;
   list-style: none;
 }
@@ -2773,7 +2773,7 @@ pre {
   min-width: 0;
   flex: 1;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -2803,7 +2803,7 @@ pre {
   min-width: 0;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 9.5px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2816,7 +2816,7 @@ pre {
 .branding-icon-actions .button {
   min-height: 28px;
   padding: 0 9px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .branding-save-row {
@@ -2855,7 +2855,7 @@ pre {
   padding: 10px;
   border: 1px solid color-mix(in srgb, currentColor 28%, var(--border));
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -2932,7 +2932,7 @@ pre {
 .marketplace-title p {
   margin-top: 3px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .marketplace-toolbar {
@@ -2964,13 +2964,13 @@ pre {
   color: var(--text-muted);
   background: transparent;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
 .marketplace-tabs button span {
   color: var(--text-faint);
-  font-size: 9.5px;
+  font-size: 12px;
 }
 
 .marketplace-tabs button:hover,
@@ -3008,7 +3008,7 @@ pre {
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .marketplace-search input::placeholder {
@@ -3046,7 +3046,7 @@ pre {
   color: var(--green);
   background: var(--green-soft);
   border-bottom: 1px solid color-mix(in srgb, var(--green) 22%, var(--border));
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .marketplace-message.error {
@@ -3091,7 +3091,7 @@ pre {
   color: var(--text-faint);
   background: color-mix(in srgb, var(--surface-muted) 48%, var(--surface-raised));
   border-top: 1px solid var(--border);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .marketplace-footer span {
@@ -3216,7 +3216,7 @@ pre {
   color: var(--accent);
   background: var(--accent-soft);
   border-radius: var(--radius-sm);
-  font-size: 8.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -3224,7 +3224,7 @@ pre {
   display: -webkit-box;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.38;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -3233,7 +3233,7 @@ pre {
 .plugin-card-copy > small {
   overflow: hidden;
   color: var(--text-faint);
-  font-size: 9.5px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3290,7 +3290,7 @@ pre {
 .plugin-detail-hero p {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .capability-detail-glyph {
@@ -3302,7 +3302,7 @@ pre {
 .plugin-detail-description {
   margin: 15px 0 12px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -3321,7 +3321,7 @@ pre {
   color: var(--text-muted);
   background: var(--surface-muted);
   border-radius: var(--radius-md);
-  font-size: 9.5px;
+  font-size: 12px;
 }
 
 .plugin-detail-badges span.positive {
@@ -3344,13 +3344,13 @@ pre {
   flex: 1;
   min-height: 30px;
   padding: 6px 10px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .plugin-enable-hint {
   margin: 8px 2px 0;
   color: var(--text-faint);
-  font-size: 9.5px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -3362,7 +3362,7 @@ pre {
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 8%, transparent);
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -3383,7 +3383,7 @@ pre {
   color: var(--text-muted);
   background: var(--surface-muted);
   border-radius: 6px;
-  font-size: 9.5px;
+  font-size: 12px;
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -3393,7 +3393,7 @@ pre {
   display: block;
   margin-top: 5px;
   color: var(--text-faint);
-  font-size: 9.5px;
+  font-size: 12px;
 }
 
 .hook-trust-state.modified,
@@ -5336,7 +5336,7 @@ pre {
 
 @media (max-width: 1180px) {
   .app-shell.with-details {
-    grid-template-columns: 240px minmax(440px, 1fr) minmax(320px, 360px);
+    grid-template-columns: 240px minmax(0, 1fr) var(--details-width, 360px);
   }
 
   .app-shell:not(.with-details) {
@@ -5392,3 +5392,136 @@ html[data-renderer-drag-regions='disabled'] .window-drag-spacer {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Shared workspace pages and readable secondary information. */
+.workspace-page-main {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-page {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  background: var(--surface);
+}
+
+.workspace-page > .dialog-heading,
+.workspace-page > .marketplace-heading {
+  padding: 46px 32px 24px;
+}
+
+.workspace-page h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.workspace-page .dialog-heading p,
+.workspace-page .marketplace-title p,
+.artifacts-header p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.settings-categories {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-categories button {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.settings-categories button.active {
+  color: var(--text);
+  background: var(--surface-muted);
+  font-weight: 600;
+}
+
+.workspace-page .settings-categories { padding-inline: 32px; }
+.workspace-page .settings-groups { padding: 8px 32px 32px; }
+.settings-groups > section[hidden] { display: none; }
+.settings-groups > section { max-width: 900px; padding-top: 24px; }
+.settings-groups h3 { color: var(--text); font-size: 14px; letter-spacing: 0; }
+.setting-row { min-height: 72px; padding-block: 12px; }
+.setting-row strong { font-size: 13px; }
+.setting-row small { line-height: 1.6; }
+.settings-section-intro { line-height: 1.6; }
+.settings-groups > .connection-save-row { max-width: 900px; }
+
+.plugin-card-title strong { font-size: 14px; font-weight: 600; }
+.plugin-card-copy > span:nth-child(2) { font-size: 13px; line-height: 1.5; }
+.plugin-card-copy > small { font-size: 12px; }
+.plugin-advanced-details { margin-top: 20px; border-top: 1px solid var(--border); }
+.plugin-advanced-details > summary,
+.execution-diagnostics > summary {
+  padding: 16px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.project-row.selected {
+  background: transparent;
+  box-shadow: inset 2px 0 var(--border-strong);
+}
+.project-row.selected .project-main { font-weight: 600; }
+.thread-row.selected .thread-copy strong { font-weight: 600; }
+.thread-copy small,
+.sidebar-section-heading { font-size: 12px; }
+.sidebar-nav button:focus:not(:focus-visible):not(.active) { background: transparent; }
+.composer-model-indicator { background: transparent; border-radius: var(--radius-sm); font-size: 12px; max-width: min(240px, 32vw); }
+.composer-model-indicator:hover { background: var(--surface-muted); }
+
+.file-preview-trigger {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  background: transparent;
+  text-align: left;
+}
+.file-preview-trigger code { flex: 1; min-width: 0; }
+.file-preview-trigger > svg { flex-shrink: 0; }
+.turn-file-change.selected { background: var(--surface-muted); }
+.file-content-preview { min-width: 0; }
+.file-content-preview header { padding: 16px; overflow-wrap: anywhere; border-bottom: 1px solid var(--border); }
+.file-content-preview header strong { font-size: 13px; }
+.file-content-preview header p { color: var(--text-muted); font-size: 12px; line-height: 1.6; margin: 8px 0 0; }
+.file-content-preview pre { margin: 0; padding: 16px; overflow: auto; font: 12px/1.7 var(--font-mono); }
+.execution-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 8px 20px; }
+.execution-summary > span,
+.command-cwd { color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.execution-diagnostics { margin-top: 20px; border-top: 1px solid var(--border); }
+.execution-activity-list .tool-card { margin-bottom: 8px; }
+.tool-activity-card .tool-card-trigger strong { overflow-wrap: anywhere; }
+.details-resize-handle { position: absolute; z-index: 5; top: 0; bottom: 0; left: 0; width: 5px; cursor: col-resize; touch-action: none; }
+.details-resize-handle:hover,
+.details-resize-handle:focus-visible { background: var(--border-strong); }
+.artifacts-empty,
+.scheduled-empty { min-height: 320px; padding: 32px; gap: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); text-align: center; }
+.artifacts-empty strong { color: var(--text); font-size: 15px; }
+.artifacts-empty .button { margin-top: 8px; }
+
+@media (max-width: 1040px) {
+  .app-shell.with-details { grid-template-columns: 240px minmax(0, 1fr); }
+  .with-details > .details-panel { position: absolute; z-index: 4; top: 0; right: 0; bottom: 0; width: min(var(--details-width, 360px), calc(100vw - 260px)); box-shadow: var(--shadow); }
+  .workspace-page > .dialog-heading,
+  .workspace-page > .marketplace-heading { padding: 32px 24px 20px; }
+  .workspace-page .settings-groups { padding-inline: 24px; }
+}
+
+.workspace-main[hidden] { display: none; }

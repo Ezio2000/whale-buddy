@@ -172,7 +172,7 @@ export function ScheduledTasksPage() {
           <div className="scheduled-page-title"><CalendarClock size={21} /><h1>定时任务</h1></div>
           <p>只在 AI小鲸打开时执行；关闭或休眠期间错过的任务不会补跑。</p>
         </div>
-        <button className="primary-button" onClick={openNew}><Plus size={15} /> 新建任务</button>
+        {tasks.length > 0 && <button className="primary-button" onClick={openNew}><Plus size={15} /> 新建任务</button>}
       </header>
 
       {loading ? (

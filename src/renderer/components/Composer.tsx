@@ -40,6 +40,7 @@ export function Composer() {
   const project = useAppStore((state) =>
     state.projects.find((candidate) => candidate.id === state.selectedProjectId),
   );
+  const openSettings = useAppStore((state) => state.setSettingsOpen);
   const selectedThreadId = useAppStore((state) => state.selectedThreadId);
   const preferredModel = useAppStore((state) =>
     state.preferences.model
@@ -416,7 +417,8 @@ export function Composer() {
           value={text}
           disabled={!selectedThreadId}
           rows={1}
-          placeholder={selectedThreadId ? '描述任务；@ 引用文件，$ 调用 Skill/工具，/ 使用命令…' : '请先创建或选择线程'}
+          title="@ 引用文件 · $ 选择技能或工具 · / 使用命令"
+          placeholder={selectedThreadId ? '描述你想完成的任务…' : '请先创建或选择对话'}
           onChange={(event) => {
             const nextText = event.target.value;
             setText(nextText);
@@ -508,14 +510,16 @@ export function Composer() {
           </div>
           <div className="composer-submit-controls">
             {selectedThreadId && currentModel && (
-              <div
+              <button
+                type="button"
+                onClick={() => openSettings(true)}
                 className="composer-model-indicator"
                 aria-label={`当前模型：${currentModel}`}
                 title={`当前模型：${currentModel}`}
               >
                 <Sparkles size={12} />
                 <span>{currentModel}</span>
-              </div>
+              </button>
             )}
             {activeTurn ? (
               <div className="turn-control-buttons">
